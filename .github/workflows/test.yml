@@ -49,9 +49,6 @@ jobs:
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
 
-      - name: Coveralls
-        uses: coverallsapp/github-action@v2
-
       - name: Install deps
         run: mix deps.get
 
@@ -70,4 +67,7 @@ jobs:
           mix ecto.migrate
 
       - name: Run tests
-        run: mix coveralls.github --umbrella
+        run: mix coveralls --umbrella
+
+      - name: Coveralls
+        uses: coverallsapp/github-action@v2

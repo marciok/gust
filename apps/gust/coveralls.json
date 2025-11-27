@@ -1,4 +1,7 @@
 {
+  "coverage_options": {
+    "minimum_coverage": 98
+  },
   "skip_files": [
     "test/support",
     "lib/gust.ex",
