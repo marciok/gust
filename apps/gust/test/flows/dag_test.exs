@@ -8,7 +8,9 @@ defmodule Gust.Flows.DagTest do
 
       for name <- valid_names do
         changeset = Dag.changeset(%Dag{}, %{name: name})
-        assert changeset.valid?, "Expected #{name} to be valid, but got errors: #{inspect(changeset.errors)}"
+
+        assert changeset.valid?,
+               "Expected #{name} to be valid, but got errors: #{inspect(changeset.errors)}"
       end
     end
 
@@ -17,7 +19,10 @@ defmodule Gust.Flows.DagTest do
 
       for name <- invalid_names do
         changeset = Dag.changeset(%Dag{}, %{name: name})
-        refute changeset.valid?, "Expected #{name} to be invalid"
+
+        refute changeset.valid?,
+               "Expected #{name} to be invalid"
+
         assert {:name, _} = hd(changeset.errors), "Expected error on :name for #{name}"
       end
     end

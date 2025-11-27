@@ -10,7 +10,9 @@ defmodule Gust.DAG.StageCoordinator do
   @callback new(list(task_id)) :: stage_spec
   @callback put_running(stage_spec, task_id) :: stage_spec
   @callback apply_task_result(stage_spec, task, atom()) ::
-              {:continue, stage_spec} | {:finished, stage_spec} | {:reschedule, stage_spec, task, integer()}
+              {:continue, stage_spec}
+              | {:finished, stage_spec}
+              | {:reschedule, stage_spec, task, integer()}
   @callback update_restart_timer(stage_spec, task, ref) :: stage_spec
   @callback process_task(task, map()) ::
               :ok | :upstream_failed | :already_processed

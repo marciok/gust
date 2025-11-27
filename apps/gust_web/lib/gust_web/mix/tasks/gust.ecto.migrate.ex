@@ -9,5 +9,6 @@ defmodule Mix.Tasks.Gust.Ecto.Migrate do
     Logger.info("Migrating Gust")
     Mix.Task.run("mix ecto.migrate --repo Gust.Repo")
   end
+
   # coveralls-ignore-stop
 end

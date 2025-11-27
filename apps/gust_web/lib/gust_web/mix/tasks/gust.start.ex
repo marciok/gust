@@ -8,5 +8,6 @@ defmodule Mix.Tasks.Gust.Start do
     Mix.Task.run("gust.dags.boot")
     Mix.Task.run("phx.server")
   end
+
   # coveralls-ignore-stop
 end
