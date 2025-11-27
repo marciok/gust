@@ -67,4 +67,4 @@ jobs:
           mix ecto.migrate
 
       - name: Run tests
-        run: mix test
+        run: mix coveralls.github --umbrella
