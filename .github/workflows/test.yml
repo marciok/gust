@@ -67,7 +67,7 @@ jobs:
           mix ecto.migrate
 
       - name: Run tests
-        run: mix coveralls --umbrella
+        run: mix coveralls.json --umbrella
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
