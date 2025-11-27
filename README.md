@@ -2,17 +2,9 @@
 
 A task orchestration engine for Elixir applications.
 
-## ✅ V1 Goal
-
-Deploy a working Gust instance that performs a meaningful task, such as:
-
-- Fetching Partiful events
-- Fetching the USD → BRL exchange rate
-- Sending a notification (email, etc.)
 
 ---
 
-## 🚧 V1 Roadmap – Missing Features
 
 ### 🔨 Core Features
 
