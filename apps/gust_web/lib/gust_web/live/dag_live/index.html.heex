@@ -1,0 +1,25 @@
+<Layouts.app flash={@flash}>
+  <div phx-update="stream" id="broken-dags">
+    <div
+      :for={{dag_id, %{dag: dag, error: _error}} <- @streams.broken_dags}
+      class="alert alert-error shadow-lg mb-4"
+      id={dag_id}
+    >
+      <strong>{dag.name}</strong> has syntax errors.
+    </div>
+  </div>
+  <div phx-update="stream" id="dags">
+    <div
+      :for={{dag_id, %{dag: dag, dag_def: dag_def}} <- @streams.dags}
+      class="grid grid-cols-1 gap-4 mb-4"
+      id={dag_id}
+    >
+      <.live_component
+        module={GustWeb.DagSummaryComponent}
+        dag={dag}
+        dag_def={dag_def}
+        id={dag.id}
+      />
+    </div>
+  </div>
+</Layouts.app>

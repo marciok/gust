@@ -1,0 +1,11 @@
+{
+  "skip_files": [
+    "test/support",
+    "lib/gust_web/telemetry.ex",
+    "lib/gust_web.ex",
+    "lib/gust_web/gettext.ex",
+    "lib/gust_web/endpoint.ex",
+    "lib/gust_web/components/core_components.ex",
+    "lib/gust_web/application.ex"
+  ]
+}

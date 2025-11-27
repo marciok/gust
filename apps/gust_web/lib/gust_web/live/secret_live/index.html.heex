@@ -1,0 +1,84 @@
+<Layouts.app flash={@flash}>
+  <div class="p-3 border-b">
+    <.header>
+      Listing Secrets
+      <:actions>
+        <.link patch={~p"/secrets/new"}>
+          <.button>New Secret</.button>
+        </.link>
+      </:actions>
+    </.header>
+  </div>
+
+  <div class="card bg-white shadow-md rounded mb-6">
+    <div class="p-4 overflow-x-auto">
+      <.table id="secrets" rows={@streams.secrets}>
+        <:col :let={{_id, secret}} label="Name">
+          <span class="font-medium">{secret.name}</span>
+        </:col>
+
+        <:col :let={{_id, secret}} label="Type">
+          <span class="badge badge-outline">{secret.value_type}</span>
+        </:col>
+
+        <:action :let={{_id, secret}}>
+          <.link patch={~p"/secrets/#{secret}/edit"} class="btn btn-sm btn-outline btn-primary">
+            Edit
+          </.link>
+        </:action>
+
+        <:action :let={{id, secret}}>
+          <.link
+            phx-click={JS.push("delete", value: %{id: secret.id}) |> hide("##{id}")}
+            data-confirm="Are you sure?"
+            class="btn btn-sm btn-outline btn-error"
+          >
+            Delete
+          </.link>
+        </:action>
+      </.table>
+    </div>
+  </div>
+
+  <%= if @live_action in [:new, :edit]  do %>
+    <.form :let={f} for={@form} id="secret-form" phx-change="validate" phx-submit="save">
+      <div class="mt-10">
+        <div class="card bg-white shadow-md p-6 space-y-6">
+          <div>
+            <label class="label">
+              <span class="label-text">Name</span>
+            </label>
+            <.input field={f[:name]} type="text" class="input input-bordered w-full" />
+          </div>
+
+          <div>
+            <label class="label">
+              <span class="label-text">Value Type</span>
+            </label>
+            <.input
+              field={f[:value_type]}
+              type="select"
+              options={[:string, :json]}
+              class="select select-bordered w-full"
+            />
+          </div>
+
+          <div>
+            <label class="label">
+              <span class="label-text">Value</span>
+            </label>
+            <.input
+              field={f[:value]}
+              type="textarea"
+              class="textarea textarea-bordered w-full h-24"
+            />
+          </div>
+
+          <div class="flex justify-end">
+            <.button class="btn btn-primary" phx-disable-with="Saving...">Save Secret</.button>
+          </div>
+        </div>
+      </div>
+    </.form>
+  <% end %>
+</Layouts.app>
