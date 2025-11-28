@@ -3,6 +3,7 @@
 A task orchestration engine for Elixir applications.
 
 
+[![Coverage Status](https://coveralls.io/repos/github/marciok/gust/badge.svg?branch=main)](https://coveralls.io/github/marciok/gust?branch=main)
 ---
 
 
