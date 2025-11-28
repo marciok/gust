@@ -17,7 +17,7 @@ config :gust, Gust.Repo,
 # you can enable the server option below.
 config :gust_web, GustWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: "dWKtgAuY24rgqDQCLkN9S5CaOqSFzdrnqO4iHqVlIp5uLQPB6MjVJqlEN7w1nOvX",
+  secret_key_base: System.get_env("SECRET_KEY_BASE"),
   server: false
 
 # Print only warnings and errors during test
@@ -39,4 +39,4 @@ config :phoenix_live_view,
 config :gust, dag_runner_supervisor: Gust.DAGRunnerSupervisorMock
 config :gust, dag_task_runner_supervisor: Gust.DAGTaskRunnerSupervisorMock
 config :gust, file_reload_delay: 0
-config :gust, b64_secrets_cloak_key: "PF4/V7ZLI8Nyjymua0eUy2K8q/lcSFi3USe3UUDb7sY="
+config :gust, b64_secrets_cloak_key: System.get_env("B64_SECRETS_CLOAK_KEY")

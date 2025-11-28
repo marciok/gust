@@ -24,7 +24,11 @@ erl_crash.dump
 
 .DS_Store
 
-
 apps/gust_web/priv/static/
 
 dags/
+
+.envrc
+.env
+.env.test
+.env.dev

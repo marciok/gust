@@ -19,6 +19,8 @@ jobs:
       PGPASSWORD: postgres
       PGHOST: localhost
       PGPORT: 5432
+      B64_SECRETS_CLOAK_KEY: PF4/V7ZLI8Nyjymua0eUy2K8q/lcSFi3USe3UUDb7sY=
+      SECRET_KEY_BASE: dWKtgAuY24rgqDQCLkN9S5CaOqSFzdrnqO4iHqVlIp5uLQPB6MjVJqlEN7w1nOvX
 
     services:
       postgres:

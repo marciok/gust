@@ -2,9 +2,9 @@ import Config
 
 # Configure your database
 config :gust, Gust.Repo,
-  username: "marcioklepacz",
-  password: "",
-  hostname: "localhost",
+  hostname: System.get_env("PGHOST"),
+  username: System.get_env("PGUSER"),
+  password: System.get_env("PGPASSWORD"),
   database: "gust_rc_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
@@ -23,7 +23,7 @@ config :gust_web, GustWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "7eC90HGcijZgjDE8upxGJJcKrmhLuU/acEEud4mVA+NTk8sxMTNgakd0vk5slBWg",
+  secret_key_base: System.get_env("SECRET_KEY_BASE"),
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:gust_web, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:gust_web, ~w(--watch)]}
@@ -88,7 +88,7 @@ config :swoosh, :api_client, false
 config :phoenix, :stacktrace_depth, 20
 
 config :gust, file_reload_delay: 1_000
-config :gust, b64_secrets_cloak_key: "1cdOVWU2NjuZIs9PCZX8m9ZseEL11HQ6E+J4TlhtkyE="
+config :gust, b64_secrets_cloak_key: System.get_env("B64_SECRETS_CLOAK_KEY")
 config :gust, dags_folder: Path.join(File.cwd!(), "dags")
 config :gust, dag_runner_supervisor: Gust.DAG.RunnerSupervisor.DynamicSupervisor
 config :gust, dag_task_runner_supervisor: Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor
