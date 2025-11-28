@@ -52,7 +52,7 @@ defmodule Gust.DAG.Parser.File do
         {:error, error, messages} ->
           %{dag_def | error: error, messages: messages}
 
-        {:ok, mod} ->
+        {:ok, mod, warnings} ->
           task_list = build_task_list(mod)
           all_tasks = list_tasks(mod)
 
@@ -67,6 +67,7 @@ defmodule Gust.DAG.Parser.File do
           %{
             dag_def
             | mod: mod,
+              messages: warnings,
               tasks: tasks,
               task_list: task_list,
               options: options,
@@ -138,8 +139,8 @@ defmodule Gust.DAG.Parser.File do
       end)
 
     case code_result do
-      {{:ok, {dag_module, _}}, _warnings} ->
-        {:ok, dag_module}
+      {{:ok, {dag_module, _}}, warnings} ->
+        {:ok, dag_module, warnings}
 
       {{:error, error_type}, errors} ->
         {:error, error_type, errors}

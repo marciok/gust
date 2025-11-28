@@ -3,12 +3,13 @@ defmodule Gust.DAG.Compiler.Code do
   @behaviour Gust.DAG.Compiler
 
   def compile(dag_def) do
-    {:ok, ast} = Code.string_to_quoted(File.read!(dag_def.file_path))
+    file_path = dag_def.file_path
+    {:ok, ast} = Code.string_to_quoted(File.read!(file_path))
 
     runtime_mod = Module.concat(["Gust", "Runner", "#{dag_def.mod}_#{random_udid()}"])
     dag_ast = patch_module(ast, runtime_mod)
 
-    {dag_module, _} = Code.compile_quoted(dag_ast) |> List.first()
+    {dag_module, _} = Code.compile_quoted(dag_ast, file_path) |> List.first()
     dag_module
   end
 

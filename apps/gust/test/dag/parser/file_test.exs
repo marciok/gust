@@ -75,6 +75,9 @@ defmodule DAG.Parser.FileTest do
         defmodule MyValidDagEmpty do
           use Gust.DSL, schedule: "* * * * *"
 
+          def dup, do: :ok
+          def dup, do: :error
+
           task :bye do
             # saying bye
           end
@@ -89,12 +92,28 @@ defmodule DAG.Parser.FileTest do
       file = "#{dags_folder}/#{dag_name}.ex"
       File.write!(file, dag_definition)
 
+      warning_message =
+        "this clause for dup/0 cannot match because a previous clause at line 4 always matches"
+
+      warnigs = [
+        %{
+          message: warning_message,
+          position: {5, 9},
+          file: file,
+          stacktrace: [],
+          source: file,
+          span: nil,
+          severity: :warning
+        }
+      ]
+
       dag_def = %Gust.DAG.Definition{
         name: dag_name,
         mod: MyValidDagEmpty,
         task_list: ["hi", "bye"],
         stages: [["hi"], ["bye"]],
         options: [{:schedule, "* * * * *"}],
+        messages: warnigs,
         file_path: file,
         error: %{},
         tasks: %{
