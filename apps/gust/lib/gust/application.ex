@@ -37,7 +37,7 @@ defmodule Gust.Application do
       ]
 
     dag_children =
-      if Application.get_env(:gust, :boot_dag) do
+      if Application.get_env(:gust, :boot_dag) || System.get_env("PHX_SERVER") in ["true", "1"] do
         dag_scheduler_worker(env) ++
           dag_run_restater_worker(env) ++
           dag_loader_worker(env) ++
