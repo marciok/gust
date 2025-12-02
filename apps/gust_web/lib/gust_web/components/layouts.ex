@@ -35,27 +35,22 @@ defmodule GustWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <div class="flex h-screen bg-gray-100">
-      <aside class="w-64 bg-white shadow-md">
-        <div class="p-4">
-          <h1 class="text-2xl font-bold text-blue-600">🌬️ Gust</h1>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar__brand">
+          <img src={~p"/images/gust-logo.png"} alt="Logo" />
+          <h1 class="gust-wordmark">Gust</h1>
         </div>
-        <nav>
-          <button class="w-full justify-start gap-2 px-4 flex items-center">
-            <!-- Active Tab -->
-            <svg class="h-5 w-5">
-              <!-- Home Icon SVG -->
-            </svg>
-            <.link navigate={~p"/dags"}>DAGs</.link>
-          </button>
+        <nav class="sidebar__links">
+          <.link navigate={~p"/dags"} class="sidebar__link">
+            <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
+            <span>DAGs</span>
+          </.link>
 
-          <button class="w-full justify-start gap-2 px-4 flex items-center">
-            <!-- Active Tab -->
-            <svg class="h-5 w-5">
-              <!-- Home Icon SVG -->
-            </svg>
-            <.link navigate={~p"/secrets"}>Secrets</.link>
-          </button>
+          <.link navigate={~p"/secrets"} class="sidebar__link">
+            <.icon name="hero-lock-closed" class="h-5 w-5 text-sky-600" />
+            <span>Secrets</span>
+          </.link>
         </nav>
       </aside>
 
