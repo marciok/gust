@@ -254,10 +254,6 @@
     @apply p-5 border-b border-slate-200 flex items-center gap-3;
   }
 
-  .sidebar__mark {
-    @apply h-10 w-10 rounded-full bg-sky-100 text-sky-700 font-bold flex items-center justify-center;
-  }
-
   .sidebar__links {
     @apply px-3 py-4 space-y-1;
   }
