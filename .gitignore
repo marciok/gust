@@ -24,11 +24,22 @@ erl_crash.dump
 
 .DS_Store
 
-apps/gust_web/priv/static/
-
 dags/
 
 .envrc
 .env
 .env.test
 .env.dev
+
+# Built assets (compiled/digested)
+priv/static/assets/
+priv/static/cache_manifest.json
+apps/gust_web/priv/static/assets/
+apps/gust_web/priv/static/cache_manifest.json
+
+robots-*.txt.gz
+robots-*.txt
+
+favicon-*.ico
+robots-*.txt
+gust-logo-*.png

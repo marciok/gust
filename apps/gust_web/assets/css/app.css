@@ -61,26 +61,26 @@
   default: true;
   prefersdark: false;
   color-scheme: "light";
-  --color-base-100: oklch(98% 0 0);
-  --color-base-200: oklch(96% 0.001 286.375);
-  --color-base-300: oklch(92% 0.004 286.32);
-  --color-base-content: oklch(21% 0.006 285.885);
-  --color-primary: oklch(70% 0.213 47.604);
-  --color-primary-content: oklch(98% 0.016 73.684);
-  --color-secondary: oklch(55% 0.027 264.364);
-  --color-secondary-content: oklch(98% 0.002 247.839);
-  --color-accent: oklch(0% 0 0);
-  --color-accent-content: oklch(100% 0 0);
-  --color-neutral: oklch(44% 0.017 285.786);
-  --color-neutral-content: oklch(98% 0 0);
-  --color-info: oklch(62% 0.214 259.815);
-  --color-info-content: oklch(97% 0.014 254.604);
-  --color-success: oklch(70% 0.14 182.503);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
-  --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
+  --color-base-100: oklch(95% 0.01 220);
+  --color-base-200: oklch(92% 0.012 220);
+  --color-base-300: oklch(88% 0.015 220);
+  --color-base-content: oklch(26% 0.06 230);
+  --color-primary: oklch(60% 0.16 230);
+  --color-primary-content: oklch(95% 0.02 225);
+  --color-secondary: oklch(52% 0.07 230);
+  --color-secondary-content: oklch(95% 0.01 225);
+  --color-accent: oklch(65% 0.12 185);
+  --color-accent-content: oklch(96% 0.01 185);
+  --color-neutral: oklch(32% 0.04 235);
+  --color-neutral-content: oklch(92% 0.01 230);
+  --color-info: oklch(62% 0.13 225);
+  --color-info-content: oklch(96% 0.01 225);
+  --color-success: oklch(63% 0.11 160);
+  --color-success-content: oklch(95% 0.015 155);
+  --color-warning: oklch(68% 0.15 75);
+  --color-warning-content: oklch(95% 0.02 80);
+  --color-error: oklch(58% 0.14 30);
+  --color-error-content: oklch(95% 0.02 30);
   --radius-selector: 0.25rem;
   --radius-field: 0.25rem;
   --radius-box: 0.5rem;
@@ -107,7 +107,7 @@
 /* This file is for your main application CSS */
 
 .selected-run {
-  @apply bg-blue-200
+  @apply bg-sky-300
 }
 
 .task-grid-cell {
@@ -140,18 +140,18 @@
 
 @layer components {
   .status-none {
-    @apply bg-gray-200;
+    @apply bg-slate-300;
   }
   .status-running {
-    @apply bg-emerald-500;
+    @apply bg-sky-600;
   }
 
   .status-failed {
-    @apply bg-red-600;
+    @apply bg-rose-600;
   }
 
   .status-enqueued {
-    @apply bg-gray-600;
+    @apply bg-slate-600;
   }
 
   .status-succeeded {
@@ -159,15 +159,129 @@
   }
 
   .status-created {
-    @apply bg-sky-500;
+    @apply bg-cyan-600;
   }
 
   .status-retrying {
-    @apply bg-amber-200;
+    @apply bg-amber-400;
   }
 
   .status-upstream_failed {
     @apply bg-orange-600;
+  }
+
+  .dag-card {
+    @apply bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden;
+  }
+
+  .dag-card__alert {
+    @apply mb-4;
+  }
+
+  .dag-card__notice {
+    @apply px-4 pt-4;
+  }
+
+  .dag-card__header {
+    @apply flex flex-col gap-4 p-4 bg-slate-50 border-b border-slate-200/70;
+  }
+
+  .dag-card__title-row {
+    @apply flex flex-col gap-3 md:flex-row md:items-center md:justify-between;
+  }
+
+  .dag-card__title {
+    @apply text-lg font-semibold text-slate-900 leading-tight;
+  }
+
+  .dag-card__title a {
+    @apply text-slate-900 hover:underline decoration-2 underline-offset-4;
+  }
+
+  .dag-card__title-with-icon {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .dag-card__toggle-row {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .dag-card__state {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .dag-card__toggle {
+    @apply justify-end;
+  }
+
+  .dag-card__actions {
+    @apply flex items-center gap-3 self-start md:self-auto;
+  }
+
+  .dag-card__meta {
+    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4;
+  }
+
+  .dag-card__meta-item {
+    @apply bg-white rounded-lg border border-slate-200/70 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)];
+  }
+
+  .dag-card__meta-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .dag-card__meta-value {
+    @apply text-sm text-slate-900;
+  }
+
+  .dag-card__body {
+    @apply p-4;
+  }
+
+  .dag-card__footer {
+    @apply flex justify-between items-center gap-3 p-4 border-t border-slate-200/70 bg-slate-50;
+  }
+
+  .run-history__actions {
+    @apply flex flex-wrap gap-2 justify-end;
+  }
+
+  .sidebar {
+    @apply w-64 bg-white border-r border-slate-300 shadow-sm flex flex-col;
+  }
+
+  .sidebar__brand {
+    @apply p-5 border-b border-slate-200 flex items-center gap-3;
+  }
+
+  .sidebar__mark {
+    @apply h-10 w-10 rounded-full bg-sky-100 text-sky-700 font-bold flex items-center justify-center;
+  }
+
+  .sidebar__links {
+    @apply px-3 py-4 space-y-1;
+  }
+
+  .sidebar__link {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors;
+  }
+
+  .app-shell {
+    @apply flex min-h-screen;
+    background-color: #e2e8f0;
+    background-image:
+      radial-gradient(60% 60% at 20% 25%, rgba(56, 189, 248, 0.18), transparent 60%),
+      radial-gradient(55% 55% at 80% 20%, rgba(59, 130, 246, 0.18), transparent 60%),
+      radial-gradient(50% 50% at 70% 70%, rgba(148, 163, 184, 0.2), transparent 60%),
+      linear-gradient(120deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  }
+
+  .gust-wordmark {
+    @apply text-xl font-semibold text-slate-900 tracking-tight leading-tight;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 1), rgba(30, 41, 59, 0.85));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 }
 

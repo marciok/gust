@@ -24,49 +24,52 @@
     dag_def={@dag_def}
     id={@dag.id}
   />
-  <div class="p-3 border-b bg-gray-50">
-    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 pb-4 mb-4">
-      <h2 class="font-semibold text-gray-800 text-lg mb-2 sm:mb-0">Run History</h2>
+  <div class="dag-card mb-4">
+    <section class="dag-card__header">
+      <div class="dag-card__title-row">
+        <h2 class="dag-card__title dag-card__title-with-icon">
+          <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
+          <span>Run History</span>
+        </h2>
 
-      <div class="flex justify-end space-x-2">
-        <%= if @selected_task && (@selected_task.status in [:failed, :succeeded]) do %>
-          <button
-            id="restart-task"
-            phx-click="restart_task"
-            phx-value-id={@selected_task.id}
-            class="btn btn-warning"
-          >
-            Restart task: {@selected_task.name}
-          </button>
-        <% end %>
+        <div class="dag-card__actions run-history__actions">
+          <%= if @selected_task && (@selected_task.status in [:failed, :succeeded]) do %>
+            <button
+              id="restart-task"
+              phx-click="restart_task"
+              phx-value-id={@selected_task.id}
+              class="btn btn-warning"
+            >
+              Restart task: {@selected_task.name}
+            </button>
+          <% end %>
 
-        <%= if @selected_run && (@selected_run.status in [:failed, :succeeded]) do %>
-          <button
-            id="restart-run"
-            phx-click="restart_run"
-            phx-value-id={@selected_run.id}
-            class="btn btn-warning"
-          >
-            Restart run: {@selected_run.id}
-          </button>
-        <% end %>
+          <%= if @selected_run && (@selected_run.status in [:failed, :succeeded]) do %>
+            <button
+              id="restart-run"
+              phx-click="restart_run"
+              phx-value-id={@selected_run.id}
+              class="btn btn-warning"
+            >
+              Restart run: {@selected_run.id}
+            </button>
+          <% end %>
 
-        <%= if @selected_task && (@selected_task.status in [:running, :retrying]) do %>
-          <button
-            id="cancel-task"
-            phx-click="cancel_task"
-            phx-value-id={@selected_task.id}
-            class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded shadow transition duration-150"
-          >
-            Cancel
-          </button>
-        <% end %>
+          <%= if @selected_task && (@selected_task.status in [:running, :retrying]) do %>
+            <button
+              id="cancel-task"
+              phx-click="cancel_task"
+              phx-value-id={@selected_task.id}
+              class="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
+            >
+              Cancel
+            </button>
+          <% end %>
+        </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="bg-white rounded shadow-sm overflow-hidden mb-4">
-    <div class="p-3">
+    <div class="dag-card__body">
       <div class="min-w-max">
         <!-- Task Grid -->
         <div class="flex w-full">
@@ -114,23 +117,23 @@
       </div>
     </div>
 
-    <div class="flex justify-between items-center">
-      <div class="flex gap-2 items-center">
+    <div class="dag-card__footer">
+      <div class="flex gap-2 items-center text-xs font-medium text-slate-600">
         <.link
           id="next-page"
-          class="p-3 text-xs"
+          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
           navigate={~p"/dags/#{@dag_def.name}/runs?page=#{handle_page(@page, :next)}"}
         >
           <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Older
         </.link>
       </div>
 
-      <span class="text-xs p-3">page: {@page}</span>
+      <span class="text-xs text-slate-600">page: {@page}</span>
 
       <div class="flex gap-2 items-center">
         <.link
           id="prev-page"
-          class="p-3 text-xs"
+          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900 text-xs font-medium text-slate-600"
           navigate={~p"/dags/#{@dag_def.name}/runs?page=#{handle_page(@page, :prev)}"}
         >
           Newer <.icon name="hero-arrow-right-solid" class="h-3 w-3" />
@@ -141,47 +144,49 @@
 
   <% current = @selected_task || @selected_run %>
 
-  <div
-    :if={@selected_run}
-    id="selected-run"
-    class="bg-white rounded shadow-sm overflow-hidden mb-4"
-  >
-    <div class="p-3 border-b flex justify-between items-center">
-      <.status_badge status={current.status} data-testid="status-badge" />
-    </div>
+  <div :if={@selected_run} id="selected-run" class="dag-card mb-4">
+    <section class="dag-card__header">
+      <div class="dag-card__title-row">
+        <div class="flex flex-col gap-1">
+          <h3 class="dag-card__title text-base">Selected Run</h3>
+          <span class="text-sm text-slate-600">Run {@selected_run.id}</span>
+        </div>
+        <.status_badge status={current.status} data-testid="status-badge" />
+      </div>
+    </section>
 
-    <div :if={current} class="grid grid-cols-2 md:grid-cols-3 text-xs">
-      <div class="p-3 border-r border-b">
-        <div class="text-gray-500 font-medium">Started</div>
-        <div class="mt-1 text-gray-800" id="inserted-at">
+    <section :if={current} class="dag-card__meta">
+      <div class="dag-card__meta-item">
+        <div class="dag-card__meta-label">Started</div>
+        <div class="dag-card__meta-value" id="inserted-at">
           {current.inserted_at}
         </div>
       </div>
 
-      <div class="p-3 border-r border-b">
-        <div class="text-gray-500 font-medium">Updated</div>
-        <div class="mt-1 text-gray-800" id="updated-at">
+      <div class="dag-card__meta-item">
+        <div class="dag-card__meta-label">Updated</div>
+        <div class="dag-card__meta-value" id="updated-at">
           {current.updated_at}
         </div>
       </div>
-    </div>
+    </section>
 
-    <div :if={@selected_task && map_size(@selected_task.error) > 0} class="p-3">
-      <h4 class=" text-sm font-semibold text-red-500">Error</h4>
-      <div class="alert overflow-auto">
+    <section :if={@selected_task && map_size(@selected_task.error) > 0} class="dag-card__body">
+      <h4 class="text-sm font-semibold text-rose-600">Error</h4>
+      <div class="alert overflow-auto mt-2">
         <pre
           id="task-error"
-          class="mt-1 whitespace-pre-wrap text-sm "
+          class="mt-1 whitespace-pre-wrap text-sm"
         >
 <%= pretty_json!(@selected_task.error) %>
-          </pre>
+        </pre>
       </div>
-    </div>
+    </section>
 
-    <div :if={@selected_task && map_size(@selected_task.result) > 0} class="p-3">
-      <h4 class=" text-sm font-semibold text-gray-500">Result</h4>
+    <section :if={@selected_task && map_size(@selected_task.result) > 0} class="dag-card__body">
+      <h4 class="text-sm font-semibold text-slate-700">Result</h4>
 
-      <div class="overflow-x-auto overflow-y-auto max-h-96">
+      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
         <pre
           id="task-result"
           data-testid="task-result"
@@ -190,40 +195,36 @@
 <%= pretty_json!(@selected_task.result) %>
       </pre>
       </div>
-    </div>
+    </section>
 
-    <div
-      :if={@selected_task}
-      class="bg-white rounded shadow-sm overflow-hidden mb-4"
-    >
-      <div class="p-3 border-b"></div>
+    <section :if={@selected_task} class="dag-card__body">
       <div class="overflow-x-auto overflow-y-auto max-h-96">
-        <h4 class="p-3 text-sm font-semibold text-gray-500">Logs</h4>
+        <h4 class="pb-3 text-sm font-semibold text-slate-700">Logs</h4>
         <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
+          <thead class="bg-slate-50">
             <tr>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32"
+                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-32"
               >
                 Timestamp
               </th>
 
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-gray-5stream_insert00 uppercase tracking-wider w-20"
+                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-20"
               >
                 Attempt
               </th>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-gray-5stream_insert00 uppercase tracking-wider w-20"
+                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-20"
               >
                 Level
               </th>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider"
               >
                 Content
               </th>
@@ -252,7 +253,7 @@
                 {inserted_at}
               </td>
               <td class="px-3 py-2 whitespace-nowrap text-center align-middle">
-                <div class=" text-xs badge">{attempt}</div>
+                <div class="text-xs badge">{attempt}</div>
               </td>
               <td class="px-3 py-2 whitespace-nowrap">
                 <.log_badge level={level} />
@@ -264,27 +265,32 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   </div>
 
-  <div class="bg-white rounded shadow-sm overflow-hidden mb-4">
-    <div class="p-3 border-b">
-      <h3 class="text-sm font-semibold text-gray-800">Graph</h3>
-    </div>
-    <div class="p-3">
-      <div class="bg-gray-50 p-3 rounded border border-gray-200 overflow-auto">
+  <div class="dag-card mb-4">
+    <section class="dag-card__header">
+      <div class="dag-card__title-row">
+        <h3 class={["dag-card__title dag-card__title-with-icon", "text-base"]}>
+          <.icon name="hero-chart-bar" class="h-5 w-5 text-sky-600" />
+          <span>Graph</span>
+        </h3>
+      </div>
+    </section>
+    <div class="dag-card__body">
+      <div class="bg-slate-50 p-3 rounded-lg border border-slate-200/70 overflow-auto">
         <pre class="mermaid" phx-hook="Mermaid" id="mermaid-chart">
 {"""
 ---
 config:
   theme: 'base'
   themeVariables:
-    primaryColor: '#e5e6ea'
-    primaryTextColor: '#18181b'
-    primaryBorderColor: '#2563eb'
-    lineColor: '#676876'
-    secondaryColor: '#6a65ab'
-    tertiaryColor: '#fbfbfc'
+    primaryColor: '#e8f2ff'
+    primaryTextColor: '#0f172a'
+    primaryBorderColor: '#0ea5e9'
+    lineColor: '#475569'
+    secondaryColor: '#c7e8ff'
+    tertiaryColor: '#f8fafc'
 ---
     #{mermaid_chart(@dag_def.tasks)}
 """}
@@ -293,13 +299,18 @@ config:
     </div>
   </div>
 
-  <div class="bg-white rounded shadow-sm overflow-hidden mb-4">
-    <div class="p-3 border-b flex justify-between items-center">
-      <h3 class="text-sm font-semibold text-gray-800">Code</h3>
-      <span id="reload-time" class="badge">{reload_time(@reload_dag_file)}</span>
-    </div>
+  <div class="dag-card mb-4">
+    <section class="dag-card__header">
+      <div class="dag-card__title-row">
+        <h3 class={["dag-card__title dag-card__title-with-icon", "text-base"]}>
+          <.icon name="hero-code-bracket" class="h-5 w-5 text-sky-600" />
+          <span>Code</span>
+        </h3>
+        <span id="reload-time" class="badge">{reload_time(@reload_dag_file)}</span>
+      </div>
+    </section>
 
-    <div class="p-3">
+    <div class="dag-card__body">
       <pre class="language-elixir rounded-md overflow-x-auto">
           <code id="code-highlight" class={"language-elixir code-block p-3 text-xs leading-relaxed"} phx-hook="CodeHighlight">
 {read_code(@reload_dag_file)}
