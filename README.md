@@ -89,8 +89,8 @@ end
 ### Sponsors
 
 
-![Comparacar](https://gust-github.s3.us-east-1.amazonaws.com/comparacar-sponsor.jpg)
-Find the best offers and save money on car subscription service.
+![Comparacar](https://gust-github.s3.us-east-1.amazonaws.com/comparacar-sponsor-v2.jpg)
+[Find the best offers and save money on car subscription service.](https://comparacar.com.br)
 
 
 ## License
