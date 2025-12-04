@@ -1,24 +1,36 @@
 defmodule Gust.DSL do
   @moduledoc """
-  A DSL for defining Directed Acyclic Graphs (DAGs) of tasks.
+  Gust DSL for defining Directed Acyclic Graphs (DAGs) of tasks.
 
   This module provides macros to define tasks and their dependencies in a declarative way.
   It is intended to be `use`d by modules that define DAGs.
 
   ## Example
 
-      defmodule MyDag do
-        use Gust.DSL,
-          schedule: "* * * * *"
+    defmodule HelloWorld do
+      # Note: If you change `schedule` make sure to restart the server to update the cron job.
+      use Gust.DSL, schedule: "* * * * *", on_finished_callback: :notify_something
+      require Logger
 
-        task :step_1 do
-          # logic for step 1
-        end
-
-        task :step_2, ctx: %{run_id: run_id} do
-          # logic for step 2 using run_id
-        end
+      def notify_something(status, run) do
+        dag = Gust.Flows.get_dag!(run.dag_id)
+        message = "DAG: \#{dag.name}; Completed with status: \#{status}"
+        Logger.info(message)
       end
+
+      task :first_task, downstream: [:second_task], store_result: true do
+        greetings = "Hi from first_task"
+        Logger.info(greetings)
+        # The return value must be a map when store result is true
+        %{result: greetings}
+      end
+
+      task :second_task, ctx: %{run_id: run_id} do
+        task = Gust.Flows.get_task_by_name_run("first_task", run_id)
+        Logger.info(task.result)
+      end
+    end
+
   """
 
   defmacro __using__(dag_options) do
@@ -54,6 +66,16 @@ defmodule Gust.DSL do
       task :my_task, ctx: %{run_id: run_id} do
         IO.inspect(run_id)
       end
+
+      task :first, downstream: [:second] do
+        :ok
+      end
+
+      task :persist_result, store_result: true do
+        %{result: :ok}
+      end
+
+  When using `store_result: true`, the return value **must** be a map so it can be merged into the overall DAG results.
   """
   defmacro task(name, opts_and_ctx, do: block) do
     {ctx_pattern, opts} = Keyword.pop(opts_and_ctx, :ctx)
