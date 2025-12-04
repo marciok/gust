@@ -61,17 +61,17 @@ end
 ## Creating a new Gust app
 
 1. Run:
-	 `curl https://github.com/marciok/gust/blob/main/setup_gust_app.sh | sh`
+	 `curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh | sh`
 	 
 2. Configure Postgres credentials on `your_app/config/dev.exs`
 
-4. Run database setup:
+3. Run database setup:
 	 `mix ecto.create --repo Gust.Repo && mix ecto.migrate --repo Gust.Repo`
 	 
-5. Run Gust start:
+4. Run Gust start:
 	 `mix gust.start`
 
-6. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG 🎉
+5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG 🎉
  
 
 ---

@@ -205,7 +205,6 @@ import Config
 
 config :gust_web, GustWeb.Endpoint,
   cache_static_manifest: "priv/static/cache_manifest.json",
-  #  cache_static_manifest: "priv/static/cache_manifest.json"
   secret_key_base: System.get_env("SECRET_KEY_BASE") || raise("environment variable SECRET_KEY_BASE is missing."),
   check_origin: true,
   live_view: [signing_salt: "${PROD_SIGNING_SALT}"]
@@ -235,7 +234,7 @@ echo "==> Creating sample DAG in dags/hello_world.ex"
 
 cat >dags/hello_world.ex <<EOF
 defmodule HelloWorld do
-  # Schedule is optional, if you change make sure to restart the server 
+  # Schedule is optional, if you change, make sure to restart the server 
   # in order to update the cron job.
   use Gust.DSL, schedule: "* * * * *"
   require Logger

@@ -42,7 +42,7 @@ defmodule Gust.DSL do
 
   ## Parameters
 
-    * `schedule` - A valid cron scheduler.
+    * `schedule` - A valid cron expression string.
     * `on_finished_callback` - The name of the function to be called.
   """
 
@@ -69,12 +69,17 @@ defmodule Gust.DSL do
 
   ## Parameters
 
-    * `name` - The name of the task (atom).
-    * `opts_and_ctx` - A keyword list of options and context pattern matching.
-      * `:downstream` - list of task names (atom) to be executed after.
-      * `:store_result` - to enable task result to be stored. Note: returned value must be map.
-      * `:ctx` - A pattern to match against the context passed to the task. Defaults to `%{run_id: run_id}`.
-    * `block` - The code block to execute for the task.
+    * `name` — The name of the task (atom).
+    * `opts_and_ctx` — A keyword list of options and an optional context pattern.
+    * `block` — The code block executed when the task runs.
+
+  ## Task Options
+
+    * `:downstream` — A list of task names (atoms) to run after this task completes.
+    * `:store_result` — When true, the task's return value will be persisted.
+        * Note: If enabled, the return value **must be a map**.
+    * `:ctx` — A pattern that will be matched against the context passed to the task.
+        * Defaults to: `%{run_id: run_id}`.
 
   ## Example
 
