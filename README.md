@@ -21,7 +21,7 @@ Gust is the perfect fit for our needs, and I encourage you to try it and push it
 ```elixir
 defmodule HelloWorld do
   alias Gust.Flows
-  use Gust.DSL, schedule: "* * * * *"
+  use Gust.DSL
   require Logger
 
   task :first_task, downstream: [:second_task], store_result: true do
