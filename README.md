@@ -52,13 +52,13 @@ end
 ## Getting started
 
 ### Prerequisites
-You need the following installed on your machine:
+
 - [x] macOS/Ubuntu
 - [x] Elixir must be at least [this version](https://github.com/marciok/gust/blob/main/.tool-versions)
 - [x] Postgres
 
 
-## Installation
+## Creating a new Gust app
 
 1. Run:
 	 `curl https://github.com/marciok/gust/blob/main/setup_gust_app.sh | sh`
