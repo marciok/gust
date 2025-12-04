@@ -1,36 +1,49 @@
 defmodule Gust.DSL do
   @moduledoc """
-  Gust DSL for defining Directed Acyclic Graphs (DAGs) of tasks.
+  The Gust DSL is how you turn a module into a DAG.  
+  When you add `use Gust.DSL` to a module in the `dags/` folder, Gust automatically detects it and creates a DAG based on the file name.
 
-  This module provides macros to define tasks and their dependencies in a declarative way.
-  It is intended to be `use`d by modules that define DAGs.
+  You can configure a schedule, define callbacks, and in the `dev` environment the code is automatically reloaded when files change.
+
+  After enabling the DSL, use `task` definitions to declare the steps that should be executed.
 
   ## Example
 
-    defmodule HelloWorld do
-      # Note: If you change `schedule` make sure to restart the server to update the cron job.
-      use Gust.DSL, schedule: "* * * * *", on_finished_callback: :notify_something
-      require Logger
+      defmodule HelloWorld do
+        # `schedule` and `on_finished_callback` are optional.
+        # Note: if you change `schedule`, restart the server to update the cron job.
+        use Gust.DSL, schedule: "* * * * *", on_finished_callback: :notify_something
 
-      def notify_something(status, run) do
-        dag = Gust.Flows.get_dag!(run.dag_id)
-        message = "DAG: \#{dag.name}; Completed with status: \#{status}"
-        Logger.info(message)
+        # Gust logs are stored and displayed through GustWeb via Logger.
+        require Logger
+
+        # Gust.Flows is used to query Dag, Run, and Task.
+        alias Gust.Flows
+
+        def notify_something(status, run) do
+          dag = Flows.get_dag!(run.dag_id)
+          message = "DAG: \#{dag.name}; completed with status: \#{status}"
+          Logger.info(message)
+        end
+
+        task :first_task, downstream: [:second_task], store_result: true do
+          greetings = "Hi from first_task"
+          Logger.info(greetings)
+
+          # The return value must be a map when `store_result` is true.
+          %{result: greetings}
+        end
+
+        task :second_task, ctx: %{run_id: run_id} do
+          task = Flows.get_task_by_name_run("first_task", run_id)
+          Logger.info(task.result)
+        end
       end
 
-      task :first_task, downstream: [:second_task], store_result: true do
-        greetings = "Hi from first_task"
-        Logger.info(greetings)
-        # The return value must be a map when store result is true
-        %{result: greetings}
-      end
+  ## Parameters
 
-      task :second_task, ctx: %{run_id: run_id} do
-        task = Gust.Flows.get_task_by_name_run("first_task", run_id)
-        Logger.info(task.result)
-      end
-    end
-
+    * `schedule` - A valid cron scheduler.
+    * `on_finished_callback` - The name of the function to be called.
   """
 
   defmacro __using__(dag_options) do
@@ -58,6 +71,8 @@ defmodule Gust.DSL do
 
     * `name` - The name of the task (atom).
     * `opts_and_ctx` - A keyword list of options and context pattern matching.
+      * `:downstream` - list of task names (atom) to be executed after.
+      * `:store_result` - to enable task result to be stored. Note: returned value must be map.
       * `:ctx` - A pattern to match against the context passed to the task. Defaults to `%{run_id: run_id}`.
     * `block` - The code block to execute for the task.
 
