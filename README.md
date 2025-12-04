@@ -74,6 +74,7 @@ end
 6. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG 🎉
  
 
+---
 
 ### Core Features
 
