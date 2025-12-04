@@ -18,7 +18,7 @@ Gust is the perfect fit for our needs, and I encourage you to try it and push it
 ## Overview
 
 ### DAG Code Example
-```
+```elixir
 defmodule HelloWorld do
 	alias Gust.Flows
   use Gust.DSL, schedule: "* * * * *"
