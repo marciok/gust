@@ -7,7 +7,9 @@
 A task orchestration system designed to be efficient, fast and developer-friendly.
 
 
-[![Test](https://github.com/marciok/gust/actions/workflows/test.yml/badge.svg)](https://github.com/marciok/gust/actions/workflows/test.yml)[![Coverage Status](https://coveralls.io/repos/github/marciok/gust/badge.svg?branch=main)](https://coveralls.io/github/marciok/gust?branch=main)[![Hex.pm](https://img.shields.io/hexpm/v/gust_web.svg)](https://hex.pm/packages/gust_web)
+[![Test](https://github.com/marciok/gust/actions/workflows/test.yml/badge.svg)](https://github.com/marciok/gust/actions/workflows/test.yml)[![Coverage Status](https://coveralls.io/repos/github/marciok/gust/badge.svg?branch=main)](https://coveralls.io/github/marciok/gust?branch=main)
+gust_web: [![Hex.pm](https://img.shields.io/hexpm/v/gust_web.svg)](https://hex.pm/packages/gust_web)
+gust: [![Hex.pm](https://img.shields.io/hexpm/v/gust.svg)](https://hex.pm/packages/gust)
 --
 ## Motivation
 As a CTO and founder, I was tired of spending buckets of money to set up and manage [Airflow](https://airflow.apache.org/), dealing with multiple databases, countless processes, Docker complexity, and of course its outdated and buggy UI. So we decided to build something that kept what we liked about Airflow and ditched what we didn’t. The result is Gust: a platform that’s 10× more efficient, faster, and far easier to set up.
@@ -80,10 +82,10 @@ end
 
   - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
   - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
-  - Robust execution handling: run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
-  - Resilient retry logic with backoff, plus state clearing for clean restarts.
-  - Failure hooks for alerts and integrations (email, Slack, and generic webhooks).
-  - Web UI for live monitoring of DAGs, task runs, and logs.
+  - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
+  - Retry logic with backoff, plus state clearing for clean restarts.
+  - Hook for finished dag run.
+  - Web UI for live monitoring and secrets editing.
 
 
 
