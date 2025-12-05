@@ -29,13 +29,20 @@ defmodule Gust.DSL do
         task :first_task, downstream: [:second_task], store_result: true do
           greetings = "Hi from first_task"
           Logger.info(greetings)
+          
+          # You can get secrets created on the Web UI
+          secret = Flows.get_secret_by_name("SUPER_SECRET")
+          Logger.warning("I know your secret: \#{secret.value}")
 
           # The return value must be a map when `store_result` is true.
           %{result: greetings}
         end
 
         task :second_task, ctx: %{run_id: run_id} do
+
+          # Getting "first_task"'s result
           task = Flows.get_task_by_name_run("first_task", run_id)
+
           Logger.info(task.result)
         end
       end
