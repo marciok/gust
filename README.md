@@ -8,8 +8,11 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 
 [![Test](https://github.com/marciok/gust/actions/workflows/test.yml/badge.svg)](https://github.com/marciok/gust/actions/workflows/test.yml)[![Coverage Status](https://coveralls.io/repos/github/marciok/gust/badge.svg?branch=main)](https://coveralls.io/github/marciok/gust?branch=main)
-gust_web: [![Hex.pm](https://img.shields.io/hexpm/v/gust_web.svg)](https://hex.pm/packages/gust_web)
-gust: [![Hex.pm](https://img.shields.io/hexpm/v/gust.svg)](https://hex.pm/packages/gust)
+
+![Gust Web](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust+Web)
+
+![Gust](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust)
+
 --
 ## Motivation
 As a CTO and founder, I was tired of spending buckets of money to set up and manage [Airflow](https://airflow.apache.org/), dealing with multiple databases, countless processes, Docker complexity, and of course its outdated and buggy UI. So we decided to build something that kept what we liked about Airflow and ditched what we didn’t. The result is Gust: a platform that’s 10× more efficient, faster, and far easier to set up.
