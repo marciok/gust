@@ -9,9 +9,9 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 [![Test](https://github.com/marciok/gust/actions/workflows/test.yml/badge.svg)](https://github.com/marciok/gust/actions/workflows/test.yml)[![Coverage Status](https://coveralls.io/repos/github/marciok/gust/badge.svg?branch=main)](https://coveralls.io/github/marciok/gust?branch=main)
 
-![Gust Web](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust+Web)
+[![Gust Web](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust+Web)](https://hexdocs.pm/gust_web)
 
-![Gust](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust)
+[![Gust](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust)(https://hexdocs.pm/gust)]
 
 ---
 ## Motivation
