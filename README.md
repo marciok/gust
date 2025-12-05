@@ -13,7 +13,7 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 ![Gust](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust)
 
---
+---
 ## Motivation
 As a CTO and founder, I was tired of spending buckets of money to set up and manage [Airflow](https://airflow.apache.org/), dealing with multiple databases, countless processes, Docker complexity, and of course its outdated and buggy UI. So we decided to build something that kept what we liked about Airflow and ditched what we didn’t. The result is Gust: a platform that’s 10× more efficient, faster, and far easier to set up.
 
