@@ -11,7 +11,7 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 [![Gust Web](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust+Web)](https://hexdocs.pm/gust_web)
 
-[![Gust](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust)(https://hexdocs.pm/gust)]
+[![Gust](https://img.shields.io/hexpm/v/gust_web?color=0084d1&label=Gust)](https://hexdocs.pm/gust)]
 
 ---
 ## Motivation
