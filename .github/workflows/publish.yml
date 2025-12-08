@@ -20,7 +20,7 @@ jobs:
         working-directory: apps/gust
         env:
           HEX_API_KEY: ${{ secrets.HEX }}
-          CI: true
+          PUBLISH_DEP: true
         run: |
           mix deps.get
           mix hex.build

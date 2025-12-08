@@ -74,7 +74,7 @@ defmodule GustWeb.MixProject do
   end
 
   defp gust_dep() do
-    if ci_set?() do
+    if publish_dep?() do
       {:gust, "~> #{@version}"}
     else
       {:gust, in_umbrella: true}
@@ -82,7 +82,9 @@ defmodule GustWeb.MixProject do
   end
 
   defp maybe_add_heroicons(deps) do
-    if ci_set?() do
+    if publish_dep?() do
+      deps
+    else
       deps ++
         [
           {:heroicons,
@@ -93,12 +95,10 @@ defmodule GustWeb.MixProject do
            compile: false,
            depth: 1}
         ]
-    else
-      deps
     end
   end
 
-  defp ci_set?(), do: System.get_env("CI") == "true"
+  defp publish_dep?(), do: System.get_env("PUBLISH_DEP") == "true"
 
   # Aliases are shortcuts or tasks specific to the current project.
   #
