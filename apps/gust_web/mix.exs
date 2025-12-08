@@ -71,8 +71,7 @@ defmodule GustWeb.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
-      {:gust, "~> 0.1.20"},
-      # {:gust, in_umbrella: true},
+      {:gust, in_umbrella: true},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}
     ]
