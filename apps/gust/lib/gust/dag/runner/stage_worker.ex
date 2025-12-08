@@ -124,6 +124,7 @@ defmodule Gust.DAG.Runner.StageWorker do
     if update_result?(tasks, task.name, status) do
       reset_result_and_error(task, result)
     else
+      {:ok, task} = Flows.update_task_error(task, %{})
       task
     end
   end
@@ -162,7 +163,8 @@ defmodule Gust.DAG.Runner.StageWorker do
   defp update_result?(_tasks, _name, _status), do: false
 
   defp start_task(task, dag_def) do
-    {:ok, _pid} = TaskRunnerSupervisor.start_child(task, dag_def.mod, self())
+    task_opts = dag_def.tasks[task.name]
+    {:ok, _pid} = TaskRunnerSupervisor.start_child(task, dag_def.mod, self(), task_opts)
     update_status(task, :running)
   end
 

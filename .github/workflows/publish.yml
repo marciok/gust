@@ -1,0 +1,37 @@
+name: Hex Publish
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27.0'
+
+      - name: Publish gust
+        working-directory: apps/gust
+        env:
+          HEX_API_KEY: ${{ secrets.HEX }}
+          PUBLISH_DEP: true
+        run: |
+          mix deps.get
+          mix hex.build
+          mix hex.publish --yes
+      - name: Publish gust-web
+        working-directory: apps/gust_web
+        env:
+          HEX_API_KEY: ${{ secrets.HEX }}
+          CI: true
+        run: |
+          mix deps.get
+          mix hex.build
+          mix hex.publish --yes
+

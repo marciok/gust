@@ -35,7 +35,7 @@ defmodule Gust.DAG.Runner.TaskWorker do
   @impl true
   def handle_info(
         :run,
-        %{task: task, mod: mod, stage_pid: stage_pid} = state
+        %{task: task, mod: mod, stage_pid: stage_pid, opts: opts} = state
       ) do
     fun_name = String.to_atom(task.name)
     args = [%{run_id: task.run_id}]
@@ -43,7 +43,7 @@ defmodule Gust.DAG.Runner.TaskWorker do
     DAG.Logger.set_task(task.id, task.attempt)
 
     {status, result} =
-      case try_run(mod, fun_name, args) do
+      case try_run(mod, fun_name, args, opts[:store_result]) do
         {:ok, result} ->
           {:ok, result}
 
@@ -58,9 +58,19 @@ defmodule Gust.DAG.Runner.TaskWorker do
     {:stop, :normal, state}
   end
 
-  defp try_run(mod, fun_name, args) do
-    {:ok, apply(mod, fun_name, args)}
+  defp try_run(mod, fun_name, args, store_result) do
+    apply_and_validate(mod, fun_name, args, store_result)
   rescue
     e -> {:error, e}
+  end
+
+  defp apply_and_validate(mod, fun_name, args, store_result) do
+    result = apply(mod, fun_name, args)
+
+    if store_result && !is_map(result) do
+      raise "Task returned #{inspect(result)} but store_result requires a map"
+    else
+      {:ok, result}
+    end
   end
 end

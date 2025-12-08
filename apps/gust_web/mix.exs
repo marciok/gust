@@ -1,10 +1,12 @@
 defmodule GustWeb.MixProject do
   use Mix.Project
 
+  @version "0.1.21"
+
   def project do
     [
       app: :gust_web,
-      version: "0.1.20",
+      version: @version,
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -61,21 +63,42 @@ defmodule GustWeb.MixProject do
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
-      {:heroicons,
-       github: "tailwindlabs/heroicons",
-       tag: "v2.2.0",
-       sparse: "optimized",
-       app: false,
-       compile: false,
-       depth: 1},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
-      {:gust, in_umbrella: true},
+      gust_dep(),
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}
     ]
+    |> maybe_add_heroicons()
   end
+
+  defp gust_dep() do
+    if publish_dep?() do
+      {:gust, "~> #{@version}"}
+    else
+      {:gust, in_umbrella: true}
+    end
+  end
+
+  defp maybe_add_heroicons(deps) do
+    if publish_dep?() do
+      deps
+    else
+      deps ++
+        [
+          {:heroicons,
+           github: "tailwindlabs/heroicons",
+           tag: "v2.2.0",
+           sparse: "optimized",
+           app: false,
+           compile: false,
+           depth: 1}
+        ]
+    end
+  end
+
+  defp publish_dep?(), do: System.get_env("PUBLISH_DEP") == "true"
 
   # Aliases are shortcuts or tasks specific to the current project.
   #
