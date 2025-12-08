@@ -1,9 +1,10 @@
 defmodule Gust.DAG.TaskRunnerSupervisor do
   @moduledoc false
 
-  @callback start_child(Gust.Flows.Task.t(), module(), pid()) :: Supervisor.on_start_child()
+  @callback start_child(Gust.Flows.Task.t(), module(), pid(), term()) ::
+              Supervisor.on_start_child()
 
-  def start_child(task, mod, stage_pid), do: impl().start_child(task, mod, stage_pid)
+  def start_child(task, mod, stage_pid, opts), do: impl().start_child(task, mod, stage_pid, opts)
 
   defp impl,
     do:

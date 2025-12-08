@@ -40,12 +40,17 @@ defmodule DAG.Runner.TaskWorkerTest do
 
       worker_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self()}}
+          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self(), opts: %{}}}
         )
 
       ref = Process.monitor(worker_pid)
       assert_receive {:task_result, %{run_id: ^run_id}, ^task_id, :ok}, 200
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+
+      on_exit(fn ->
+        :code.purge(mod)
+        :code.delete(mod)
+      end)
     end
 
     test "run succeed", %{task: task} do
@@ -68,12 +73,17 @@ defmodule DAG.Runner.TaskWorkerTest do
 
       worker_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self()}}
+          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self(), opts: %{}}}
         )
 
       ref = Process.monitor(worker_pid)
       assert_receive {:task_result, ^result, ^task_id, :ok}, 200
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+
+      on_exit(fn ->
+        :code.purge(mod)
+        :code.delete(mod)
+      end)
     end
 
     test "run fails", %{task: task} do
@@ -95,7 +105,7 @@ defmodule DAG.Runner.TaskWorkerTest do
 
       worker_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self()}}
+          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self(), opts: %{}}}
         )
 
       ref = Process.monitor(worker_pid)
@@ -104,6 +114,47 @@ defmodule DAG.Runner.TaskWorkerTest do
 
       assert_receive {:task_result, ^result, ^task_id, :error}, 200
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+
+      on_exit(fn ->
+        :code.purge(mod)
+        :code.delete(mod)
+      end)
+    end
+
+    test "store result is set but type is not map", %{task: task} do
+      task_id = task.id
+      error_message = "Returned value must be a map"
+
+      dag_content = """
+        defmodule MySucessfulDag do
+          use Gust.DSL
+
+          task :#{task.name}, store_result: true do
+            Process.sleep(100)
+            :i_am_no_map
+          end
+        end
+      """
+
+      [{mod, _bin}] = Code.compile_string(dag_content)
+
+      worker_pid =
+        start_link_supervised!(
+          {Gust.DAG.Runner.TaskWorker,
+           %{task: task, mod: mod, stage_pid: self(), opts: %{store_result: true}}}
+        )
+
+      ref = Process.monitor(worker_pid)
+
+      result = %RuntimeError{message: error_message, __exception__: true}
+
+      assert_receive {:task_result, ^result, ^task_id, :error}, 200
+      assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+
+      on_exit(fn ->
+        :code.purge(mod)
+        :code.delete(mod)
+      end)
     end
   end
 end

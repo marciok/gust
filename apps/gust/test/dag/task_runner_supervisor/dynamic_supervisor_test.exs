@@ -4,7 +4,7 @@ defmodule DAG.TaskRunnerSupervisor.DynamicSupervisorTest do
   alias Gust.DAG.Runner
   alias Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor, as: TaskRunnerSupervisor
 
-  test "start_child/3" do
+  test "start_child/4" do
     mod = MyPlainDag
     dag = dag_fixture()
     run = run_fixture(%{dag_id: dag.id})
@@ -20,7 +20,7 @@ defmodule DAG.TaskRunnerSupervisor.DynamicSupervisorTest do
     stage_pid = spawn(fn -> Process.sleep(100) end)
 
     {:ok, runner_pid} =
-      TaskRunnerSupervisor.start_child(task, mod, stage_pid)
+      TaskRunnerSupervisor.start_child(task, mod, stage_pid, %{})
 
     assert Process.alive?(runner_pid)
 

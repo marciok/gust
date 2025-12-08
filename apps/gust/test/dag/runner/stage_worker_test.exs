@@ -31,7 +31,7 @@ defmodule Dag.Runner.StageWorkerTest do
     mod = dag_def.mod
 
     Gust.DAGTaskRunnerSupervisorMock
-    |> expect(:start_child, fn _task, ^mod, _pid ->
+    |> expect(:start_child, fn _task, ^mod, _pid, _opts ->
       {:ok, spawn(fn -> Process.sleep(10) end)}
     end)
 
@@ -193,7 +193,7 @@ defmodule Dag.Runner.StageWorkerTest do
       send(runner_pid, {:task_result, error, task.id, :error})
 
       Gust.DAGTaskRunnerSupervisorMock
-      |> expect(:start_child, fn _task, ^mod, _pid ->
+      |> expect(:start_child, fn _task, ^mod, _pid, _opts ->
         {:ok, spawn(fn -> Process.sleep(10) end)}
       end)
 

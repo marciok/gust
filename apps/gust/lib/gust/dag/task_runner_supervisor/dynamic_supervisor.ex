@@ -14,8 +14,8 @@ defmodule Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor do
   end
 
   @impl true
-  def start_child(task, mod, stage_pid) do
-    spec = {runner(), %{task: task, mod: mod, stage_pid: stage_pid}}
+  def start_child(task, mod, stage_pid, opts) do
+    spec = {runner(), %{task: task, mod: mod, stage_pid: stage_pid, opts: opts}}
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
