@@ -123,7 +123,7 @@ defmodule DAG.Runner.TaskWorkerTest do
 
     test "store result is set but type is not map", %{task: task} do
       task_id = task.id
-      error_message = "Returned value must be a map"
+      error_message = "Task returned :i_am_no_map but store_result requires a map"
 
       dag_content = """
         defmodule MySucessfulDag do

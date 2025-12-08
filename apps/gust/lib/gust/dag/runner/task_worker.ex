@@ -68,7 +68,7 @@ defmodule Gust.DAG.Runner.TaskWorker do
     result = apply(mod, fun_name, args)
 
     if store_result && !is_map(result) do
-      raise "Returned value must be a map"
+      raise "Task returned #{inspect(result)} but store_result requires a map"
     else
       {:ok, result}
     end
