@@ -4,7 +4,7 @@ defmodule GustWeb.MixProject do
   def project do
     [
       app: :gust_web,
-      version: "0.1.15",
+      version: "0.1.20",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -20,7 +20,7 @@ defmodule GustWeb.MixProject do
       description: "The web interface for Gust",
       package: [
         licenses: ["Apache-2.0"],
-        links: %{"GitHub" => "https://github.com/marciok/gust_rc"},
+        links: %{"GitHub" => "https://github.com/marciok/gust"},
         files: [
           "lib",
           "priv/static",
@@ -71,8 +71,8 @@ defmodule GustWeb.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
-      # {:gust, "~> 0.1.15"},
-      {:gust, in_umbrella: true},
+      {:gust, "~> 0.1.20"},
+      # {:gust, in_umbrella: true},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}
     ]

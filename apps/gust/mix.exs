@@ -4,7 +4,7 @@ defmodule Gust.MixProject do
   def project do
     [
       app: :gust,
-      version: "0.1.15",
+      version: "0.1.20",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -18,7 +18,7 @@ defmodule Gust.MixProject do
       description: "A DAG-Based Workflow Orchestration Engine for Elixir",
       package: [
         licenses: ["Apache-2.0"],
-        links: %{"GitHub" => "https://github.com/marciok/gust_rc"}
+        links: %{"GitHub" => "https://github.com/marciok/gust"}
       ]
     ]
   end
