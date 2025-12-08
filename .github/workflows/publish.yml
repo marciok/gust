@@ -24,7 +24,7 @@ jobs:
         run: |
           mix deps.get
           mix hex.build
-          mix hex.publish --yes
+          mix hex.publish --yes --replace
       - name: Publish gust-web
         working-directory: apps/gust_web
         env:
@@ -33,5 +33,5 @@ jobs:
         run: |
           mix deps.get
           mix hex.build
-          mix hex.publish --yes
+          mix hex.publish --yes --replace
 
