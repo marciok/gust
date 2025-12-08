@@ -63,7 +63,6 @@ defmodule GustWeb.MixProject do
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
-      heroicons_dep(),
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
@@ -71,27 +70,31 @@ defmodule GustWeb.MixProject do
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}
     ]
+    |> maybe_add_heroicons()
   end
 
   defp gust_dep() do
-    if System.get_env("CI", "true") == "true" do
-      {:gust, in_umbrella: true}
-    else
+    if ci_set?() do
       {:gust, "~> #{@version}"}
+    else
+      {:gust, in_umbrella: true}
     end
   end
 
-  def heroicons_dep() do
+  defp maybe_add_heroicons(deps) do
     if ci_set?() do
-      {:heroicons,
-       github: "tailwindlabs/heroicons",
-       tag: "v2.2.0",
-       sparse: "optimized",
-       app: false,
-       compile: false,
-       depth: 1}
+      deps ++
+        [
+          {:heroicons,
+           github: "tailwindlabs/heroicons",
+           tag: "v2.2.0",
+           sparse: "optimized",
+           app: false,
+           compile: false,
+           depth: 1}
+        ]
     else
-      {}
+      deps
     end
   end
 
