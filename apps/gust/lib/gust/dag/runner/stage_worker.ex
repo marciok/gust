@@ -124,6 +124,7 @@ defmodule Gust.DAG.Runner.StageWorker do
     if update_result?(tasks, task.name, status) do
       reset_result_and_error(task, result)
     else
+      {:ok, task} = Flows.update_task_error(task, %{})
       task
     end
   end

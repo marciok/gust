@@ -358,12 +358,14 @@ defmodule Dag.Runner.StageWorkerTest do
       ref = Process.monitor(runner_pid)
 
       result = %{"ended" => "ok"}
+      Flows.update_task_error(task, %{some: "error"})
 
       send(runner_pid, {:task_result, result, task_id, :ok})
 
       assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :succeeded}}, 400
       assert Flows.get_task!(task_id).status == :succeeded
       assert Flows.get_task!(task_id).result == %{}
+      assert Flows.get_task!(task_id).error == %{}
 
       refute_receive {:stage_completed, :ok}, 400
       refute_receive {:DOWN, ^ref, :process, _pid, :normal}, 400
