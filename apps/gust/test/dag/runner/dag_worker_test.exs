@@ -55,6 +55,41 @@ defmodule DAG.Runner.DagWorkerTest do
   end
 
   describe "handle_info/2, stage_completed unsuccessfully" do
+    test "task cancelled", %{run: run, dag_def: dag_def} do
+      Gust.PubSub.subscribe_run(run.id)
+      last_stage = dag_def.stages |> List.last()
+      dag_def = %Gust.DAG.Definition{dag_def | stages: [last_stage]}
+      run_id = run.id
+
+      Gust.DAGCompilerMock
+      |> expect(:purge, fn _mod ->
+        nil
+      end)
+
+      Gust.DAGStageRunnerSupervisorMock
+      |> expect(:start_child, fn ^dag_def, task_ids, _pid ->
+        for task_id <- task_ids do
+          task = Flows.get_task!(task_id)
+          assert task.name in last_stage
+          assert task.run_id == run.id
+        end
+
+        {:ok, spawn(fn -> Process.sleep(10) end)}
+      end)
+
+      runner_pid =
+        start_supervised!({Gust.DAG.Runner.DAGWorker, %{run: run, dag_def: dag_def}})
+
+      ref = Process.monitor(runner_pid)
+
+      send(runner_pid, {:stage_completed, :cancelled})
+
+      assert_receive {:dag, :run_status, %{run_id: ^run_id}}, 400
+      assert Repo.get!(Flows.Run, run.id).status == :failed
+
+      assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+    end
+
     test "upstream failed", %{run: run, dag_def: dag_def} do
       Gust.PubSub.subscribe_run(run.id)
       last_stage = dag_def.stages |> List.last()

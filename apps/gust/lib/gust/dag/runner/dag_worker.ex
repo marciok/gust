@@ -10,6 +10,13 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   defstruct run: nil, dag_def: %Definition{}, stages: []
 
+  @status_map %{
+    ok: :succeeded,
+    upstream_failed: :failed,
+    error: :failed,
+    cancelled: :failed
+  }
+
   @impl true
   def init(%State{dag_def: dag_def} = state) do
     runtime_mod = Compiler.compile(dag_def)
@@ -82,8 +89,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
         {:stage_completed, status},
         %State{stages: [], dag_def: dag_def, run: run} = state
       ) do
-    run_status = %{ok: :succeeded, upstream_failed: :failed, error: :failed}
-    update_status(run, run_status[status])
+    update_status(run, @status_map[status])
     options = dag_def.options
 
     {callback, _options} = Keyword.pop(options, :on_finished_callback)
