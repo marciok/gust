@@ -1,10 +1,12 @@
 defmodule GustWeb.MixProject do
   use Mix.Project
 
+  @version "0.1.21"
+
   def project do
     [
       app: :gust_web,
-      version: "0.1.20",
+      version: @version,
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
