@@ -1,8 +1,8 @@
 name: Hex Publish
 on:
-  # Testing, update condition after merge
-  pull_request:
-    branches: [ "main" ]
+  push:
+    tags:
+      - "v*.*.*"
 
 jobs:
   publish:
@@ -18,6 +18,15 @@ jobs:
 
       - name: Publish gust
         working-directory: apps/gust
+        env:
+          HEX_API_KEY: ${{ secrets.HEX }}
+          CI: true
+        run: |
+          mix deps.get
+          mix hex.build
+          mix hex.publish --yes
+      - name: Publish gust-web
+        working-directory: apps/gust_web
         env:
           HEX_API_KEY: ${{ secrets.HEX }}
           CI: true
