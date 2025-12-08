@@ -58,7 +58,7 @@ defmodule DAG.Runner.TaskWorkerTest do
       result = "i_am_done"
 
       dag_content = """
-        defmodule MySucessfulDagOne do
+        defmodule MySuccessfulDagOne do
           use Gust.DSL
           require Logger
 
@@ -91,7 +91,7 @@ defmodule DAG.Runner.TaskWorkerTest do
       error_message = "Ops.."
 
       dag_content = """
-        defmodule MySucessfulDag do
+        defmodule MySuccessfulDag do
           use Gust.DSL
 
           task :#{task.name} do
@@ -126,7 +126,7 @@ defmodule DAG.Runner.TaskWorkerTest do
       error_message = "Task returned :i_am_no_map but store_result requires a map"
 
       dag_content = """
-        defmodule MySucessfulDag do
+        defmodule MySuccessfulDag do
           use Gust.DSL
 
           task :#{task.name}, store_result: true do
