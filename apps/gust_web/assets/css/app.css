@@ -263,7 +263,7 @@
   }
 
   .app-shell {
-    @apply flex min-h-screen;
+    @apply flex min-h-screen flex-col;
     background-color: #e2e8f0;
     background-image:
       radial-gradient(60% 60% at 20% 25%, rgba(56, 189, 248, 0.18), transparent 60%),
@@ -273,11 +273,35 @@
     background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%;
   }
 
+  .app-shell__body {
+    @apply flex flex-1;
+  }
+
   .gust-wordmark {
     @apply text-xl font-semibold text-slate-900 tracking-tight leading-tight;
     background: linear-gradient(135deg, rgba(15, 23, 42, 1), rgba(30, 41, 59, 0.85));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+
+  .app-footer {
+    @apply w-full rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur;
+  }
+
+  .app-footer__content {
+    @apply flex flex-wrap items-center justify-between gap-3;
+  }
+
+  .app-footer__meta {
+    @apply flex items-center gap-2;
+  }
+
+  .app-footer__label {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-slate-400;
+  }
+
+  .app-footer__value {
+    @apply border border-slate-200 bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm;
   }
 }
 
