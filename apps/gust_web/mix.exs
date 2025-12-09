@@ -75,7 +75,7 @@ defmodule GustWeb.MixProject do
 
   defp gust_dep() do
     if publish_dep?() do
-      {:gust, "~> #{@version}"}
+      {:gust, "#{@version}"}
     else
       {:gust, in_umbrella: true}
     end
