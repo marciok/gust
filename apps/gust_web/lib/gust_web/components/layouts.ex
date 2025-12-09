@@ -36,29 +36,41 @@ defmodule GustWeb.Layouts do
   def app(assigns) do
     ~H"""
     <div class="app-shell">
-      <aside class="sidebar">
-        <div class="sidebar__brand">
-          <img src={~p"/images/gust-logo.png"} alt="Logo" />
-          <h1 class="gust-wordmark">Gust</h1>
-        </div>
-        <nav class="sidebar__links">
-          <.link navigate={~p"/dags"} class="sidebar__link">
-            <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
-            <span>DAGs</span>
-          </.link>
+      <div class="app-shell__body">
+        <aside class="sidebar">
+          <div class="sidebar__brand">
+            <img src={~p"/images/gust-logo.png"} alt="Logo" />
+            <h1 class="gust-wordmark">Gust</h1>
+          </div>
+          <nav class="sidebar__links">
+            <.link navigate={~p"/dags"} class="sidebar__link">
+              <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
+              <span>DAGs</span>
+            </.link>
 
-          <.link navigate={~p"/secrets"} class="sidebar__link">
-            <.icon name="hero-lock-closed" class="h-5 w-5 text-sky-600" />
-            <span>Secrets</span>
-          </.link>
-        </nav>
-      </aside>
+            <.link navigate={~p"/secrets"} class="sidebar__link">
+              <.icon name="hero-lock-closed" class="h-5 w-5 text-sky-600" />
+              <span>Secrets</span>
+            </.link>
+          </nav>
+        </aside>
 
-      <main class="flex-1 overflow-y-auto">
-        <div class="container mx-auto px-3 py-4">
-          {render_slot(@inner_block)}
+        <main class="flex-1 overflow-y-auto">
+          <div class="flex min-h-full flex-col gap-6 px-3 py-4">
+            <div class="container mx-auto flex-1 w-full">
+              {render_slot(@inner_block)}
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <footer class="app-footer w-full">
+        <div class="app-footer__content">
+          <div class="app-footer__meta">
+            <span class="app-footer__value">{System.get_env("MIX_ENV")}</span>
+          </div>
         </div>
-      </main>
+      </footer>
 
       <.flash_group flash={@flash} />
     </div>
