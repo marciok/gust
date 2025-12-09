@@ -296,9 +296,6 @@
     @apply flex items-center gap-2;
   }
 
-  .app-footer__label {
-    @apply text-[11px] font-semibold uppercase tracking-wide text-slate-400;
-  }
 
   .app-footer__value {
     @apply border border-slate-200 bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm;
