@@ -14,18 +14,23 @@ echo "Detected Elixir version: $ELIXIR_VERSION"
 
 echo "==> Gust Project Generator"
 echo
-printf "Enter your app name (ex: my_app): "
-read APP
 
-if [ -z "$APP" ]; then
+GUST_APP=${GUST_APP:-${1:-}}
+
+if [ -z "$GUST_APP" ]; then
+  printf "Enter your app name (ex: my_app): "
+  read GUST_APP
+fi
+
+if [ -z "$GUST_APP" ]; then
   echo "ERROR: app name cannot be empty"
   exit 1
 fi
 
-echo "==> Creating new Elixir supervised app: $APP"
-mix new "$APP" --sup
+echo "==> Creating new Elixir supervised app: $GUST_APP"
+mix new "$GUST_APP" --sup
 
-cd "$APP"
+cd "$GUST_APP"
 
 echo "==> Adding Gust + Plug dependencies to mix.exs"
 
@@ -59,7 +64,7 @@ mkdir -p config
 cat >config/config.exs <<EOF
 import Config
 
-config :${APP},
+config :${GUST_APP},
   ecto_repos: [Gust.Repo]
 
 config :gust, dag_logger: Gust.DAG.Logger.Database
@@ -108,7 +113,7 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-${APP}-*.tar
+${GUST_APP}-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
@@ -134,7 +139,7 @@ config :gust, Gust.Repo,
   username: System.get_env("PGUSER") || raise("environment variable PGUSER is missing"),
   password: System.get_env("PGPASSWORD") || raise("environment variable PGPASSWORD is missing"),
   hostname: System.get_env("PGHOST") || raise("environment variable PGHOST is missing"),
-  database: "${APP}_gust_dev",
+  database: "${GUST_APP}_gust_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
@@ -255,7 +260,7 @@ EOF
 
 echo
 echo "==> Done!"
-echo "Your Gust app '$APP' is ready."
+echo "Your Gust app '$GUST_APP' is ready."
 echo "Now, you need to:"
 echo "1) Configure Postgres credentials on dev.exs"
 echo "2) Create & migrate database:"

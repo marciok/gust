@@ -65,8 +65,8 @@ end
 
 ## Creating a new Gust app
 
-1. Run:
-	 `curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh | sh`
+1. Replace `my_app` for your app name and run:
+	 `GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh)"`
 	 
 2. Configure Postgres credentials on `your_app/config/dev.exs`
 
