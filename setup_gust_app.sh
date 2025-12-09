@@ -39,7 +39,7 @@ sed -i.bak '/defp deps do/,/end/ c\
       {:plug_cowboy, "~> 2.7", only: :prod},\
       {:hackney, "~> 1.9"},\
       {:file_system, "~> 1.1", only: :dev},\
-      {:gust_web, "0.1.21"}\
+      {:gust_web, "0.1.22"}\
     ]\
   end
 ' mix.exs
