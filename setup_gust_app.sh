@@ -19,7 +19,7 @@ GUST_APP=${GUST_APP:-${1:-}}
 
 if [ -z "$GUST_APP" ]; then
   printf "Enter your app name (ex: my_app): "
-  read APP
+  read GUST_APP
 fi
 
 if [ -z "$GUST_APP" ]; then
