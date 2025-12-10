@@ -1,8 +1,9 @@
 name: Hex Publish
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches: [ "remove-assets-from-package" ]
+    # tags:
+    #   - "v*.*.*"
 
 jobs:
   publish:
@@ -26,29 +27,29 @@ jobs:
         run: npm install
 
       - name: Gust-web assets deploy
-        working-directory: apps/gust_web
+        # working-directory: apps/gust_web
         run: |
           mix deps.get
           mix assets.deploy
 
-      - name: Publish gust
-        working-directory: apps/gust
-        env:
-          HEX_API_KEY: ${{ secrets.HEX }}
-          PUBLISH_DEP: true
-        run: |
-          mix deps.get
-          mix hex.build
-          mix hex.publish --yes --replace
-
-      - name: Publish gust-web
-        working-directory: apps/gust_web
-        env:
-          HEX_API_KEY: ${{ secrets.HEX }}
-          PUBLISH_DEP: true
-        run: |
-          mix deps.get
-          mix assets.deploy
-          mix hex.build
-          mix hex.publish --yes --replace
+      # - name: Publish gust
+      #   working-directory: apps/gust
+      #   env:
+      #     HEX_API_KEY: ${{ secrets.HEX }}
+      #     PUBLISH_DEP: true
+      #   run: |
+      #     mix deps.get
+      #     mix hex.build
+      #     mix hex.publish --yes --replace
+      #
+      # - name: Publish gust-web
+      #   working-directory: apps/gust_web
+      #   env:
+      #     HEX_API_KEY: ${{ secrets.HEX }}
+      #     PUBLISH_DEP: true
+      #   run: |
+      #     mix deps.get
+      #     mix assets.deploy
+      #     mix hex.build
+      #     mix hex.publish --yes --replace
 
