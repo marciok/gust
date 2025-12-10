@@ -66,6 +66,8 @@ mkdir -p config
 cat >config/config.exs <<EOF
 import Config
 
+config :gust, :app_name, :${GUST_APP}
+
 config :${GUST_APP},
   ecto_repos: [Gust.Repo]
 
@@ -264,8 +266,8 @@ echo "==> Downloading gust static assets"
 curl -L https://github.com/marciok/gust/releases/download/v${GUST_APP_VERSION}/gust_static_assets.tar.gz -o gust_static_assets.tar.gz
 
 echo "==> Extracting gust static assets"
-mkdir -p priv/static/assets/gust
-tar -xzf gust_static_assets.tar.gz -C priv/static/assets/gust --strip-components=1
+mkdir -p priv/static
+tar -xzf gust_static_assets.tar.gz -C priv/static/ --strip-components=1
 
 echo "Gust assets installed at priv/static/assets/gust"
 
