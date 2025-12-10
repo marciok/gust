@@ -16,6 +16,15 @@ jobs:
           elixir-version: '1.18'
           otp-version: '27.0'
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install NPM packages
+        working-directory: apps/gust_web/assets
+        run: npm install
+
       - name: Publish gust
         working-directory: apps/gust
         env:
