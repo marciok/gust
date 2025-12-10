@@ -32,6 +32,7 @@ jobs:
           PUBLISH_DEP: true
         run: |
           mix deps.get
+          mix assets.deploy
           mix hex.build
           mix hex.publish --yes --replace
 
