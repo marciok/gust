@@ -43,6 +43,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: release_assets/gust_static_assets.tar.gz
+          name: 'v0.1.23' # Can remove this later 
 
       # - name: Publish gust
       #   working-directory: apps/gust
