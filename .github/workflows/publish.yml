@@ -25,6 +25,12 @@ jobs:
         working-directory: apps/gust_web/assets
         run: npm install
 
+      - name: Gust-web assets deploy
+        working-directory: apps/gust_web
+        run: |
+          mix deps.get
+          mix assets.deploy
+
       - name: Publish gust
         working-directory: apps/gust
         env:
@@ -34,6 +40,7 @@ jobs:
           mix deps.get
           mix hex.build
           mix hex.publish --yes --replace
+
       - name: Publish gust-web
         working-directory: apps/gust_web
         env:
