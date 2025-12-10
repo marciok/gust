@@ -1,9 +1,8 @@
 name: Hex Publish
 on:
   push:
-    branches: [ "remove-assets-from-package" ]
-    # tags:
-    #   - "v*.*.*"
+    tags:
+      - "v*.*.*"
 
 jobs:
   publish:
@@ -27,7 +26,6 @@ jobs:
         run: npm install
 
       - name: Gust-web assets deploy
-        # working-directory: apps/gust_web
         run: |
           mix deps.get
           mix assets.deploy
@@ -43,27 +41,26 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: release_assets/gust_static_assets.tar.gz
-          tag_name: 'v0.1.23' # Can remove this later 
           token: ${{ secrets.PUBLISH_RELEASE_GH }}
 
-      # - name: Publish gust
-      #   working-directory: apps/gust
-      #   env:
-      #     HEX_API_KEY: ${{ secrets.HEX }}
-      #     PUBLISH_DEP: true
-      #   run: |
-      #     mix deps.get
-      #     mix hex.build
-      #     mix hex.publish --yes --replace
-      #
-      # - name: Publish gust-web
-      #   working-directory: apps/gust_web
-      #   env:
-      #     HEX_API_KEY: ${{ secrets.HEX }}
-      #     PUBLISH_DEP: true
-      #   run: |
-      #     mix deps.get
-      #     mix assets.deploy
-      #     mix hex.build
-      #     mix hex.publish --yes --replace
+      - name: Publish gust
+        working-directory: apps/gust
+        env:
+          HEX_API_KEY: ${{ secrets.HEX }}
+          PUBLISH_DEP: true
+        run: |
+          mix deps.get
+          mix hex.build
+          mix hex.publish --yes --replace
+
+      - name: Publish gust-web
+        working-directory: apps/gust_web
+        env:
+          HEX_API_KEY: ${{ secrets.HEX }}
+          PUBLISH_DEP: true
+        run: |
+          mix deps.get
+          mix assets.deploy
+          mix hex.build
+          mix hex.publish --yes --replace
 
