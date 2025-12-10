@@ -43,7 +43,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: release_assets/gust_static_assets.tar.gz
-          name: 'v0.1.23' # Can remove this later 
+          tag_name: 'v0.1.23' # Can remove this later 
+          token: ${{ secrets.PUBLISH_RELEASE_GH }}
 
       # - name: Publish gust
       #   working-directory: apps/gust
