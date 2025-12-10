@@ -26,10 +26,22 @@ jobs:
         run: npm install
 
       - name: Gust-web assets deploy
-        working-directory: apps/gust_web
         run: |
           mix deps.get
           mix assets.deploy
+
+      - name: Archive built assets
+        run: |
+          mkdir -p release_assets
+          cp -r apps/gust_web/priv/static release_assets/
+          cd release_assets
+          tar -czf gust_static_assets.tar.gz static
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release_assets/gust_static_assets.tar.gz
+          token: ${{ secrets.PUBLISH_RELEASE_GH }}
 
       - name: Publish gust
         working-directory: apps/gust

@@ -34,6 +34,8 @@ cd "$GUST_APP"
 
 echo "==> Adding Gust + Plug dependencies to mix.exs"
 
+GUST_APP_VERSION="0.1.24"
+
 # Insert deps inside defp deps do ... end
 # sed is portable across Linux/macOS using this strategy
 # sed -i.bak 's/{:logger, "~> 1.0"}/{:logger, "~> 1.0"}/' mix.exs
@@ -44,7 +46,7 @@ sed -i.bak '/defp deps do/,/end/ c\
       {:plug_cowboy, "~> 2.7", only: :prod},\
       {:hackney, "~> 1.9"},\
       {:file_system, "~> 1.1", only: :dev},\
-      {:gust_web, "0.1.23"}\
+      {:gust_web, "0.1.24"}\
     ]\
   end
 ' mix.exs
@@ -63,6 +65,8 @@ mkdir -p config
 
 cat >config/config.exs <<EOF
 import Config
+
+config :gust, :app_name, :${GUST_APP}
 
 config :${GUST_APP},
   ecto_repos: [Gust.Repo]
@@ -257,6 +261,15 @@ defmodule HelloWorld do
   end
 end
 EOF
+
+echo "==> Downloading gust static assets"
+curl -L https://github.com/marciok/gust/releases/download/v${GUST_APP_VERSION}/gust_static_assets.tar.gz -o gust_static_assets.tar.gz
+
+echo "==> Extracting gust static assets"
+mkdir -p priv/static
+tar -xzf gust_static_assets.tar.gz -C priv/static/ --strip-components=1
+
+echo "Gust assets installed at priv/static/assets/gust"
 
 echo
 echo "==> Done!"

@@ -1,7 +1,7 @@
 defmodule GustWeb.MixProject do
   use Mix.Project
 
-  @version "0.1.23"
+  @version "0.1.24"
 
   def project do
     [
@@ -25,8 +25,6 @@ defmodule GustWeb.MixProject do
         links: %{"GitHub" => "https://github.com/marciok/gust"},
         files: [
           "lib",
-          "priv/static",
-          "priv/gettext",
           "mix.exs",
           "README.md"
         ]
