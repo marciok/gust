@@ -204,10 +204,16 @@
           <.form for={%{}} id="log-filter" phx-change="filter_logs" class="log-filter">
             <.input
               id="log-filter-level"
-              value={""}
+              value=""
               name="level"
               type="select"
-              options={[{"All", ""}, {"info", "info"}, {"debug", "debug"}]}
+              options={[
+                {"All", ""},
+                {"info", "info"},
+                {"debug", "debug"},
+                {"warning", "warning"},
+                {"error", "error"}
+              ]}
               class="select select-bordered select-sm w-28"
             />
           </.form>
