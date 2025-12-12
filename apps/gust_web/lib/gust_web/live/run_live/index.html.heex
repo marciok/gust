@@ -143,7 +143,6 @@
   </div>
 
   <% current = @selected_task || @selected_run %>
-
   <div :if={@selected_run} id="selected-run" class="dag-card mb-4">
     <section class="dag-card__header">
       <div class="dag-card__title-row">
@@ -199,7 +198,19 @@
 
     <section :if={@selected_task} class="dag-card__body">
       <div class="overflow-x-auto overflow-y-auto max-h-96">
-        <h4 class="pb-3 text-sm font-semibold text-slate-700">Logs</h4>
+        <div class="flex flex-wrap items-center justify-between pb-3 gap-3">
+          <h4 class="text-sm font-semibold text-slate-700">Logs</h4>
+          <.form for={%{}} id="log-filter" phx-change="filter_logs" class="log-filter">
+            <.input
+              id="log-filter-level"
+              value={""}
+              name="level"
+              type="select"
+              options={[{"All", ""}, {"info", "info"}, {"debug", "debug"}]}
+              class="select select-bordered select-sm w-28"
+            />
+          </.form>
+        </div>
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-slate-50">
             <tr>
@@ -247,7 +258,7 @@
                  }} <-
                   @streams.logs
               }
-              id={"log-#{id}"}
+              id={id}
             >
               <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-800 font-mono">
                 {inserted_at}

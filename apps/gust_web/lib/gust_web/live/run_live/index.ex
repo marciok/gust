@@ -102,6 +102,12 @@ defmodule GustWeb.RunLive.Index do
   end
 
   @impl true
+  def handle_event("filter_logs", %{"level" => level}, socket) do
+    task = socket.assigns.selected_task |> get_task_with_logs(level)
+    {:noreply, socket |> stream(:logs, task.logs, reset: true)}
+  end
+
+  @impl true
   def handle_event("restart_run", %{"id" => run_id}, socket) do
     run = Flows.get_run!(run_id)
     RunRestarter.restart_run(run)
@@ -190,4 +196,10 @@ defmodule GustWeb.RunLive.Index do
   defp selected_run_class(run_id, selected_run) do
     if run_id == selected_run.id, do: "selected-run", else: ""
   end
+
+  defp get_task_with_logs(task, ""),
+    do: Flows.get_task_by_name_run_with_logs(task.name, task.run_id)
+
+  defp get_task_with_logs(task, level),
+    do: Flows.get_task_by_name_run_with_logs(task.name, task.run_id, level)
 end

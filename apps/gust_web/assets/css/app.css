@@ -302,6 +302,16 @@
   }
 }
 
+@layer components {
+  .log-filter {
+    @apply flex items-center gap-2 text-xs text-slate-600 ml-auto;
+  }
+
+  .log-filter .fieldset {
+    @apply mb-0;
+  }
+}
+
 @layer utilities {
   code[class*="language-"],
   pre[class*="language-"] {

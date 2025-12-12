@@ -194,6 +194,12 @@ defmodule FlowsTest do
 
       assert Enum.map(fetched.logs, & &1.id) |> MapSet.new() ==
                MapSet.new([log_a.id, log_b.id])
+
+      debug_fetched = Flows.get_task_by_name_run_with_logs("target_task", run.id, "debug")
+      assert %Task{id: ^task_id} = debug_fetched
+
+      assert Enum.map(debug_fetched.logs, & &1.id) |> MapSet.new() ==
+               MapSet.new([log_b.id])
     end
   end
 

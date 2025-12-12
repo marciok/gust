@@ -215,18 +215,27 @@ defmodule GustWeb.RunLiveTest do
         live(conn, ~p"/dags/#{dag.name}/runs?run_id=#{run.id}&task_name=#{task.name}")
 
       log_html = run_live |> element("#log-list") |> render()
-      info_log_level = run_live |> element("#log-logs-#{log.id}") |> render()
-      warn_log_level = run_live |> element("#log-logs-#{log_warn.id}") |> render()
-      debug_log_level = run_live |> element("#log-logs-#{log_debug.id}") |> render()
+      info_log_level = run_live |> element("#logs-#{log.id}") |> render()
+
+      warn_log_level = run_live |> element("#logs-#{log_warn.id}") |> render()
+      debug_log_level = run_live |> element("#logs-#{log_debug.id}") |> render()
 
       error_log_level =
-        run_live |> element("#log-logs-#{log_error.id}") |> render()
+        run_live |> element("#logs-#{log_error.id}") |> render()
 
       assert log_html =~ log.content
       assert debug_log_level =~ "badge-info"
       assert info_log_level =~ "badge-info"
       assert warn_log_level =~ "badge-warning"
       assert error_log_level =~ "badge-error"
+
+      refute run_live
+             |> element("#log-filter")
+             |> render_change(%{"_target" => "level", "level" => "info"}) =~ "badge-warning"
+
+      assert run_live
+             |> element("#log-filter")
+             |> render_change(%{"_target" => "level", "level" => ""}) =~ "badge-warning"
     end
 
     test "click on non-existent task", %{

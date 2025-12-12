@@ -241,9 +241,18 @@ defmodule Gust.Flows do
   @doc """
   Gets a task by name and run ID, with logs preloaded.
   """
-  def get_task_by_name_run_with_logs(name, run_id) do
-    log_query = from l in Log, order_by: [asc: l.inserted_at]
-    get_task_by_name_run(name, run_id) |> Repo.preload(logs: log_query)
+  def get_task_by_name_run_with_logs(name, run_id, log_level \\ nil) do
+    base = from l in Log, order_by: [asc: l.inserted_at]
+
+    dynamic_filter =
+      if log_level,
+        do: dynamic([l], l.level == ^log_level),
+        else: true
+
+    log_query = where(base, ^dynamic_filter)
+
+    get_task_by_name_run(name, run_id)
+    |> Repo.preload(logs: log_query)
   end
 
   @doc """
