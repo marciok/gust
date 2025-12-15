@@ -41,6 +41,21 @@ defmodule DAG.RunRestarter.WorkerTest do
                Worker.start_dag(dag.id)
     end
 
+    test "do not start_child for errored dag", %{
+      dag: dag
+    } do
+      dag_def = %Gust.DAG.Definition{name: dag.name, error: %{message: "ops.."}}
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definition, fn _dag_id ->
+        {:ok, dag_def}
+      end)
+
+      start_link_supervised!(Worker)
+
+      assert is_nil(Worker.start_dag(dag.id))
+    end
+
     test "do not start_child for disabled dag, enqueue run", %{
       dag: dag
     } do
@@ -128,7 +143,24 @@ defmodule DAG.RunRestarter.WorkerTest do
   end
 
   describe "handle_info/2 for {:restart_enqueued, dag_id}" do
-    test "do not  enqueued runs for erroed dags", %{dag: dag} do
+    test "do not enqueued runs for errored definitions", %{dag: dag} do
+      dag_id = dag.id
+      dag_def = %Gust.DAG.Definition{error: %CompileError{description: "oops"}}
+      run_fixture(%{dag_id: dag_id, status: :enqueued})
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definition, fn ^dag_id ->
+        {:ok, dag_def}
+      end)
+
+      pid = start_link_supervised!(Worker)
+      Worker.restart_enqueued(dag.id)
+      Process.sleep(200)
+
+      refute_received {:DOWN, _, :process, ^pid, _}, 200
+    end
+
+    test "do not enqueued runs for dag with errors", %{dag: dag} do
       dag_id = dag.id
 
       Gust.DAGLoaderMock
