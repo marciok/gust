@@ -153,6 +153,26 @@ defmodule DAG.Parser.FileTest do
       assert "cannot compile module MyValidDag (errors have been logged)" ==
                dag_def.error.description
     end
+
+    test "file has unknown dag options", %{tmp_dir: dags_folder} do
+      dag_definition = """
+        defmodule MyValidDag do
+          use Gust.DSL, foo_bar: "hi", schedule: "* * * * *"
+
+        end
+      """
+
+      dag_name = "my_name"
+      file = "#{dags_folder}/#{dag_name}.ex"
+      File.write!(file, dag_definition)
+
+      {:ok, dag_def} = Parser.parse(file)
+
+      assert %{
+               message:
+                 "unknown keys [:foo_bar] in [foo_bar: \"hi\", schedule: \"* * * * *\"], the allowed keys are: [:schedule, :on_finished_callback]"
+             } = dag_def.error
+    end
   end
 
   describe "maybe_ex_file/1" do

@@ -52,13 +52,12 @@ defmodule Gust.DAG.Parser.File do
         {:error, error, messages} ->
           %{dag_def | error: error, messages: messages}
 
-        {:ok, mod, warnings} ->
+        {:ok, {mod, opts}, warnings} ->
           task_list = build_task_list(mod)
           all_tasks = list_tasks(mod)
 
           tasks = Graph.link_tasks(all_tasks) |> put_store_result(all_tasks)
 
-          options = options(mod)
           stages = build_stages(mod)
 
           :code.purge(mod)
@@ -70,7 +69,7 @@ defmodule Gust.DAG.Parser.File do
               messages: warnings,
               tasks: tasks,
               task_list: task_list,
-              options: options,
+              options: opts,
               stages: stages
           }
       end
@@ -100,9 +99,9 @@ defmodule Gust.DAG.Parser.File do
     |> List.flatten()
   end
 
-  defp options(mod) do
-    # TODO: Validate schedule..
-    mod.__dag_options__()
+  defp options!(mod) do
+    opts = mod.__dag_options__()
+    Keyword.validate!(opts, [:schedule, :on_finished_callback])
   end
 
   defp list_tasks(mod) do
@@ -130,17 +129,18 @@ defmodule Gust.DAG.Parser.File do
     code_result =
       Code.with_diagnostics(fn ->
         try do
-          compiled = Code.compile_file(file) |> List.first()
+          [{mod, _bin}] = Code.compile_file(file)
+          opts = options!(mod)
 
-          {:ok, compiled}
+          {:ok, mod, opts}
         rescue
           err -> {:error, err}
         end
       end)
 
     case code_result do
-      {{:ok, {dag_module, _}}, warnings} ->
-        {:ok, dag_module, warnings}
+      {{:ok, dag_module, opts}, warnings} ->
+        {:ok, {dag_module, opts}, warnings}
 
       {{:error, error_type}, errors} ->
         {:error, error_type, errors}
