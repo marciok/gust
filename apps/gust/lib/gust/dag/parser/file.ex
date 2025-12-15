@@ -52,9 +52,8 @@ defmodule Gust.DAG.Parser.File do
         {:error, error, messages} ->
           %{dag_def | error: error, messages: messages}
 
-        {:ok, {mod, opts}, warnings} ->
+        {:ok, {mod, opts, all_tasks}, warnings} ->
           task_list = build_task_list(mod)
-          all_tasks = list_tasks(mod)
 
           tasks = Graph.link_tasks(all_tasks) |> put_store_result(all_tasks)
 
@@ -88,7 +87,7 @@ defmodule Gust.DAG.Parser.File do
   end
 
   defp build_stages(mod) do
-    list_tasks(mod)
+    list_tasks!(mod)
     |> Graph.link_tasks()
     |> Graph.to_stages()
     |> then(fn {:ok, stages} -> stages end)
@@ -104,8 +103,15 @@ defmodule Gust.DAG.Parser.File do
     Keyword.validate!(opts, [:schedule, :on_finished_callback])
   end
 
-  defp list_tasks(mod) do
-    mod.__dag_tasks__()
+  defp list_tasks!(mod) do
+    tasks = mod.__dag_tasks__()
+
+    tasks
+    |> Enum.each(fn {_task_name, opts} ->
+      Keyword.validate!(opts, [:downstream, :store_result, :ctx])
+    end)
+
+    tasks
   end
 
   @impl true
@@ -131,16 +137,17 @@ defmodule Gust.DAG.Parser.File do
         try do
           [{mod, _bin}] = Code.compile_file(file)
           opts = options!(mod)
+          tasks = list_tasks!(mod)
 
-          {:ok, mod, opts}
+          {:ok, mod, opts, tasks}
         rescue
           err -> {:error, err}
         end
       end)
 
     case code_result do
-      {{:ok, dag_module, opts}, warnings} ->
-        {:ok, {dag_module, opts}, warnings}
+      {{:ok, dag_module, opts, tasks}, warnings} ->
+        {:ok, {dag_module, opts, tasks}, warnings}
 
       {{:error, error_type}, errors} ->
         {:error, error_type, errors}

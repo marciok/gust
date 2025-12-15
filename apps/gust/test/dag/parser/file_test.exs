@@ -135,7 +135,7 @@ defmodule DAG.Parser.FileTest do
 
     test "file has code errors", %{tmp_dir: dags_folder} do
       dag_definition = """
-        defmodule MyValidDag do
+        defmodule CompiledErroredDag do
           use Gust.DSL
 
           kaboomm
@@ -150,8 +150,32 @@ defmodule DAG.Parser.FileTest do
       [error_message] = dag_def.messages
       assert "undefined variable \"kaboomm\"" == error_message.message
 
-      assert "cannot compile module MyValidDag (errors have been logged)" ==
+      assert "cannot compile module CompiledErroredDag (errors have been logged)" ==
                dag_def.error.description
+    end
+
+    test "file has unknown task options", %{tmp_dir: dags_folder} do
+      dag_definition = """
+        defmodule MyInvalidTaskDag do
+          use Gust.DSL, schedule: "* * * * *"
+
+          task :bye, foo_bar: "hi" do
+            # saying bye
+          end
+
+        end
+      """
+
+      dag_name = "my_name"
+      file = "#{dags_folder}/#{dag_name}.ex"
+      File.write!(file, dag_definition)
+
+      {:ok, dag_def} = Parser.parse(file)
+
+      assert %{
+               message:
+                 "unknown keys [:foo_bar] in [foo_bar: \"hi\"], the allowed keys are: [:downstream, :store_result, :ctx]"
+             } = dag_def.error
     end
 
     test "file has unknown dag options", %{tmp_dir: dags_folder} do
