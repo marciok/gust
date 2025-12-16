@@ -50,7 +50,7 @@ defmodule Gust.DAG.RunRestarter.Worker do
   @impl true
   def handle_cast({:restart_enqueued, dag_id}, state) do
     with {:ok, dag_def} <- Loader.get_definition(dag_id), false <- Definition.errors?(dag_def) do
-      get_runs([dag_id], :enqueued) |> Enum.each(&start_run(&1, {:ok, dag_def}))
+      get_runs([dag_id], [:enqueued]) |> Enum.each(&start_run(&1, {:ok, dag_def}))
     end
 
     {:noreply, state}
@@ -121,7 +121,7 @@ defmodule Gust.DAG.RunRestarter.Worker do
     dag_ids = Map.keys(dags)
 
     runs =
-      get_runs(dag_ids, :running)
+      get_runs(dag_ids, [:running, :retrying])
       |> Stream.filter(fn run ->
         case dags[run.dag_id] do
           {:ok, dag_def} ->
@@ -137,9 +137,8 @@ defmodule Gust.DAG.RunRestarter.Worker do
     {:reply, runs, state}
   end
 
-  defp get_runs(dag_ids, status) do
-    # TODO: Get runs with retrying status as well
-    Flows.get_running_runs_by_dag(dag_ids, status)
+  defp get_runs(dag_ids, statuses) do
+    Flows.get_running_runs_by_dag(dag_ids, statuses)
   end
 
   defp start_run(run, {:ok, dag_def}) do

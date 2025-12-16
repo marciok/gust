@@ -110,22 +110,22 @@ defmodule Gust.Flows do
   end
 
   @doc """
-  Gets runs for a list of DAG IDs with the given status.
+  Gets runs for a list of DAG IDs with the given statuses.
 
   ## Parameters
 
     - `dag_ids`: List of DAG IDs to filter runs by.
-    - `status`: The status to filter runs by (e.g., "running").
+    - `statuses`: List of statuses (atoms) to filter runs by (e.g., [:running, :queued]).
 
   ## Examples
 
-      iex> get_running_runs_by_dag([1, 2, 3], "running")
+      iex> get_running_runs_by_dag([1, 2, 3], [:running, :retrying])
       [%Run{}, ...]
   """
-  def get_running_runs_by_dag(dag_ids, status) do
+  def get_running_runs_by_dag(dag_ids, statuses) do
     Repo.all(
       from r in Run,
-        where: r.dag_id in ^dag_ids and r.status == ^status
+        where: r.dag_id in ^dag_ids and r.status in ^statuses
     )
   end
 

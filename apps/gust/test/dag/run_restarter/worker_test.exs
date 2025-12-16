@@ -222,14 +222,20 @@ defmodule DAG.RunRestarter.WorkerTest do
 
     test "restarts running runs for given dags", %{dag: dag, restart_run: restart_run} do
       dag_def = %Gust.DAG.Definition{error: %{}}
+      restart_retrying_run = run_fixture(%{dag_id: dag.id, status: :retrying})
 
       Gust.DAGRunnerSupervisorMock
       |> expect(:start_child, fn ^restart_run, ^dag_def -> {:ok, spawn(fn -> :ok end)} end)
+      |> expect(:start_child, fn ^restart_retrying_run, ^dag_def ->
+        {:ok, spawn(fn -> :ok end)}
+      end)
 
       pid = start_link_supervised!(Worker)
       ref = Process.monitor(pid)
 
-      assert [^restart_run] = Worker.restart_dags(%{dag.id => {:ok, dag_def}})
+      assert [^restart_run, ^restart_retrying_run] =
+               Worker.restart_dags(%{dag.id => {:ok, dag_def}})
+
       refute_receive {:DOWN, ^ref, :process, ^pid, :normal}, 200
     end
   end
