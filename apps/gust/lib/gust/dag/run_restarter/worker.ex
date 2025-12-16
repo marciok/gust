@@ -1,6 +1,6 @@
 defmodule Gust.DAG.RunRestarter.Worker do
   @moduledoc false
-  alias Gust.DAG.{Graph, Loader, RunnerSupervisor}
+  alias Gust.DAG.{Graph, Loader, RunnerSupervisor, Definition}
   alias Gust.Flows
   @behaviour Gust.DAG.RunRestarter
   use GenServer
@@ -49,8 +49,7 @@ defmodule Gust.DAG.RunRestarter.Worker do
 
   @impl true
   def handle_cast({:restart_enqueued, dag_id}, state) do
-    with {:ok, dag_def} <- Loader.get_definition(dag_id),
-         true <- map_size(dag_def.error) == 0 do
+    with {:ok, dag_def} <- Loader.get_definition(dag_id), false <- Definition.errors?(dag_def) do
       get_runs([dag_id], :enqueued) |> Enum.each(&start_run(&1, {:ok, dag_def}))
     end
 
@@ -63,11 +62,12 @@ defmodule Gust.DAG.RunRestarter.Worker do
 
     run =
       if Flows.get_dag!(dag_id).enabled do
-        {:ok, dag_def} = Loader.get_definition(run.dag_id)
-
-        if map_size(dag_def.error) == 0 do
+        with {:ok, dag_def} <- Loader.get_definition(run.dag_id),
+             false <- Definition.errors?(dag_def) do
           {:ok, _pid} = RunnerSupervisor.start_child(run, dag_def)
           run
+        else
+          true -> nil
         end
       else
         {:ok, run} = Flows.update_run_status(run, :enqueued)
@@ -125,7 +125,7 @@ defmodule Gust.DAG.RunRestarter.Worker do
       |> Stream.filter(fn run ->
         case dags[run.dag_id] do
           {:ok, dag_def} ->
-            map_size(dag_def.error) == 0
+            Definition.errors?(dag_def) == false
 
           {:error, _err} ->
             false
@@ -138,7 +138,7 @@ defmodule Gust.DAG.RunRestarter.Worker do
   end
 
   defp get_runs(dag_ids, status) do
-    # TODO: Get retying status as well
+    # TODO: Get runs with retrying status as well
     Flows.get_running_runs_by_dag(dag_ids, status)
   end
 

@@ -21,4 +21,6 @@ defmodule Gust.DAG.Definition do
           file_path: String.t(),
           options: keyword()
         }
+
+  def errors?(%__MODULE__{error: error}), do: map_size(error) > 0
 end
