@@ -27,7 +27,7 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
       })
 
     assert breadcrumbs |> element("#dag-runs-link") |> render_click()
-    assert_redirect breadcrumbs, "/dags/#{dag_def.name}/runs"
+    assert_redirect breadcrumbs, "/dags/#{dag_def.name}/dashboard"
 
     {:ok, breadcrumbs, _html} =
       live_component_isolated(conn, GustWeb.BreadcrumbsComponent, %{
@@ -51,7 +51,7 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
       })
 
     assert breadcrumbs |> element("#dag-run-link") |> render_click()
-    assert_redirect breadcrumbs, "/dags/#{dag_def.name}/runs?run_id=#{run.id}"
+    assert_redirect breadcrumbs, "/dags/#{dag_def.name}/dashboard?run_id=#{run.id}"
   end
 
   test "dag, run and task is provided", %{conn: conn, dag: dag, dag_def: dag_def} do
@@ -68,6 +68,6 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
     assert breadcrumbs |> element("#dag-run-task-link") |> render_click()
 
     assert_redirect breadcrumbs,
-                    "/dags/#{dag_def.name}/runs?run_id=#{run.id}&task_name=#{task.name}"
+                    "/dags/#{dag_def.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}"
   end
 end

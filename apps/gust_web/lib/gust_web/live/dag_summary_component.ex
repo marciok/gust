@@ -65,7 +65,7 @@ defmodule GustWeb.DagSummaryComponent do
         </div>
         <div class="dag-card__title-row">
           <h2 class="dag-card__title">
-            <.link navigate={~p"/dags/#{@dag.name}/runs"}>{@dag.name}</.link>
+            <.link navigate={~p"/dags/#{@dag.name}/dashboard"}>{@dag.name}</.link>
           </h2>
 
           <div class="dag-card__actions">

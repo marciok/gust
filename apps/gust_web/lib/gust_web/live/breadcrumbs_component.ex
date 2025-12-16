@@ -12,19 +12,19 @@ defmodule GustWeb.BreadcrumbsComponent do
           </.link>
         </li>
         <li>
-          <.link id="dag-runs-link" navigate={~p"/dags/#{@dag_def.name}/runs"}>
+          <.link id="dag-runs-link" navigate={~p"/dags/#{@dag_def.name}/dashboard"}>
             {@dag_def.name}
           </.link>
         </li>
         <li :if={@run}>
-          <.link id="dag-run-link" navigate={~p"/dags/#{@dag_def.name}/runs?run_id=#{@run.id}"}>
+          <.link id="dag-run-link" navigate={~p"/dags/#{@dag_def.name}/dashboard?run_id=#{@run.id}"}>
             {@run.id}
           </.link>
         </li>
         <li :if={@task}>
           <.link
             id="dag-run-task-link"
-            navigate={~p"/dags/#{@dag_def.name}/runs?run_id=#{@run.id}&task_name=#{@task.name}"}
+            navigate={~p"/dags/#{@dag_def.name}/dashboard?run_id=#{@run.id}&task_name=#{@task.name}"}
           >
             {@task.name}
           </.link>

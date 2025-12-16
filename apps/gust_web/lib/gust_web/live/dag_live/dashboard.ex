@@ -1,4 +1,4 @@
-defmodule GustWeb.RunLive.Index do
+defmodule GustWeb.DagLive.Dashboard do
   alias Gust.DAG.{Loader, RunRestarter, Terminator}
   alias Gust.Flows
   alias Gust.Flows.Run

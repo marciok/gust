@@ -32,6 +32,9 @@
           <span>Run History</span>
         </h2>
 
+        <.link navigate={~p"/dags/"}>
+          History list
+        </.link>
         <div class="dag-card__actions run-history__actions">
           <%= if @selected_task && (@selected_task.status in [:failed, :succeeded]) do %>
             <button
@@ -92,7 +95,9 @@
           >
             <%= for {id, %Run{status: status, id: run_id, tasks: tasks} = run} <- @streams.runs do %>
               <div class={"px-1 rounded #{selected_run_class(run_id, @selected_run)}"} id={id}>
-                <.link navigate={~p"/dags/#{@dag_def.name}/runs?run_id=#{run_id}&page=#{@page}"}>
+                <.link navigate={
+                  ~p"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&page=#{@page}"
+                }>
                   <div class="flex justify-center mb-2 pt-2">
                     <.task_cell id={"run-status-cell-#{run_id}"} status={status} />
                   </div>
@@ -105,7 +110,7 @@
                     run_id={run_id}
                     selected_task={@selected_task}
                     navigate={
-                      ~p"/dags/#{@dag_def.name}/runs?run_id=#{run_id}&task_name=#{name}&page=#{@page}"
+                      ~p"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&task_name=#{name}&page=#{@page}"
                     }
                     data-testid={"#{name}-at-run-#{run_id}-link"}
                   />
@@ -122,7 +127,7 @@
         <.link
           id="next-page"
           class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
-          navigate={~p"/dags/#{@dag_def.name}/runs?page=#{handle_page(@page, :next)}"}
+          navigate={~p"/dags/#{@dag_def.name}/dashboard?page=#{handle_page(@page, :next)}"}
         >
           <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Older
         </.link>
@@ -134,7 +139,7 @@
         <.link
           id="prev-page"
           class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900 text-xs font-medium text-slate-600"
-          navigate={~p"/dags/#{@dag_def.name}/runs?page=#{handle_page(@page, :prev)}"}
+          navigate={~p"/dags/#{@dag_def.name}/dashboard?page=#{handle_page(@page, :prev)}"}
         >
           Newer <.icon name="hero-arrow-right-solid" class="h-3 w-3" />
         </.link>

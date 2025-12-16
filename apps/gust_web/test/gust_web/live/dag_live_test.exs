@@ -83,7 +83,7 @@ defmodule GustWeb.DagLiveTest do
     test "navigate to runs afger click into a dag", %{conn: conn, dag: dag} do
       {:ok, index_live, _html} = live(conn, ~p"/dags")
 
-      assert has_element?(index_live, ~s{[href="/dags/#{dag.name}/runs"]})
+      assert has_element?(index_live, ~s{[href="/dags/#{dag.name}/dashboard"]})
     end
 
     test "click on dag run trigger", %{conn: conn, dag: dag} do

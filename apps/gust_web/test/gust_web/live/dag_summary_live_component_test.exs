@@ -88,10 +88,10 @@ defmodule GustWeb.DagSummaryLiveComponentTest do
         dag_def: dag_def
       })
 
-    assert dag_summary |> has_element?(~s{[href="/dags/#{dag.name}/runs"]})
-    dag_summary |> element(~s{[href="/dags/#{dag.name}/runs"]}) |> render_click()
+    assert dag_summary |> has_element?(~s{[href="/dags/#{dag.name}/dashboard"]})
+    dag_summary |> element(~s{[href="/dags/#{dag.name}/dashboard"]}) |> render_click()
 
-    assert_redirect dag_summary, "/dags/#{dag.name}/runs"
+    assert_redirect dag_summary, "/dags/#{dag.name}/dashboard"
   end
 
   # test "trigger dag runs for enabled dag", %{conn: conn, dag: dag, dag_def: dag_def} do
