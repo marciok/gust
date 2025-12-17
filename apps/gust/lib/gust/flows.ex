@@ -351,7 +351,15 @@ defmodule Gust.Flows do
   end
 
   @doc """
-  Count all runs with given dag_id.
+  Returns the number of runs associated with a given DAG.
+
+  ## Parameters
+
+    * `dag_id` - The identifier of the DAG whose runs should be counted.
+
+  ## Returns
+
+    * The integer count of runs associated with the specified DAG.
   """
   def count_runs_on_dag(dag_id) do
     Repo.aggregate(from(r in Run, where: r.dag_id == ^dag_id), :count)
