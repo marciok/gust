@@ -317,6 +317,25 @@ defmodule Gust.Flows do
     )
   end
 
+  @doc """
+  Gets a DAG by name with its runs preloaded, with pagination for runs.
+
+  The DAG is looked up by its `name`. The associated runs are ordered by
+  descending `inserted_at` and paginated using the provided `limit` and
+  `offset` keyword arguments.
+
+  ## Parameters
+
+    * `name` - The name of the DAG to retrieve.
+    * `limit` - The maximum number of runs to preload.
+    * `offset` - The number of runs to skip before starting to preload.
+
+  ## Returns
+
+  Returns the `%Dag{}` struct with its `:runs` association preloaded according
+  to the given pagination options. Raises `Ecto.NoResultsError` if no DAG
+  with the given name exists.
+  """
   def get_dag_by_name_with_runs!(name, limit: limit, offset: offset) do
     runs_q =
       from r in Run,
