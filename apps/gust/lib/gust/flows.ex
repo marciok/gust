@@ -384,7 +384,19 @@ defmodule Gust.Flows do
   end
 
   @doc """
-  Deletes a run.
+  Deletes the given run from the database.
+
+  The `run` must be a persisted `%Run{}` struct. This function delegates to
+  `Repo.delete/1` and returns `{:ok, %Run{}}` if the run is successfully
+  deleted, or `{:error, %Ecto.Changeset{}}` if the delete operation fails.
+
+  ## Examples
+
+      iex> delete_run(run)
+      {:ok, %Run{}}
+
+      iex> delete_run(invalid_run)
+      {:error, %Ecto.Changeset{}}
   """
   def delete_run(%Run{} = run) do
     Repo.delete(run)
