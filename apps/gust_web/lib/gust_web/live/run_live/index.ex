@@ -15,7 +15,7 @@ defmodule GustWeb.RunLive.Index do
 
     dag = load_dag(page, page_size, name)
     runs_count = Flows.count_runs_on_dag(dag.id)
-    pages = Integer.floor_div(runs_count, page_size) + 1
+    pages = div(runs_count + page_size - 1, page_size)
 
     if connected?(socket) do
       PubSub.subscribe_runs_for_dag(dag.id)
