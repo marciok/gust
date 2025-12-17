@@ -240,6 +240,13 @@ defmodule Gust.Flows do
 
   @doc """
   Gets a task by name and run ID, with logs preloaded.
+
+  Accepts an optional `log_level` argument:
+
+    * When `log_level` is `nil` (the default), all logs for the task are preloaded.
+    * When `log_level` is provided, only logs with the matching level are preloaded.
+
+  Logs are ordered by their `inserted_at` timestamp in ascending order.
   """
   def get_task_by_name_run_with_logs(name, run_id, log_level \\ nil) do
     base = from l in Log, order_by: [asc: l.inserted_at]
