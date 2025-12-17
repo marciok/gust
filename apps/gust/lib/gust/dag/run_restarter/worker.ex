@@ -1,6 +1,6 @@
 defmodule Gust.DAG.RunRestarter.Worker do
   @moduledoc false
-  alias Gust.DAG.{Graph, Loader, RunnerSupervisor, Definition}
+  alias Gust.DAG.{Definition, Graph, Loader, RunnerSupervisor}
   alias Gust.Flows
   @behaviour Gust.DAG.RunRestarter
   use GenServer
