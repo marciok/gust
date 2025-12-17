@@ -93,25 +93,4 @@ defmodule GustWeb.DagSummaryLiveComponentTest do
 
     assert_redirect dag_summary, "/dags/#{dag.name}/dashboard"
   end
-
-  # test "trigger dag runs for enabled dag", %{conn: conn, dag: dag, dag_def: dag_def} do
-  #   test_pid = self()
-  #
-  #   trigger_callback = fn ->
-  #     send(test_pid, @triggered_messsage)
-  #     nil
-  #   end
-  #
-  #   {:ok, dag_summary, _html} =
-  #     live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
-  #       id: dag.id,
-  #       dag: dag,
-  #       dag_def: dag_def,
-  #       on_run_triggered: trigger_callback
-  #     })
-  #
-  #   dag_summary |> element("#trigger-dag-run-#{dag.id}") |> render_click()
-  #
-  #   assert_receive @triggered_messsage, 200
-  # end
 end
