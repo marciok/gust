@@ -28,7 +28,7 @@ defmodule FlowsTest do
       assert Flows.get_dag_by_name(name) == dag
     end
 
-    test "run_dag!/1 delete dag" do
+    test "delete_run/1 deletes a run" do
       name = "my_name_for_dag_run"
       dag = dag_fixture(%{name: name})
       run = run_fixture(%{dag_id: dag.id})
