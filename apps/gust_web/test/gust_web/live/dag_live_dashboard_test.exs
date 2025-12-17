@@ -229,7 +229,6 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert warn_log_level =~ "badge-warning"
       assert error_log_level =~ "badge-error"
 
-      # TODO: Rename to dashboard_live
       refute dashboard_live
              |> element("#log-filter")
              |> render_change(%{"_target" => "level", "level" => "info"}) =~ "badge-warning"
