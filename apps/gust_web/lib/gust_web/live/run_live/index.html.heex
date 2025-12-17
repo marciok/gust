@@ -1,0 +1,69 @@
+<Layouts.app flash={@flash}>
+  <div class="breadcrumbs text-sm bg-white rounded shadow-sm overflow-hidden mb-4 px-4">
+    <ul>
+      <li>
+        <.link
+          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
+          navigate={~p"/dags/#{@dag.name}/dashboard"}
+        >
+          <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Back
+        </.link>
+      </li>
+    </ul>
+  </div>
+
+  <div class="dag-card mb-4">
+    <section class="dag-card__header ">
+      <div class="dag-card__title-row">
+        <h2 class="dag-card__title dag-card__title-with-icon">
+          <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
+          <span>Runs for {@dag.name}: </span>
+          <span>{@runs_count}</span>
+        </h2>
+        <.form for={%{}} id="page-select" phx-change="select_page" class="">
+          <.input
+            id="pages"
+            value={@page}
+            name="page"
+            type="select"
+            options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
+            class="select select-bordered select-sm w-28"
+          />
+        </.form>
+      </div>
+    </section>
+
+    <div class="dag-card__body">
+      <div class="overflow-x-auto">
+        <.table id="runs" rows={@streams.runs}>
+          <:col :let={{_id, run}} label="Status">
+            <.status_badge status={run.status} data-testid="status-badge" />
+          </:col>
+          
+<!-- TODO: forcing to_string, later add default time format --> --%>
+          <:col :let={{_id, run}} label="Inserted At">
+            {to_string(run.inserted_at)}
+          </:col>
+
+          <:col :let={{_id, run}} label="Updated At">
+            {to_string(run.updated_at)}
+          </:col>
+
+          <:col :let={{_id, run}} label="ID">
+            {run.id}
+          </:col>
+
+          <:action :let={{id, run}}>
+            <.link
+              phx-click={JS.push("delete", value: %{id: run.id}) |> hide("##{id}")}
+              data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
+              class="btn btn-sm btn-soft btn-error"
+            >
+              Delete
+            </.link>
+          </:action>
+        </.table>
+      </div>
+    </div>
+  </div>
+</Layouts.app>

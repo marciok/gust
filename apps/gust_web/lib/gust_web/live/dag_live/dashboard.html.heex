@@ -32,9 +32,6 @@
           <span>Run History</span>
         </h2>
 
-        <.link navigate={~p"/dags/"}>
-          History list
-        </.link>
         <div class="dag-card__actions run-history__actions">
           <%= if @selected_task && (@selected_task.status in [:failed, :succeeded]) do %>
             <button
@@ -133,7 +130,11 @@
         </.link>
       </div>
 
-      <span class="text-xs text-slate-600">page: {@page}</span>
+      <div class="flex items-center gap-3 text-xs font-medium text-slate-600">
+        <span class="text-xs text-slate-600">
+          page: {@page}
+        </span>
+      </div>
 
       <div class="flex gap-2 items-center">
         <.link
@@ -144,6 +145,16 @@
           Newer <.icon name="hero-arrow-right-solid" class="h-3 w-3" />
         </.link>
       </div>
+    </div>
+
+    <div class="flex pb-3 justify-center bg-slate-50">
+      <.link
+        id="all-runs"
+        class="btn btn-xs btn-soft"
+        navigate={~p"/dags/#{@dag_def.name}/runs?page_size=30&page=1"}
+      >
+        <.icon name="hero-queue-list" class="h-3 w-3" />All runs
+      </.link>
     </div>
   </div>
 

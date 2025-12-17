@@ -27,6 +27,7 @@ defmodule GustWeb.Router do
     get "/", PageController, :home
     live "/dags", DagLive.Index, :index
     live "/dags/:name/dashboard", DagLive.Dashboard, :dashboard
+    live "/dags/:name/runs", RunLive.Index, :index
     live "/secrets", SecretLive.Index, :index
     live "/secrets/new", SecretLive.Index, :new
     live "/secrets/:id/edit", SecretLive.Index, :edit
