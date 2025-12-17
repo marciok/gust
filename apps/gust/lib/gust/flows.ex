@@ -310,6 +310,27 @@ defmodule Gust.Flows do
     )
   end
 
+  def get_dag_by_name_with_runs!(name, limit: limit, offset: offset) do
+    runs_q =
+      from r in Run,
+        order_by: [desc: r.inserted_at],
+        limit: ^limit,
+        offset: ^offset
+
+    Repo.one!(
+      from d in Dag,
+        where: d.name == ^name,
+        preload: [runs: ^runs_q]
+    )
+  end
+
+  @doc """
+  Count all runs with given dag_id.
+  """
+  def count_runs_on_dag(dag_id) do
+    Repo.aggregate(from(r in Run, where: r.dag_id == ^dag_id), :count)
+  end
+
   @doc """
   Lists all secrets.
   """
@@ -353,5 +374,12 @@ defmodule Gust.Flows do
   """
   def delete_secret(%Secret{} = secret) do
     Repo.delete(secret)
+  end
+
+  @doc """
+  Deletes a run.
+  """
+  def delete_run(%Run{} = run) do
+    Repo.delete(run)
   end
 end

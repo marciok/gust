@@ -28,6 +28,16 @@ defmodule FlowsTest do
       assert Flows.get_dag_by_name(name) == dag
     end
 
+    test "run_dag!/1 delete dag" do
+      name = "my_name_for_dag_run"
+      dag = dag_fixture(%{name: name})
+      run = run_fixture(%{dag_id: dag.id})
+
+      Flows.delete_run(run)
+
+      assert [] = Flows.get_dag_with_runs!(dag.id).runs
+    end
+
     test "delete_dag!/1 delete dag" do
       name = "my_name"
       dag = dag_fixture(%{name: name})
@@ -84,6 +94,37 @@ defmodule FlowsTest do
         end
 
       assert run_ids == [run_3.id, run_2.id]
+    end
+
+    test "get_dag_by_name_with_runs!/1 returns dag with runs honoring pagination" do
+      dag = dag_fixture(%{name: "paginated"})
+      other_dag = dag_fixture(%{name: "other"})
+
+      run_newest = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2023-01-01 00:00:00]})
+      run_middle = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2022-01-01 00:00:00]})
+      run_oldest = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2021-01-01 00:00:00]})
+
+      _ignored_run = run_fixture(%{dag_id: other_dag.id, inserted_at: ~N[2024-01-01 00:00:00]})
+
+      paged_dag = Flows.get_dag_by_name_with_runs!(dag.name, limit: 2, offset: 0)
+
+      assert [run_newest.id, run_middle.id] ==
+               Enum.map(paged_dag.runs, & &1.id)
+
+      next_page = Flows.get_dag_by_name_with_runs!(dag.name, limit: 1, offset: 2)
+      assert [run_oldest.id] == Enum.map(next_page.runs, & &1.id)
+    end
+
+    test "count_runs_on_dag/1 returns number of runs for given dag" do
+      dag = dag_fixture(%{name: "count_me"})
+      other_dag = dag_fixture(%{name: "do_not_count"})
+
+      run_fixture(%{dag_id: dag.id})
+      run_fixture(%{dag_id: dag.id})
+      run_fixture(%{dag_id: other_dag.id})
+
+      assert Flows.count_runs_on_dag(dag.id) == 2
+      assert Flows.count_runs_on_dag(other_dag.id) == 1
     end
   end
 
