@@ -240,6 +240,13 @@ defmodule Gust.Flows do
 
   @doc """
   Gets a task by name and run ID, with logs preloaded.
+
+  Accepts an optional `log_level` argument:
+
+    * When `log_level` is `nil` (the default), all logs for the task are preloaded.
+    * When `log_level` is provided, only logs with the matching level are preloaded.
+
+  Logs are ordered by their `inserted_at` timestamp in ascending order.
   """
   def get_task_by_name_run_with_logs(name, run_id, log_level \\ nil) do
     base = from l in Log, order_by: [asc: l.inserted_at]
@@ -310,6 +317,25 @@ defmodule Gust.Flows do
     )
   end
 
+  @doc """
+  Gets a DAG by name with its runs preloaded, with pagination for runs.
+
+  The DAG is looked up by its `name`. The associated runs are ordered by
+  descending `inserted_at` and paginated using the provided `limit` and
+  `offset` keyword arguments.
+
+  ## Parameters
+
+    * `name` - The name of the DAG to retrieve.
+    * `limit` - The maximum number of runs to preload.
+    * `offset` - The number of runs to skip before starting to preload.
+
+  ## Returns
+
+  Returns the `%Dag{}` struct with its `:runs` association preloaded according
+  to the given pagination options. Raises `Ecto.NoResultsError` if no DAG
+  with the given name exists.
+  """
   def get_dag_by_name_with_runs!(name, limit: limit, offset: offset) do
     runs_q =
       from r in Run,
@@ -325,7 +351,15 @@ defmodule Gust.Flows do
   end
 
   @doc """
-  Count all runs with given dag_id.
+  Returns the number of runs associated with a given DAG.
+
+  ## Parameters
+
+    * `dag_id` - The identifier of the DAG whose runs should be counted.
+
+  ## Returns
+
+    * The integer count of runs associated with the specified DAG.
   """
   def count_runs_on_dag(dag_id) do
     Repo.aggregate(from(r in Run, where: r.dag_id == ^dag_id), :count)
@@ -377,7 +411,19 @@ defmodule Gust.Flows do
   end
 
   @doc """
-  Deletes a run.
+  Deletes the given run from the database.
+
+  The `run` must be a persisted `%Run{}` struct. This function delegates to
+  `Repo.delete/1` and returns `{:ok, %Run{}}` if the run is successfully
+  deleted, or `{:error, %Ecto.Changeset{}}` if the delete operation fails.
+
+  ## Examples
+
+      iex> delete_run(run)
+      {:ok, %Run{}}
+
+      iex> delete_run(invalid_run)
+      {:error, %Ecto.Changeset{}}
   """
   def delete_run(%Run{} = run) do
     Repo.delete(run)
