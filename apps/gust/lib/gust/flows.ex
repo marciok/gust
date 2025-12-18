@@ -110,22 +110,22 @@ defmodule Gust.Flows do
   end
 
   @doc """
-  Gets runs for a list of DAG IDs with the given status.
+  Gets runs for a list of DAG IDs with the given statuses.
 
   ## Parameters
 
     - `dag_ids`: List of DAG IDs to filter runs by.
-    - `status`: The status to filter runs by (e.g., "running").
+    - `statuses`: List of statuses (atoms) to filter runs by (e.g., [:running, :queued]).
 
   ## Examples
 
-      iex> get_running_runs_by_dag([1, 2, 3], "running")
+      iex> get_running_runs_by_dag([1, 2, 3], [:running, :retrying])
       [%Run{}, ...]
   """
-  def get_running_runs_by_dag(dag_ids, status) do
+  def get_running_runs_by_dag(dag_ids, statuses) do
     Repo.all(
       from r in Run,
-        where: r.dag_id in ^dag_ids and r.status == ^status
+        where: r.dag_id in ^dag_ids and r.status in ^statuses
     )
   end
 
@@ -240,10 +240,26 @@ defmodule Gust.Flows do
 
   @doc """
   Gets a task by name and run ID, with logs preloaded.
+
+  Accepts an optional `log_level` argument:
+
+    * When `log_level` is `nil` (the default), all logs for the task are preloaded.
+    * When `log_level` is provided, only logs with the matching level are preloaded.
+
+  Logs are ordered by their `inserted_at` timestamp in ascending order.
   """
-  def get_task_by_name_run_with_logs(name, run_id) do
-    log_query = from l in Log, order_by: [asc: l.inserted_at]
-    get_task_by_name_run(name, run_id) |> Repo.preload(logs: log_query)
+  def get_task_by_name_run_with_logs(name, run_id, log_level \\ nil) do
+    base = from l in Log, order_by: [asc: l.inserted_at]
+
+    dynamic_filter =
+      if log_level,
+        do: dynamic([l], l.level == ^log_level),
+        else: true
+
+    log_query = where(base, ^dynamic_filter)
+
+    get_task_by_name_run(name, run_id)
+    |> Repo.preload(logs: log_query)
   end
 
   @doc """
@@ -302,6 +318,54 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Gets a DAG by name with its runs preloaded, with pagination for runs.
+
+  The DAG is looked up by its `name`. The associated runs are ordered by
+  descending `inserted_at` and paginated using the provided `limit` and
+  `offset` keyword arguments.
+
+  ## Parameters
+
+    * `name` - The name of the DAG to retrieve.
+    * `limit` - The maximum number of runs to preload.
+    * `offset` - The number of runs to skip before starting to preload.
+
+  ## Returns
+
+  Returns the `%Dag{}` struct with its `:runs` association preloaded according
+  to the given pagination options. Raises `Ecto.NoResultsError` if no DAG
+  with the given name exists.
+  """
+  def get_dag_by_name_with_runs!(name, limit: limit, offset: offset) do
+    runs_q =
+      from r in Run,
+        order_by: [desc: r.inserted_at],
+        limit: ^limit,
+        offset: ^offset
+
+    Repo.one!(
+      from d in Dag,
+        where: d.name == ^name,
+        preload: [runs: ^runs_q]
+    )
+  end
+
+  @doc """
+  Returns the number of runs associated with a given DAG.
+
+  ## Parameters
+
+    * `dag_id` - The identifier of the DAG whose runs should be counted.
+
+  ## Returns
+
+    * The integer count of runs associated with the specified DAG.
+  """
+  def count_runs_on_dag(dag_id) do
+    Repo.aggregate(from(r in Run, where: r.dag_id == ^dag_id), :count)
+  end
+
+  @doc """
   Lists all secrets.
   """
   def list_secrets do
@@ -344,5 +408,24 @@ defmodule Gust.Flows do
   """
   def delete_secret(%Secret{} = secret) do
     Repo.delete(secret)
+  end
+
+  @doc """
+  Deletes the given run from the database.
+
+  The `run` must be a persisted `%Run{}` struct. This function delegates to
+  `Repo.delete/1` and returns `{:ok, %Run{}}` if the run is successfully
+  deleted, or `{:error, %Ecto.Changeset{}}` if the delete operation fails.
+
+  ## Examples
+
+      iex> delete_run(run)
+      {:ok, %Run{}}
+
+      iex> delete_run(invalid_run)
+      {:error, %Ecto.Changeset{}}
+  """
+  def delete_run(%Run{} = run) do
+    Repo.delete(run)
   end
 end

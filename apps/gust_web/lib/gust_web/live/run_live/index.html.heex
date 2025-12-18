@@ -1,321 +1,69 @@
 <Layouts.app flash={@flash}>
-  <div
-    :if={@error != {}}
-    class="alert alert-error shadow-lg mb-4"
-    role="alert"
-    id="compilation-error"
-  >
-    <% {_lines, error, description} = @error %>
-
-    {"#{error} #{description}"}
+  <div class="breadcrumbs text-sm bg-white rounded shadow-sm overflow-hidden mb-4 px-4">
+    <ul>
+      <li>
+        <.link
+          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
+          navigate={~p"/dags/#{@dag.name}/dashboard"}
+        >
+          <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Back
+        </.link>
+      </li>
+    </ul>
   </div>
 
-  <.live_component
-    module={GustWeb.BreadcrumbsComponent}
-    dag_def={@dag}
-    run={@selected_run}
-    task={@selected_task}
-    id="breadcrumbs"
-  />
-
-  <.live_component
-    module={GustWeb.DagSummaryComponent}
-    dag={@dag}
-    dag_def={@dag_def}
-    id={@dag.id}
-  />
   <div class="dag-card mb-4">
-    <section class="dag-card__header">
+    <section class="dag-card__header ">
       <div class="dag-card__title-row">
         <h2 class="dag-card__title dag-card__title-with-icon">
           <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
-          <span>Run History</span>
+          <span>Runs for {@dag.name}: </span>
+          <span>{@runs_count}</span>
         </h2>
-
-        <div class="dag-card__actions run-history__actions">
-          <%= if @selected_task && (@selected_task.status in [:failed, :succeeded]) do %>
-            <button
-              id="restart-task"
-              phx-click="restart_task"
-              phx-value-id={@selected_task.id}
-              class="btn btn-warning"
-            >
-              Restart task: {@selected_task.name}
-            </button>
-          <% end %>
-
-          <%= if @selected_run && (@selected_run.status in [:failed, :succeeded]) do %>
-            <button
-              id="restart-run"
-              phx-click="restart_run"
-              phx-value-id={@selected_run.id}
-              class="btn btn-warning"
-            >
-              Restart run: {@selected_run.id}
-            </button>
-          <% end %>
-
-          <%= if @selected_task && (@selected_task.status in [:running, :retrying]) do %>
-            <button
-              id="cancel-task"
-              phx-click="cancel_task"
-              phx-value-id={@selected_task.id}
-              class="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
-            >
-              Cancel
-            </button>
-          <% end %>
-        </div>
+        <.form for={%{}} id="page-select" phx-change="select_page" class="">
+          <.input
+            id="pages"
+            value={@page}
+            name="page"
+            type="select"
+            options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
+            class="select select-bordered select-sm w-28"
+          />
+        </.form>
       </div>
     </section>
 
     <div class="dag-card__body">
-      <div class="min-w-max">
-        <!-- Task Grid -->
-        <div class="flex w-full">
-          <!-- Task names column -->
-          <div class="pr-2 border-r border-gray-200 pt-2 w-1/6">
-            <div class="flex items-center h-6 mb-2 border-b-2">
-              <span class="text-xs font-medium text-gray-800 ">Run</span>
-            </div>
-
-            <div :for={name <- @dag_def.task_list} class="flex items-center h-6 mb-2">
-              <span class="text-xs font-medium text-gray-800">{name}</span>
-            </div>
-          </div>
+      <div class="overflow-x-auto">
+        <.table id="runs" rows={@streams.runs}>
+          <:col :let={{_id, run}} label="Status">
+            <.status_badge status={run.status} data-testid="status-badge" />
+          </:col>
           
-<!-- Run columns -->
-          <div
-            class="flex overflow-x-auto w-5/6"
-            phx-update="stream"
-            id="run_history"
-          >
-            <%= for {id, %Run{status: status, id: run_id, tasks: tasks} = run} <- @streams.runs do %>
-              <div class={"px-1 rounded #{selected_run_class(run_id, @selected_run)}"} id={id}>
-                <.link navigate={~p"/dags/#{@dag_def.name}/runs?run_id=#{run_id}&page=#{@page}"}>
-                  <div class="flex justify-center mb-2 pt-2">
-                    <.task_cell id={"run-status-cell-#{run_id}"} status={status} />
-                  </div>
-                </.link>
+<!-- TODO: forcing to_string, later add default time format --> --%>
+          <:col :let={{_id, run}} label="Inserted At">
+            {to_string(run.inserted_at)}
+          </:col>
 
-                <div :for={name <- @dag_def.task_list} class="flex justify-center mb-2">
-                  <.interactive_task_cell
-                    name={name}
-                    ran_tasks={tasks}
-                    run_id={run_id}
-                    selected_task={@selected_task}
-                    navigate={
-                      ~p"/dags/#{@dag_def.name}/runs?run_id=#{run_id}&task_name=#{name}&page=#{@page}"
-                    }
-                    data-testid={"#{name}-at-run-#{run_id}-link"}
-                  />
-                </div>
-              </div>
-            <% end %>
-          </div>
-        </div>
-      </div>
-    </div>
+          <:col :let={{_id, run}} label="Updated At">
+            {to_string(run.updated_at)}
+          </:col>
 
-    <div class="dag-card__footer">
-      <div class="flex gap-2 items-center text-xs font-medium text-slate-600">
-        <.link
-          id="next-page"
-          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
-          navigate={~p"/dags/#{@dag_def.name}/runs?page=#{handle_page(@page, :next)}"}
-        >
-          <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Older
-        </.link>
-      </div>
+          <:col :let={{_id, run}} label="ID">
+            {run.id}
+          </:col>
 
-      <span class="text-xs text-slate-600">page: {@page}</span>
-
-      <div class="flex gap-2 items-center">
-        <.link
-          id="prev-page"
-          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900 text-xs font-medium text-slate-600"
-          navigate={~p"/dags/#{@dag_def.name}/runs?page=#{handle_page(@page, :prev)}"}
-        >
-          Newer <.icon name="hero-arrow-right-solid" class="h-3 w-3" />
-        </.link>
-      </div>
-    </div>
-  </div>
-
-  <% current = @selected_task || @selected_run %>
-
-  <div :if={@selected_run} id="selected-run" class="dag-card mb-4">
-    <section class="dag-card__header">
-      <div class="dag-card__title-row">
-        <div class="flex flex-col gap-1">
-          <h3 class="dag-card__title text-base">Selected Run</h3>
-          <span class="text-sm text-slate-600">Run {@selected_run.id}</span>
-        </div>
-        <.status_badge status={current.status} data-testid="status-badge" />
-      </div>
-    </section>
-
-    <section :if={current} class="dag-card__meta">
-      <div class="dag-card__meta-item">
-        <div class="dag-card__meta-label">Started</div>
-        <div class="dag-card__meta-value" id="inserted-at">
-          {current.inserted_at}
-        </div>
-      </div>
-
-      <div class="dag-card__meta-item">
-        <div class="dag-card__meta-label">Updated</div>
-        <div class="dag-card__meta-value" id="updated-at">
-          {current.updated_at}
-        </div>
-      </div>
-    </section>
-
-    <section :if={@selected_task && map_size(@selected_task.error) > 0} class="dag-card__body">
-      <h4 class="text-sm font-semibold text-rose-600">Error</h4>
-      <div class="alert overflow-auto mt-2">
-        <pre
-          id="task-error"
-          class="mt-1 whitespace-pre-wrap text-sm"
-        >
-<%= pretty_json!(@selected_task.error) %>
-        </pre>
-      </div>
-    </section>
-
-    <section :if={@selected_task && map_size(@selected_task.result) > 0} class="dag-card__body">
-      <h4 class="text-sm font-semibold text-slate-700">Result</h4>
-
-      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
-        <pre
-          id="task-result"
-          data-testid="task-result"
-          class="language-json rounded-md overflow-x-auto"
-        >
-<%= pretty_json!(@selected_task.result) %>
-      </pre>
-      </div>
-    </section>
-
-    <section :if={@selected_task} class="dag-card__body">
-      <div class="overflow-x-auto overflow-y-auto max-h-96">
-        <h4 class="pb-3 text-sm font-semibold text-slate-700">Logs</h4>
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-slate-50">
-            <tr>
-              <th
-                scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-32"
-              >
-                Timestamp
-              </th>
-
-              <th
-                scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-20"
-              >
-                Attempt
-              </th>
-              <th
-                scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-20"
-              >
-                Level
-              </th>
-              <th
-                scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider"
-              >
-                Content
-              </th>
-            </tr>
-          </thead>
-
-          <tbody
-            id="log-list"
-            class="bg-white divide-y divide-gray-200"
-            phx-update="stream"
-          >
-            <tr
-              :for={
-                {id,
-                 %Flows.Log{
-                   attempt: attempt,
-                   inserted_at: inserted_at,
-                   level: level,
-                   content: content
-                 }} <-
-                  @streams.logs
-              }
-              id={"log-#{id}"}
+          <:action :let={{id, run}}>
+            <.link
+              phx-click={JS.push("delete", value: %{id: run.id}) |> hide("##{id}")}
+              data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
+              class="btn btn-sm btn-soft btn-error"
             >
-              <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-800 font-mono">
-                {inserted_at}
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap text-center align-middle">
-                <div class="text-xs badge">{attempt}</div>
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap">
-                <.log_badge level={level} />
-              </td>
-              <td class="px-3 py-2 text-xs text-gray-800 bg-slate-100">
-                {content}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              Delete
+            </.link>
+          </:action>
+        </.table>
       </div>
-    </section>
-  </div>
-
-  <div class="dag-card mb-4">
-    <section class="dag-card__header">
-      <div class="dag-card__title-row">
-        <h3 class={["dag-card__title dag-card__title-with-icon", "text-base"]}>
-          <.icon name="hero-chart-bar" class="h-5 w-5 text-sky-600" />
-          <span>Graph</span>
-        </h3>
-      </div>
-    </section>
-    <div class="dag-card__body">
-      <div class="bg-slate-50 p-3 rounded-lg border border-slate-200/70 overflow-auto">
-        <pre class="mermaid" phx-hook="Mermaid" id="mermaid-chart">
-{"""
----
-config:
-  theme: 'base'
-  themeVariables:
-    primaryColor: '#e8f2ff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0ea5e9'
-    lineColor: '#475569'
-    secondaryColor: '#c7e8ff'
-    tertiaryColor: '#f8fafc'
----
-    #{mermaid_chart(@dag_def.tasks)}
-"""}
-       </pre>
-      </div>
-    </div>
-  </div>
-
-  <div class="dag-card mb-4">
-    <section class="dag-card__header">
-      <div class="dag-card__title-row">
-        <h3 class={["dag-card__title dag-card__title-with-icon", "text-base"]}>
-          <.icon name="hero-code-bracket" class="h-5 w-5 text-sky-600" />
-          <span>Code</span>
-        </h3>
-        <span id="reload-time" class="badge">{reload_time(@reload_dag_file)}</span>
-      </div>
-    </section>
-
-    <div class="dag-card__body">
-      <pre class="language-elixir rounded-md overflow-x-auto">
-          <code id="code-highlight" class={"language-elixir code-block p-3 text-xs leading-relaxed"} phx-hook="CodeHighlight">
-{read_code(@reload_dag_file)}
-          </code>
-        </pre>
     </div>
   </div>
 </Layouts.app>

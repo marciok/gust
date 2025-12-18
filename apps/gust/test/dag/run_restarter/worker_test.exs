@@ -41,6 +41,21 @@ defmodule DAG.RunRestarter.WorkerTest do
                Worker.start_dag(dag.id)
     end
 
+    test "do not start_child for errored dag", %{
+      dag: dag
+    } do
+      dag_def = %Gust.DAG.Definition{name: dag.name, error: %{message: "ops.."}}
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definition, fn _dag_id ->
+        {:ok, dag_def}
+      end)
+
+      start_link_supervised!(Worker)
+
+      assert is_nil(Worker.start_dag(dag.id))
+    end
+
     test "do not start_child for disabled dag, enqueue run", %{
       dag: dag
     } do
@@ -128,7 +143,24 @@ defmodule DAG.RunRestarter.WorkerTest do
   end
 
   describe "handle_info/2 for {:restart_enqueued, dag_id}" do
-    test "do not  enqueued runs for erroed dags", %{dag: dag} do
+    test "do not enqueued runs for errored definitions", %{dag: dag} do
+      dag_id = dag.id
+      dag_def = %Gust.DAG.Definition{error: %CompileError{description: "oops"}}
+      run_fixture(%{dag_id: dag_id, status: :enqueued})
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definition, fn ^dag_id ->
+        {:ok, dag_def}
+      end)
+
+      pid = start_link_supervised!(Worker)
+      Worker.restart_enqueued(dag.id)
+      Process.sleep(200)
+
+      refute_received {:DOWN, _, :process, ^pid, _}, 200
+    end
+
+    test "do not enqueued runs for dag with errors", %{dag: dag} do
       dag_id = dag.id
 
       Gust.DAGLoaderMock
@@ -190,14 +222,20 @@ defmodule DAG.RunRestarter.WorkerTest do
 
     test "restarts running runs for given dags", %{dag: dag, restart_run: restart_run} do
       dag_def = %Gust.DAG.Definition{error: %{}}
+      restart_retrying_run = run_fixture(%{dag_id: dag.id, status: :retrying})
 
       Gust.DAGRunnerSupervisorMock
       |> expect(:start_child, fn ^restart_run, ^dag_def -> {:ok, spawn(fn -> :ok end)} end)
+      |> expect(:start_child, fn ^restart_retrying_run, ^dag_def ->
+        {:ok, spawn(fn -> :ok end)}
+      end)
 
       pid = start_link_supervised!(Worker)
       ref = Process.monitor(pid)
 
-      assert [^restart_run] = Worker.restart_dags(%{dag.id => {:ok, dag_def}})
+      assert [^restart_run, ^restart_retrying_run] =
+               Worker.restart_dags(%{dag.id => {:ok, dag_def}})
+
       refute_receive {:DOWN, ^ref, :process, ^pid, :normal}, 200
     end
   end

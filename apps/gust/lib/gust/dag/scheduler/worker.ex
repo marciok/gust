@@ -4,6 +4,7 @@ defmodule Gust.DAG.Scheduler.Worker do
 
   import Crontab.CronExpression
   alias Gust.DAG.Cron
+  alias Gust.DAG.Definition
   use GenServer
   alias Quantum.Job, as: QJob
 
@@ -24,7 +25,7 @@ defmodule Gust.DAG.Scheduler.Worker do
       for {dag_id, {:ok, dag_def}} <- dag_defs,
           schedule = dag_def.options[:schedule],
           schedule != nil,
-          map_size(dag_def.error) == 0 do
+          Definition.empty_errors?(dag_def) do
         add_dag_job(dag_def, dag_id)
       end
 

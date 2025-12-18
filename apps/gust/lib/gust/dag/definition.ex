@@ -21,4 +21,9 @@ defmodule Gust.DAG.Definition do
           file_path: String.t(),
           options: keyword()
         }
+
+  @doc """
+  Returns `true` if the given DAG definition has any errors, by checking that the `error` map is non-empty.
+  """
+  def empty_errors?(%__MODULE__{error: error}), do: map_size(error) == 0
 end

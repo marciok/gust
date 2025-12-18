@@ -22,7 +22,7 @@
         </:col>
 
         <:action :let={{_id, secret}}>
-          <.link patch={~p"/secrets/#{secret}/edit"} class="btn btn-sm btn-outline btn-primary">
+          <.link patch={~p"/secrets/#{secret}/edit"} class="btn btn-sm btn-soft btn-primary">
             Edit
           </.link>
         </:action>
@@ -31,7 +31,7 @@
           <.link
             phx-click={JS.push("delete", value: %{id: secret.id}) |> hide("##{id}")}
             data-confirm="Are you sure?"
-            class="btn btn-sm btn-outline btn-error"
+            class="btn btn-sm btn-soft btn-error"
           >
             Delete
           </.link>

@@ -1,7 +1,7 @@
 defmodule DSLTest do
   use Gust.DataCase
 
-  test "task macro without schedule option" do
+  test "use macro with schedule option" do
     dag_code = """
       defmodule MyValidDagEmpty do
         use Gust.DSL, schedule: "0 17 * * *"

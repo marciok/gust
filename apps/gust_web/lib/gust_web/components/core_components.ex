@@ -335,21 +335,30 @@ defmodule GustWeb.CoreComponents do
       end
 
     ~H"""
-    <table class="table table-zebra">
+    <table class="min-w-full divide-y divide-gray-200">
       <thead>
         <tr>
-          <th :for={col <- @col}>{col[:label]}</th>
+          <th
+            :for={col <- @col}
+            class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider"
+          >
+            {col[:label]}
+          </th>
           <th :if={@action != []}>
             <span class="sr-only">{gettext("Actions")}</span>
           </th>
         </tr>
       </thead>
-      <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
+      <tbody
+        id={@id}
+        class="bg-white divide-y divide-gray-200"
+        phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}
+      >
         <tr :for={row <- @rows} id={@row_id && @row_id.(row)}>
           <td
             :for={col <- @col}
             phx-click={@row_click && @row_click.(row)}
-            class={@row_click && "hover:cursor-pointer"}
+            class="px-3 py-2 whitespace-nowrap text-sm font-semibold text-slate-800"
           >
             {render_slot(col, @row_item.(row))}
           </td>
