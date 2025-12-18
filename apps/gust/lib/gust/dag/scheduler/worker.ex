@@ -25,7 +25,7 @@ defmodule Gust.DAG.Scheduler.Worker do
       for {dag_id, {:ok, dag_def}} <- dag_defs,
           schedule = dag_def.options[:schedule],
           schedule != nil,
-          Definition.errors?(dag_def) == false do
+          Definition.empty_errors?(dag_def) do
         add_dag_job(dag_def, dag_id)
       end
 

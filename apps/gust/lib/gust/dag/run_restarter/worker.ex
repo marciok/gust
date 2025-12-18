@@ -49,7 +49,8 @@ defmodule Gust.DAG.RunRestarter.Worker do
 
   @impl true
   def handle_cast({:restart_enqueued, dag_id}, state) do
-    with {:ok, dag_def} <- Loader.get_definition(dag_id), false <- Definition.errors?(dag_def) do
+    with {:ok, dag_def} <- Loader.get_definition(dag_id),
+         true <- Definition.empty_errors?(dag_def) do
       get_runs([dag_id], [:enqueued]) |> Enum.each(&start_run(&1, {:ok, dag_def}))
     end
 
@@ -63,11 +64,11 @@ defmodule Gust.DAG.RunRestarter.Worker do
     run =
       if Flows.get_dag!(dag_id).enabled do
         with {:ok, dag_def} <- Loader.get_definition(run.dag_id),
-             false <- Definition.errors?(dag_def) do
+             true <- Definition.empty_errors?(dag_def) do
           {:ok, _pid} = RunnerSupervisor.start_child(run, dag_def)
           run
         else
-          true -> nil
+          false -> nil
         end
       else
         {:ok, run} = Flows.update_run_status(run, :enqueued)
@@ -125,7 +126,7 @@ defmodule Gust.DAG.RunRestarter.Worker do
       |> Stream.filter(fn run ->
         case dags[run.dag_id] do
           {:ok, dag_def} ->
-            Definition.errors?(dag_def) == false
+            Definition.empty_errors?(dag_def)
 
           {:error, _err} ->
             false
