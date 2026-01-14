@@ -1,7 +1,8 @@
 defmodule GustWeb.DagLive.Index do
-  alias Gust.DAG.{Loader, RunRestarter}
+  alias Gust.DAG.{Loader}
   alias Gust.Flows
   alias Gust.PubSub
+  alias Gust.DAG.Run.Trigger
   use GustWeb, :live_view
 
   @impl true
@@ -31,8 +32,10 @@ defmodule GustWeb.DagLive.Index do
 
   @impl true
   def handle_event("trigger_run", %{"id" => id}, socket) do
-    run = RunRestarter.start_dag(String.to_integer(id))
-    run = Flows.get_run_with_tasks!(run.id)
+    dag_id = String.to_integer(id)
+    {:ok, run} = Flows.create_run(%{dag_id: dag_id})
+
+    run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
 
     {:noreply, socket |> put_flash(:info, "Run #{run.id} triggered")}
   end

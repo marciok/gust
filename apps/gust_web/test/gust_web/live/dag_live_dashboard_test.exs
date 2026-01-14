@@ -79,7 +79,6 @@ defmodule GustWeb.DagLiveDashboardTest do
         {:enqueued, :enqueued},
         {:succeeded, :succeeded},
         {:created, :created},
-        {:retrying, :retrying},
         {:running, :upstream_failed}
       ]
 
@@ -597,46 +596,13 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, failed_run} = Gust.Flows.update_run_status(run, :succeeded)
 
-      GustWeb.DAGRunRestarterMock |> expect(:restart_run, fn ^failed_run -> nil end)
+      GustWeb.DAGRunTriggerMock |> expect(:reset_run, fn ^failed_run -> run end)
 
       {:ok, dashboard_live, _html} =
         live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{failed_run.id}")
 
       assert dashboard_live |> element("#restart-run") |> render_click() =~
                "Run: #{failed_run.id} was restarted"
-    end
-
-    test "click restart run on failed run", %{
-      conn: conn,
-      dag: dag,
-      run: run
-    } do
-      {:ok, failed_run} = Gust.Flows.update_run_status(run, :failed)
-
-      GustWeb.DAGRunRestarterMock |> expect(:restart_run, fn ^failed_run -> nil end)
-
-      {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{failed_run.id}")
-
-      assert dashboard_live |> element("#restart-run") |> render_click() =~
-               "Run: #{failed_run.id} was restarted"
-    end
-
-    test "click restart task on failed task", %{
-      conn: conn,
-      dag: dag,
-      run: run,
-      task: task
-    } do
-      {:ok, failed_task} = Gust.Flows.update_task_status(task, :failed)
-
-      GustWeb.DAGRunRestarterMock |> expect(:restart_task, fn _tasks, ^failed_task -> nil end)
-
-      {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{failed_task.name}")
-
-      assert dashboard_live |> element("#restart-task") |> render_click() =~
-               "Task: #{failed_task.name} was restarted"
     end
 
     test "click restart task on succeeded task", %{
@@ -647,7 +613,8 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, succeeded_task} = Gust.Flows.update_task_status(task, :succeeded)
 
-      GustWeb.DAGRunRestarterMock |> expect(:restart_task, fn _tasks, ^succeeded_task -> nil end)
+      GustWeb.DAGRunTriggerMock
+      |> expect(:reset_task, fn _tasks, ^succeeded_task -> run end)
 
       {:ok, dashboard_live, _html} =
         live(
@@ -701,12 +668,12 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
       dag_id = dag.id
 
-      new_run = run_fixture(%{dag_id: dag_id})
+      GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
 
-      GustWeb.DAGRunRestarterMock |> expect(:start_dag, fn ^dag_id -> new_run end)
+      triggered_flash = dashboard_live |> element("#trigger-dag-run-#{dag.id}") |> render_click()
+      last_run = Flows.get_dag_with_runs!(dag_id).runs |> List.last()
 
-      assert dashboard_live |> element("#trigger-dag-run-#{dag.id}") |> render_click() =~
-               "Run #{new_run.id} triggered"
+      assert triggered_flash =~ "Run #{last_run.id} triggered"
     end
   end
 end
