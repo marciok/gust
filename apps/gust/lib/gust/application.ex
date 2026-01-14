@@ -78,9 +78,9 @@ defmodule Gust.Application do
   @impl true
   def start(_type, _args) do
     env = System.get_env("MIX_ENV") || Mix.env() |> to_string()
+    folder = Application.get_env(:gust, :dags_folder)
 
     if env != "test" do
-      folder = dag_folder()
       File.dir?(folder) || raise "DAG folder does not exist!: #{folder}"
     end
 
@@ -90,54 +90,12 @@ defmodule Gust.Application do
         Gust.Repo,
         {Registry, keys: :unique, name: Gust.Registry},
         {DNSCluster, query: Application.get_env(:gust, :dns_cluster_query) || :ignore},
-        {Phoenix.PubSub, name: Gust.PubSub},
-        {DynamicSupervisor, strategy: :one_for_one, name: dag_runner_supervisor()},
-        {DynamicSupervisor, strategy: :one_for_one, name: dag_stage_runner_supervisor()},
-        {DynamicSupervisor, strategy: :one_for_one, name: dag_task_runner_supervisor()}
+        {Phoenix.PubSub, name: Gust.PubSub}
       ]
 
-    dag_children =
-      if Application.get_env(:gust, :boot_dag) || System.get_env("PHX_SERVER") in ["true", "1"] do
-        dag_scheduler_worker(env) ++
-          dag_run_restater_worker(env) ++
-          dag_loader_worker(env) ++
-          dag_watcher(env)
-      else
-        []
-      end
+    role = System.get_env("GUST_ROLE", "single")
 
-    children = base_children ++ dag_children
+    children = base_children ++ Gust.AppChildren.for_role(role, env, folder)
     Supervisor.start_link(children, strategy: :one_for_one, name: Gust.Supervisor)
-  end
-
-  defp dag_watcher(env) when env == "dev" do
-    [{Gust.FileMonitor.Worker, %{dags_folder: dag_folder(), loader: dag_loader()}}]
-  end
-
-  defp dag_watcher(_env), do: []
-
-  defp dag_folder, do: Application.get_env(:gust, :dags_folder)
-  defp dag_runner_supervisor, do: Application.get_env(:gust, :dag_runner_supervisor)
-  defp dag_task_runner_supervisor, do: Application.get_env(:gust, :dag_task_runner_supervisor)
-  defp dag_stage_runner_supervisor, do: Application.get_env(:gust, :dag_stage_runner_supervisor)
-  defp dag_loader, do: Application.get_env(:gust, :dag_loader)
-  defp dag_scheduler, do: Application.get_env(:gust, :dag_scheduler)
-
-  defp dag_loader_worker(env) when env == "test", do: []
-
-  defp dag_loader_worker(_env) do
-    [{Gust.DAG.Loader.Worker, %{dags_folder: dag_folder()}}]
-  end
-
-  defp dag_run_restater_worker(env) when env == "test", do: []
-
-  defp dag_run_restater_worker(_env) do
-    [Gust.DAG.RunRestarter.Worker]
-  end
-
-  defp dag_scheduler_worker(env) when env == "test", do: []
-
-  defp dag_scheduler_worker(_env) do
-    [Gust.DAG.Cron, {dag_scheduler(), name: dag_scheduler()}]
   end
 end
