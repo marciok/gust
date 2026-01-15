@@ -4,6 +4,7 @@ defmodule Gust.Run.Pooler do
   alias Gust.PubSub
   alias Gust.DAG.{Loader, RunnerSupervisor, Definition}
   alias Gust.Flows
+  alias Gust.Run.Claim
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -37,26 +38,29 @@ defmodule Gust.Run.Pooler do
 
     claimed =
       Enum.reduce_while(1..batch_size, 0, fn _batch_num, acc ->
-        case Flows.claim_run() do
-          {:ok, nil} ->
-            {:halt, acc}
+        {:ok, run} = Claim.next_run()
 
-          {:ok, %Flows.Run{} = run} ->
-            with {:ok, dag_def} <- Loader.get_definition(run.dag_id),
-                 true <- Definition.empty_errors?(dag_def) do
-              {:ok, _pid} = RunnerSupervisor.start_child(run, dag_def)
-            else
-              false ->
-                dag = Flows.get_dag!(run.dag_id)
-                Logger.error("Not starting DAG: #{dag.name} becasuse contains errors")
-            end
-
-            {:cont, acc + 1}
+        if run do
+          maybe_start(run)
+          {:cont, acc + 1}
+        else
+          {:halt, acc}
         end
       end)
 
     Logger.warning("Runs claimed: #{claimed}")
 
     PubSub.broadcast_runs_claimed(Node.self())
+  end
+
+  defp maybe_start(run) do
+    with {:ok, dag_def} <- Loader.get_definition(run.dag_id),
+         true <- Definition.empty_errors?(dag_def) do
+      {:ok, _pid} = RunnerSupervisor.start_child(run, dag_def)
+    else
+      false ->
+        dag = Flows.get_dag!(run.dag_id)
+        Logger.error("Not starting DAG: #{dag.name} becasuse contains errors")
+    end
   end
 end

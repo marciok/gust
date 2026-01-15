@@ -8,9 +8,29 @@ defmodule DAG.Runner.DagWorkerTest do
   setup :verify_on_exit!
   setup :set_mox_from_context
 
+  def worker_starts_normally(%{run: run, dag_def: dag_def} = setup) do
+    Application.put_env(:gust, :reclaim_run_delay, 0)
+    Gust.PubSub.subscribe_run(run.id)
+    Gust.PubSub.subscribe_runs_for_dag(run.dag_id)
+
+    hi_task_id = task_fixture(%{name: "hi", status: :succeeded, run_id: run.id}).id
+    hey_task_id = task_fixture(%{name: "hey", status: :running, run_id: run.id}).id
+    run_id = run.id
+
+    Gust.DAGStageRunnerSupervisorMock
+    |> expect(:start_child, fn ^dag_def, [^hi_task_id, ^hey_task_id, _ho_task], _pid ->
+      {:ok, spawn(fn -> Process.sleep(10) end)}
+    end)
+
+    setup |> Map.put(:run_id, run_id)
+    Map.merge(setup, %{run_id: run_id, task_id: hey_task_id})
+  end
+
   setup do
+    Application.put_env(:gust, :reclaim_run_delay, 99_999_999)
     dag = dag_fixture()
-    run = run_fixture(%{dag_id: dag.id})
+
+    run = run_fixture(%{dag_id: dag.id, claim_token: Ecto.UUID.generate()})
 
     dag_def = %Gust.DAG.Definition{
       mod: MyDag,
@@ -26,31 +46,24 @@ defmodule DAG.Runner.DagWorkerTest do
   end
 
   describe "handle_info/2" do
-    test "start stage worker", %{run: run, dag_def: dag_def} do
-      Gust.PubSub.subscribe_run(run.id)
-      Gust.PubSub.subscribe_runs_for_dag(run.dag_id)
+    setup [:worker_starts_normally]
 
-      hi_task_id = task_fixture(%{name: "hi", status: :succeeded, run_id: run.id}).id
-      hey_task_id = task_fixture(%{name: "hey", status: :running, run_id: run.id}).id
-      run_id = run.id
+    test "start stage worker", %{run: run, dag_def: dag_def, run_id: run_id, task_id: task_id} do
+      Gust.RunClaimMock
+      |> expect(:renew_run, fn ^run_id, _token -> {:ok, run} end)
+      |> expect(:renew_run, fn ^run_id, _token -> {:ok, nil} end)
 
-      Gust.DAGStageRunnerSupervisorMock
-      |> expect(:start_child, fn ^dag_def, [^hi_task_id, ^hey_task_id, _ho_task], _pid ->
-        {:ok, spawn(fn -> Process.sleep(10) end)}
-      end)
-
-      runner_pid =
-        start_supervised!({Gust.DAG.Runner.DAGWorker, %{run: run, dag_def: dag_def}})
+      runner_pid = start_supervised!({Gust.DAG.Runner.DAGWorker, %{run: run, dag_def: dag_def}})
 
       ref = Process.monitor(runner_pid)
 
       assert_receive {:dag, :run_started, %{run_id: ^run_id}}, 200
-
       assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :running}}, 200
-      assert Repo.get!(Flows.Run, run.id).status == :running
-      assert Flows.get_task!(hey_task_id).status == :created
 
-      refute_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+      assert %Flows.Run{status: :running} = Flows.get_run!(run.id)
+      assert %Flows.Task{status: :created} = Flows.get_task!(task_id)
+
+      assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 600
     end
   end
 
@@ -120,7 +133,7 @@ defmodule DAG.Runner.DagWorkerTest do
       send(runner_pid, {:stage_completed, :upstream_failed})
 
       assert_receive {:dag, :run_status, %{run_id: ^run_id}}, 400
-      assert Repo.get!(Flows.Run, run.id).status == :failed
+      assert %Flows.Run{status: :failed} = Flows.get_run!(run.id)
 
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
     end

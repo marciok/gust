@@ -30,12 +30,6 @@ defmodule DAG.Loader.WorkerTest do
       ]
     end)
 
-    Gust.DAGSchedulerMock
-    |> expect(:schedule, fn %{^found_dag_id => {:ok, ^dag_def}} -> [:ok] end)
-
-    Gust.DAGRunRestarterMock
-    |> expect(:restart_dags, fn %{^found_dag_id => {:ok, ^dag_def}} -> [] end)
-
     %{dag_folder: dag_folder, found_dag_id: found_dag_id, dag_def: dag_def}
   end
 

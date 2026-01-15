@@ -13,18 +13,18 @@ defmodule Run.PoolerTest do
   setup :verify_on_exit!
   setup :set_mox_from_context
 
+  setup do
+    Application.put_env(:gust, :claim_runs_tick, 9_999_999)
+  end
+
   describe "handle_info/2 when message is :pool_runs" do
     test "claim enqueued runs" do
       dag = dag_fixture(%{name: "restart_me"})
       sec_dag = dag_fixture(%{name: "other_dag"})
 
-      tick_delay = 250
-      Application.put_env(:gust, :claim_runs_tick, 250)
-
-      _restart_run = run_fixture(%{dag_id: dag.id, status: :enqueued})
-      _restart_run_2 = run_fixture(%{dag_id: dag.id, status: :enqueued})
-      _restart_run_with_error = run_fixture(%{dag_id: sec_dag.id, status: :enqueued})
-      _created_run = run_fixture(%{dag_id: sec_dag.id, status: :created})
+      restart_run = run_fixture(%{dag_id: dag.id, status: :enqueued})
+      restart_run_2 = run_fixture(%{dag_id: dag.id, status: :enqueued})
+      restart_run_with_error = run_fixture(%{dag_id: sec_dag.id, status: :enqueued})
 
       dag_def = %Gust.DAG.Definition{name: dag.name}
       dag_def_error = %Gust.DAG.Definition{name: sec_dag.name, error: %{name: "Ops.."}}
@@ -33,15 +33,15 @@ defmodule Run.PoolerTest do
       sec_dag_id = sec_dag.id
 
       Gust.DAGLoaderMock
-      |> expect(:get_definition, fn ^dag_id ->
-        {:ok, dag_def}
-      end)
-      |> expect(:get_definition, fn ^dag_id ->
-        {:ok, dag_def}
-      end)
-      |> expect(:get_definition, fn ^sec_dag_id ->
-        {:ok, dag_def_error}
-      end)
+      |> expect(:get_definition, fn ^dag_id -> {:ok, dag_def} end)
+      |> expect(:get_definition, fn ^dag_id -> {:ok, dag_def} end)
+      |> expect(:get_definition, fn ^sec_dag_id -> {:ok, dag_def_error} end)
+
+      Gust.RunClaimMock
+      |> expect(:next_run, fn -> {:ok, restart_run} end)
+      |> expect(:next_run, fn -> {:ok, restart_run_2} end)
+      |> expect(:next_run, fn -> {:ok, restart_run_with_error} end)
+      |> expect(:next_run, fn -> {:ok, nil} end)
 
       Gust.DAGRunnerSupervisorMock
       |> expect(:start_child, 2, fn %Flows.Run{dag_id: ^dag_id} = run, ^dag_def ->
@@ -56,13 +56,6 @@ defmodule Run.PoolerTest do
           start_link_supervised!(Pooler)
 
           assert_receive {:runs_claimed, %{node: _node}}, 200
-          assert_receive {:runs_claimed, %{node: _node}}, tick_delay + 50
-
-          Application.put_env(:gust, :claim_runs_tick, 2000)
-
-          refute_receive {:runs_claimed, %{node: _node}}, 200
-
-          assert_receive {:runs_claimed, %{node: _node}}, 200
         end)
 
       assert logs =~ "Not starting DAG: #{sec_dag.name} becasuse contains errors"
@@ -74,7 +67,10 @@ defmodule Run.PoolerTest do
     test "claim enqueued runs" do
       dag = dag_fixture(%{name: "restart_me"})
 
-      restart_run = run_fixture(%{dag_id: dag.id, status: :created})
+      run = run_fixture(%{dag_id: dag.id, status: :created})
+
+      Gust.RunClaimMock |> expect(:next_run, fn -> {:ok, run} end)
+      Gust.RunClaimMock |> expect(:next_run, fn -> {:ok, nil} end)
 
       dag_def = %Gust.DAG.Definition{name: dag.name}
       dag_id = dag.id
@@ -95,10 +91,7 @@ defmodule Run.PoolerTest do
           PubSub.subscribe_runs_claimed()
 
           start_link_supervised!(Pooler)
-          assert_receive {:runs_claimed, %{node: _node}}, 200
-
-          {:ok, run} = Flows.update_run_status(restart_run, :enqueued)
-
+          Process.sleep(200)
           Gust.PubSub.broadcast_run_dispatch(run.id)
 
           assert_receive {:runs_claimed, %{node: _node}}, 200

@@ -5,14 +5,34 @@ defmodule Gust.PubSub do
   @topic_run "dag:run"
   @topic_task "dag:task"
   @topic_file "dag:file"
+  @runs_pool "runs_pool"
+  @runs_claimed "runs_claimed"
 
   # Event atoms
   @event_run_started :run_started
   @event_run_status :run_status
   @event_file_update :file_updated
+  @dispatch_run :dispatch_run
 
   ## Broadcasts
   #
+
+  def broadcast_runs_claimed(node) do
+    Phoenix.PubSub.broadcast(
+      __MODULE__,
+      @runs_claimed,
+      {:runs_claimed, %{node: node}}
+    )
+  end
+
+  def broadcast_run_dispatch(run_id) do
+    Phoenix.PubSub.broadcast(
+      __MODULE__,
+      @runs_pool,
+      {:run_pool, @dispatch_run, %{run_id: run_id}}
+    )
+  end
+
   def broadcast_log(task_id, log_id) do
     Phoenix.PubSub.broadcast(
       __MODULE__,
@@ -49,6 +69,14 @@ defmodule Gust.PubSub do
   end
 
   ## Subscriptions
+  #
+  def subscribe_runs_claimed() do
+    Phoenix.PubSub.subscribe(__MODULE__, @runs_claimed)
+  end
+
+  def subscribe_runs_pool() do
+    Phoenix.PubSub.subscribe(__MODULE__, @runs_pool)
+  end
 
   # Subscribe to updates for *all* files
   def subscribe_all_files(action) do
