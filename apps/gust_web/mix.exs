@@ -64,7 +64,9 @@ defmodule GustWeb.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.26"},
-      gust_dep(),
+      # gust_dep(),
+      {:gust,
+       git: "https://github.com/marciok/gust.git", branch: "multi-node", sparse: "apps/gust"},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}
     ]
