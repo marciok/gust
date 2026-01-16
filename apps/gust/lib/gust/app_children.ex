@@ -29,6 +29,7 @@ defmodule Gust.AppChildren do
     ]
 
   defp dag_watcher("test", _folder), do: []
+  defp dag_watcher("prod", _folder), do: []
 
   defp dag_watcher(_env, folder) do
     [
