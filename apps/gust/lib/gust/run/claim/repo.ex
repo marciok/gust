@@ -16,8 +16,8 @@ defmodule Gust.Run.Claim.Repo do
         select: r
 
     case Gust.Repo.update_all(query, [], returning: true) do
-      {1, [run]} -> {:ok, run}
-      {0, []} -> {:ok, nil}
+      {1, [run]} -> run
+      {0, []} -> nil
     end
   end
 
@@ -27,16 +27,19 @@ defmodule Gust.Run.Claim.Repo do
     now = DateTime.utc_now()
     expires_at = expire_date(now)
 
-    Repo.transaction(fn ->
-      from(r in Run,
-        where: r.status == :enqueued or (r.status == :running and r.claim_expires_at < ^now),
-        order_by: [asc: r.inserted_at],
-        limit: 1,
-        lock: "FOR UPDATE SKIP LOCKED"
-      )
-      |> Repo.one()
-      |> maybe_update_claim(node, expires_at, token)
-    end)
+    {:ok, run} =
+      Repo.transaction(fn ->
+        from(r in Run,
+          where: r.status == :enqueued or (r.status == :running and r.claim_expires_at < ^now),
+          order_by: [asc: r.inserted_at],
+          limit: 1,
+          lock: "FOR UPDATE SKIP LOCKED"
+        )
+        |> Repo.one()
+        |> maybe_update_claim(node, expires_at, token)
+      end)
+
+    run
   end
 
   defp maybe_update_claim(nil, _node, _expires_at, _token), do: nil

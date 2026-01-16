@@ -115,7 +115,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
           reclaim_run_delay: delay
         } = state
       ) do
-    {:ok, run} = Claim.renew_run(run.id, token)
+    run = Claim.renew_run(run.id, token)
 
     if run do
       Process.send_after(self(), {:renew_claim, token}, delay)

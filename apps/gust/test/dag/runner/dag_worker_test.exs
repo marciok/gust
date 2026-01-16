@@ -50,8 +50,8 @@ defmodule DAG.Runner.DagWorkerTest do
 
     test "start stage worker", %{run: run, dag_def: dag_def, run_id: run_id, task_id: task_id} do
       Gust.RunClaimMock
-      |> expect(:renew_run, fn ^run_id, _token -> {:ok, run} end)
-      |> expect(:renew_run, fn ^run_id, _token -> {:ok, nil} end)
+      |> expect(:renew_run, fn ^run_id, _token -> run end)
+      |> expect(:renew_run, fn ^run_id, _token -> nil end)
 
       runner_pid = start_supervised!({Gust.DAG.Runner.DAGWorker, %{run: run, dag_def: dag_def}})
 

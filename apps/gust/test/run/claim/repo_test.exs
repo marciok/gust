@@ -25,7 +25,7 @@ defmodule Run.Claim.RepoTest do
       dag = dag_fixture(%{name: "hungry_for_renew"})
       run = run_fixture(%{dag_id: dag.id, status: :running, claim_token: Ecto.UUID.generate()})
 
-      assert {:ok, nil} = Claim.renew_run(run.id, Ecto.UUID.generate())
+      assert is_nil(Claim.renew_run(run.id, Ecto.UUID.generate()))
     end
 
     test "claim token is found" do
@@ -36,7 +36,7 @@ defmodule Run.Claim.RepoTest do
       now = DateTime.utc_now()
       lease_seconds = 15
 
-      assert {:ok, %Flows.Run{id: ^run_id, claim_expires_at: new_expiration_date}} =
+      assert %Flows.Run{id: ^run_id, claim_expires_at: new_expiration_date} =
                Claim.renew_run(run.id, run.claim_token)
 
       assert DateTime.diff(now, new_expiration_date) == -lease_seconds
@@ -58,14 +58,13 @@ defmodule Run.Claim.RepoTest do
 
       run_id = run.id
 
-      assert {:ok,
-              %Flows.Run{
-                id: ^run_id,
-                status: :running,
-                claim_token: token,
-                claimed_by: ^node,
-                claim_expires_at: expiration_date
-              }} = Claim.next_run()
+      assert %Flows.Run{
+               id: ^run_id,
+               status: :running,
+               claim_token: token,
+               claimed_by: ^node,
+               claim_expires_at: expiration_date
+             } = Claim.next_run()
 
       refute is_nil(token)
       assert DateTime.diff(expiration_date, expire_at) == 0
@@ -84,21 +83,20 @@ defmodule Run.Claim.RepoTest do
 
       run_id = running_and_expired.id
 
-      assert {:ok,
-              %Flows.Run{
-                id: ^run_id,
-                status: :running,
-                claim_token: token,
-                claimed_by: ^node,
-                claim_expires_at: expiration_date
-              }} = Claim.next_run()
+      assert %Flows.Run{
+               id: ^run_id,
+               status: :running,
+               claim_token: token,
+               claimed_by: ^node,
+               claim_expires_at: expiration_date
+             } = Claim.next_run()
 
       refute is_nil(token)
       assert DateTime.diff(expiration_date, expire_at) == 0
     end
 
     test "nothing to claim" do
-      assert {:ok, nil} = Claim.next_run()
+      assert is_nil(Claim.next_run())
     end
   end
 end

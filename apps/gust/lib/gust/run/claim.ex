@@ -15,8 +15,8 @@ defmodule Gust.Run.Claim do
           nil
           | %{run: run(), token: token(), claimed_by: String.t(), claim_expires_at: DateTime.t()}
 
-  @callback renew_run(run_id(), token()) :: {:ok, run() | nil} | {:error, term()}
-  @callback next_run() :: {:ok, next_run_result()} | {:error, term()}
+  @callback renew_run(run_id(), token()) :: run() | nil
+  @callback next_run() :: next_run_result()
 
   def renew_run(run_id, token), do: impl().renew_run(run_id, token)
   def next_run(), do: impl().next_run()

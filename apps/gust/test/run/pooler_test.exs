@@ -38,10 +38,10 @@ defmodule Run.PoolerTest do
       |> expect(:get_definition, fn ^sec_dag_id -> {:ok, dag_def_error} end)
 
       Gust.RunClaimMock
-      |> expect(:next_run, fn -> {:ok, restart_run} end)
-      |> expect(:next_run, fn -> {:ok, restart_run_2} end)
-      |> expect(:next_run, fn -> {:ok, restart_run_with_error} end)
-      |> expect(:next_run, fn -> {:ok, nil} end)
+      |> expect(:next_run, fn -> restart_run end)
+      |> expect(:next_run, fn -> restart_run_2 end)
+      |> expect(:next_run, fn -> restart_run_with_error end)
+      |> expect(:next_run, fn -> nil end)
 
       Gust.DAGRunnerSupervisorMock
       |> expect(:start_child, 2, fn %Flows.Run{dag_id: ^dag_id} = run, ^dag_def ->
@@ -69,8 +69,8 @@ defmodule Run.PoolerTest do
 
       run = run_fixture(%{dag_id: dag.id, status: :created})
 
-      Gust.RunClaimMock |> expect(:next_run, fn -> {:ok, run} end)
-      Gust.RunClaimMock |> expect(:next_run, fn -> {:ok, nil} end)
+      Gust.RunClaimMock |> expect(:next_run, fn -> run end)
+      Gust.RunClaimMock |> expect(:next_run, fn -> nil end)
 
       dag_def = %Gust.DAG.Definition{name: dag.name}
       dag_id = dag.id

@@ -38,7 +38,7 @@ defmodule Gust.Run.Pooler do
 
     claimed =
       Enum.reduce_while(1..batch_size, 0, fn _batch_num, acc ->
-        {:ok, run} = Claim.next_run()
+        run = Claim.next_run()
 
         if run do
           maybe_start(run)
@@ -49,6 +49,7 @@ defmodule Gust.Run.Pooler do
       end)
 
     Logger.warning("Runs claimed: #{claimed}")
+    Logger.warning("Node list: #{inspect(Node.list())}")
 
     PubSub.broadcast_runs_claimed(Node.self())
   end
