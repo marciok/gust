@@ -1,5 +1,17 @@
 defmodule Gust.AppChildren do
-  @moduledoc false
+  @moduledoc """
+  Builds the application child list for a given runtime role and environment.
+
+  The `for_role/3` function returns a list of supervisors and workers based on:
+
+  * the runtime role (`"web"` vs everything else)
+  * the Mix environment (`test`, `dev`, `prod`)
+  * the configured DAG folder
+
+  In `test`, DAG runtime pieces (pooler, leader, loader, watcher) are skipped.
+  In `prod`, the file watcher is disabled. In `dev`, the watcher is enabled to
+  reload DAGs on file changes.
+  """
 
   def for_role("web", mix_env, dags_folder) do
     dag_loader_worker(mix_env, dags_folder)
