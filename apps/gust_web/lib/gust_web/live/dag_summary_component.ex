@@ -1,6 +1,7 @@
 defmodule GustWeb.DagSummaryComponent do
   @moduledoc false
   use GustWeb, :live_component
+  alias Gust.DAG.Run.Trigger
   alias Gust.Flows
 
   @impl true
@@ -8,7 +9,7 @@ defmodule GustWeb.DagSummaryComponent do
     {:ok, dag} = Flows.get_dag!(dag_id) |> Flows.toggle_enabled()
 
     if dag.enabled do
-      Gust.DAG.Run.Trigger.dispatch_all_runs(dag.id)
+      Trigger.dispatch_all_runs(dag.id)
     end
 
     {:noreply, socket |> assign(:dag, dag)}

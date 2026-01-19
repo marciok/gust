@@ -3,8 +3,10 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
 
   import Crontab.CronExpression
   alias Gust.DAG.Definition
+  alias Gust.DAG.Loader
   alias Gust.DAG.Run.Cron.Scheduler
   alias Gust.DAG.Run.Trigger
+  alias Gust.Flows
   alias Gust.PubSub
   alias Quantum.Job, as: QJob
 
@@ -19,7 +21,7 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
   end
 
   def handle_continue(:load_jobs, state) do
-    for {dag_id, {:ok, dag_def}} <- Gust.DAG.Loader.get_definitions(),
+    for {dag_id, {:ok, dag_def}} <- Loader.get_definitions(),
         schedule = dag_def.options[:schedule],
         schedule != nil,
         Definition.empty_errors?(dag_def) do
@@ -36,7 +38,7 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
     |> QJob.set_name(String.to_atom(dag_def.name))
     |> QJob.set_schedule(~e[#{schedule}])
     |> QJob.set_task(fn ->
-      {:ok, run} = Gust.Flows.create_run(%{dag_id: dag_id})
+      {:ok, run} = Flows.create_run(%{dag_id: dag_id})
       run = Trigger.dispatch_run(run)
       PubSub.broadcast_run_started(dag_id, run.id)
       run

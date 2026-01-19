@@ -30,17 +30,7 @@ defmodule Gust.Leader do
     retry_time = Application.get_env(:gust, :leader_lock_attempt, 3_000)
 
     Task.start_link(fn ->
-      Gust.DBLocker.try_lock(@lock_key, fn result ->
-        case result do
-          false ->
-            send(parent, {:set_leader, false})
-            Process.send_after(parent, :attempt_lock, retry_time)
-
-          true ->
-            send(parent, {:set_leader, true})
-            Process.sleep(:infinity)
-        end
-      end)
+      Gust.DBLocker.try_lock(@lock_key, &handle_lock_result(&1, parent, retry_time))
     end)
   end
 
@@ -76,5 +66,15 @@ defmodule Gust.Leader do
   def handle_info(:attempt_lock, state) do
     attempt_lock()
     {:noreply, state}
+  end
+
+  defp handle_lock_result(false, parent, retry_time) do
+    send(parent, {:set_leader, false})
+    Process.send_after(parent, :attempt_lock, retry_time)
+  end
+
+  defp handle_lock_result(true, parent, _retry_time) do
+    send(parent, {:set_leader, true})
+    Process.sleep(:infinity)
   end
 end
