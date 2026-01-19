@@ -1,4 +1,13 @@
 defmodule Gust.Leader do
+  @moduledoc """
+  Elects a single leader node and manages leader-only children.
+
+  The leader process attempts to acquire a distributed lock in the database.
+  When the lock is held, the node becomes the leader and starts the configured
+  leader-only workers under `Gust.LeaderOnlySupervisor`. If the lock is lost, the
+  leader-only workers are terminated and the node returns to follower mode.
+  """
+
   use GenServer
   require Logger
   alias Gust.DAG.Run.Cron.{Scheduler, JobLoader}
