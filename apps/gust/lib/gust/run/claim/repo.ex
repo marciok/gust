@@ -56,7 +56,7 @@ defmodule Gust.Run.Claim.Repo do
   end
 
   defp expire_date(now) do
-    lease_seconds = 15
+    lease_seconds = Application.get_env(:gust, :claim_lease_seconds, 15)
     DateTime.add(now, lease_seconds)
   end
 end
