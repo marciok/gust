@@ -29,7 +29,7 @@ defmodule Gust.AppChildren do
   defp dag_run_pooler("test"), do: []
 
   defp dag_run_pooler(_env) do
-    [Gust.Run.Pooler]
+    [Gust.Run.Pooler, Gust.DAG.Terminator.Worker]
   end
 
   defp leader("test"), do: []

@@ -40,7 +40,7 @@ defmodule Gust.Flows.Run do
   @doc false
   def test_changeset(run, attrs) do
     run
-    |> cast(attrs, [:dag_id, :status, :inserted_at, :claim_token, :claim_expires_at])
+    |> cast(attrs, [:dag_id, :status, :inserted_at, :claim_token, :claim_expires_at, :claimed_by])
     |> validate_required([:dag_id, :status])
   end
 end

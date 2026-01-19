@@ -8,6 +8,7 @@ defmodule AppChildrenTest do
     setup do
       children = [
         Gust.Run.Pooler,
+        Gust.DAG.Terminator.Worker,
         {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}},
         {Gust.FileMonitor.Worker,
          %{dags_folder: @dags_folder, loader: Application.get_env(:gust, :dag_loader)}},
@@ -58,6 +59,7 @@ defmodule AppChildrenTest do
 
       children = [
         Gust.Run.Pooler,
+        Gust.DAG.Terminator.Worker,
         {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}},
         Gust.Leader,
         {DynamicSupervisor, [strategy: :one_for_one, name: Gust.LeaderOnlySupervisor]},
