@@ -20,7 +20,7 @@ defmodule LeaderTest do
     end
   end
 
-  describe "handle_continue/2 when message :attemp_lock is passed" do
+  describe "handle_continue/2 when message :attempt_lock is passed" do
     test "process is set as follower" do
       start_supervised!(
         {DynamicSupervisor, strategy: :one_for_one, name: Gust.LeaderOnlySupervisor}
