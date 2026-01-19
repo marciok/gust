@@ -1,12 +1,19 @@
-defmodule DAG.Terminator.ProcessTest do
+defmodule DAG.Terminator.WorkerTest do
   import Gust.FlowsFixtures
   use Gust.DataCase
-  alias Gust.DAG.Terminator.Process, as: Terminator
+  alias Gust.DAG.Terminator.Worker, as: Terminator
 
-  test "kill_task/2" do
+  setup do
     dag = dag_fixture(%{name: "test_dag"})
-    run = run_fixture(%{dag_id: dag.id})
+    run = run_fixture(%{dag_id: dag.id, claimed_by: to_string(Node.self())})
     task = task_fixture(%{run_id: run.id, name: "test_task"})
+
+    start_link_supervised!(Terminator)
+
+    %{task: task}
+  end
+
+  test "kill_task/2", %{task: task} do
     task_id = task.id
 
     {:ok, _} = Registry.register(Gust.Registry, "stage_run_#{task.run_id}", nil)
@@ -36,10 +43,7 @@ defmodule DAG.Terminator.ProcessTest do
     assert_receive {:task_result, nil, ^task_id, ^status}, 200
   end
 
-  test "cancel_timer/2" do
-    dag = dag_fixture(%{name: "test_dag"})
-    run = run_fixture(%{dag_id: dag.id})
-    task = task_fixture(%{run_id: run.id, name: "test_task"})
+  test "cancel_timer/2", %{task: task} do
     task_id = task.id
 
     {:ok, _} = Registry.register(Gust.Registry, "stage_run_#{task.run_id}", nil)

@@ -1,7 +1,7 @@
 defmodule Gust.DAG.Loader.Worker do
   @behaviour Gust.DAG.Loader
   @moduledoc false
-  alias Gust.DAG.{Parser, RunRestarter, Scheduler}
+  alias Gust.DAG.Parser
   alias Gust.Flows
   alias Gust.PubSub
   use GenServer
@@ -87,9 +87,6 @@ defmodule Gust.DAG.Loader.Worker do
   def handle_continue(:bootstrap, %{dags_folder: folder} = state) do
     dag_defs = load_folder(folder)
     Flows.delete_not_found_ids(Map.keys(dag_defs))
-
-    Scheduler.schedule(dag_defs)
-    RunRestarter.restart_dags(dag_defs)
 
     {:noreply, state |> put_dag_defs(dag_defs)}
   end

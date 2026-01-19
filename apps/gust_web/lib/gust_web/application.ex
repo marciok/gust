@@ -9,15 +9,14 @@ defmodule GustWeb.Application do
   def start(_type, _args) do
     children = [
       GustWeb.Telemetry,
-      # Start a worker by calling: GustWeb.Worker.start_link(arg)
-      # {GustWeb.Worker, arg},
-      # Start to serve requests, typically the last entry
       GustWeb.Endpoint
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: GustWeb.Supervisor]
+
+    children =
+      if System.get_env("GUST_ROLE", "single") in ["web", "single"], do: children, else: []
+
     Supervisor.start_link(children, opts)
   end
 

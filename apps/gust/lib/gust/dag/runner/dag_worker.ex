@@ -5,10 +5,15 @@ defmodule Gust.DAG.Runner.DAGWorker do
   alias Gust.DAG.{Compiler, Definition, StageRunnerSupervisor}
   alias Gust.Flows
   alias Gust.PubSub
+  alias Gust.Run.Claim
 
   alias __MODULE__, as: State
 
-  defstruct run: nil, dag_def: %Definition{}, stages: []
+  defstruct run: nil,
+            dag_def: %Definition{},
+            stages: [],
+            reclaim_token: nil,
+            reclaim_run_delay: nil
 
   @status_map %{
     ok: :succeeded,
@@ -18,11 +23,15 @@ defmodule Gust.DAG.Runner.DAGWorker do
   }
 
   @impl true
-  def init(%State{dag_def: dag_def} = state) do
+  def init(%State{dag_def: dag_def, run: run} = state) do
     runtime_mod = Compiler.compile(dag_def)
     dag_def = %{dag_def | mod: runtime_mod}
-    state = %{state | dag_def: dag_def}
+    delay = Application.get_env(:gust, :reclaim_run_delay, 5_000)
 
+    token = run.claim_token
+    state = %{state | dag_def: dag_def, reclaim_token: token, reclaim_run_delay: delay}
+
+    Process.send_after(self(), {:renew_claim, token}, delay)
     {:ok, state, {:continue, :init_stage}}
   end
 
@@ -97,6 +106,23 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
     Compiler.purge(dag_def.mod)
     {:stop, :normal, state}
+  end
+
+  def handle_info(
+        {:renew_claim, token},
+        %State{
+          run: run,
+          reclaim_run_delay: delay
+        } = state
+      ) do
+    run = Claim.renew_run(run.id, token)
+
+    if run do
+      Process.send_after(self(), {:renew_claim, token}, delay)
+      {:noreply, %{state | run: run}}
+    else
+      {:stop, :normal, state}
+    end
   end
 
   def handle_info(

@@ -1,9 +1,9 @@
 # TODO: test schedule change
 defmodule GustWeb.DagSummaryLiveComponentTest do
-  alias Gust.Flows
   use GustWeb.ConnCase
   import Phoenix.LiveViewTest
   import Gust.FlowsFixtures
+  alias Gust.Flows
 
   require GustWeb.LiveComponentTest
   import GustWeb.LiveComponentTest
@@ -52,7 +52,7 @@ defmodule GustWeb.DagSummaryLiveComponentTest do
     dag_id = dag.id
     {:ok, dag} = Flows.toggle_enabled(dag)
 
-    GustWeb.DAGRunRestarterMock |> expect(:restart_enqueued, fn ^dag_id -> nil end)
+    GustWeb.DAGRunTriggerMock |> expect(:dispatch_all_runs, fn ^dag_id -> nil end)
 
     {:ok, dag_summary, _html} =
       live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
