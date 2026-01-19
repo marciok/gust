@@ -1,4 +1,12 @@
 defmodule Gust.Run.Pooler do
+  @moduledoc """
+  Claims runnable DAG runs and starts their execution.
+
+  The pooler subscribes to run dispatch events and also polls on a configurable
+  interval to claim work in batches. Each claimed run is validated against its
+  DAG definition and then started under the runner supervisor when valid.
+  """
+
   use GenServer
   require Logger
   alias Gust.PubSub
