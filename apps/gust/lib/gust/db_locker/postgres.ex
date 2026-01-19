@@ -1,4 +1,11 @@
 defmodule Gust.DBLocker.Postgres do
+  @moduledoc """
+  Implements DB-backed advisory locking using Postgres.
+
+  Uses `pg_try_advisory_lock/1` inside a checkout to attempt the lock and passes
+  the success flag to the provided callback.
+  """
+
   alias Gust.Repo
   @behaviour Gust.DBLocker
 

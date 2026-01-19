@@ -1,4 +1,12 @@
 defmodule Gust.DAG.Run.Trigger.Requeue do
+  @moduledoc """
+  Resets tasks and runs, then re-queues them for execution.
+
+  Provides helpers to reset an entire run or a downstream branch of tasks, update
+  run status to `:enqueued`, and broadcast the corresponding PubSub events. It
+  also handles dispatching runs when the DAG is enabled.
+  """
+
   alias Gust.PubSub
   alias Gust.Flows
   alias Gust.DAG.Graph
