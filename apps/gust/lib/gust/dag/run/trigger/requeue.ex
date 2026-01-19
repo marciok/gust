@@ -57,12 +57,12 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   end
 
   def dispatch_run(run) do
-    maybe_dispath_enabled_dag(run, Flows.get_dag!(run.dag_id))
+    maybe_dispatch_enabled_dag(run, Flows.get_dag!(run.dag_id))
   end
 
-  defp maybe_dispath_enabled_dag(run, %Flows.Dag{enabled: false}), do: run
+  defp maybe_dispatch_enabled_dag(run, %Flows.Dag{enabled: false}), do: run
 
-  defp maybe_dispath_enabled_dag(run, %Flows.Dag{enabled: true}) do
+  defp maybe_dispatch_enabled_dag(run, %Flows.Dag{enabled: true}) do
     run = update_broadcast(run)
     PubSub.broadcast_run_dispatch(run.id)
     run
