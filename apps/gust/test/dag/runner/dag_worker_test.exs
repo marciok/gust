@@ -22,7 +22,6 @@ defmodule DAG.Runner.DagWorkerTest do
       {:ok, spawn(fn -> Process.sleep(10) end)}
     end)
 
-    setup |> Map.put(:run_id, run_id)
     Map.merge(setup, %{run_id: run_id, task_id: hey_task_id})
   end
 
