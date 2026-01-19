@@ -71,7 +71,7 @@ defmodule Gust.Run.Pooler do
     else
       false ->
         dag = Flows.get_dag!(run.dag_id)
-        Logger.error("Not starting DAG: #{dag.name} becasuse contains errors")
+        Logger.error("Not starting DAG: #{dag.name} because contains errors")
     end
   end
 end
