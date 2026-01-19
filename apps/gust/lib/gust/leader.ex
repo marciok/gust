@@ -3,7 +3,7 @@ defmodule Gust.Leader do
   require Logger
   alias Gust.DAG.Run.Cron.{Scheduler, JobLoader}
 
-  @lock_key 16_071988
+  @lock_key 16_071_988
 
   @default_children [Scheduler, JobLoader]
 
