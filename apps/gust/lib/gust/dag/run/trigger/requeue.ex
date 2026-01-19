@@ -7,9 +7,9 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   also handles dispatching runs when the DAG is enabled.
   """
 
-  alias Gust.PubSub
-  alias Gust.Flows
   alias Gust.DAG.Graph
+  alias Gust.Flows
+  alias Gust.PubSub
 
   @behaviour Gust.DAG.Run.Trigger
 

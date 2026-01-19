@@ -9,9 +9,11 @@ defmodule Gust.Run.Pooler do
 
   use GenServer
   require Logger
-  alias Gust.PubSub
-  alias Gust.DAG.{Loader, RunnerSupervisor, Definition}
+  alias Gust.DAG.Definition
+  alias Gust.DAG.Loader
+  alias Gust.DAG.RunnerSupervisor
   alias Gust.Flows
+  alias Gust.PubSub
   alias Gust.Run.Claim
 
   def start_link(args) do

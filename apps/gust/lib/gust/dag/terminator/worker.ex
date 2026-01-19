@@ -4,8 +4,8 @@ defmodule Gust.DAG.Terminator.Worker do
 
   use GenServer
 
-  alias Gust.Registry, as: GustReg
   alias Gust.Flows
+  alias Gust.Registry, as: GustReg
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)

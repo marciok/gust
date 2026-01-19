@@ -70,11 +70,11 @@ defmodule Gust.PubSub do
 
   ## Subscriptions
   #
-  def subscribe_runs_claimed() do
+  def subscribe_runs_claimed do
     Phoenix.PubSub.subscribe(__MODULE__, @runs_claimed)
   end
 
-  def subscribe_runs_pool() do
+  def subscribe_runs_pool do
     Phoenix.PubSub.subscribe(__MODULE__, @runs_pool)
   end
 

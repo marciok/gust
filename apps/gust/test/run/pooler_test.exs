@@ -1,6 +1,6 @@
 defmodule Run.PoolerTest do
-  alias Gust.PubSub
   alias Gust.Flows
+  alias Gust.PubSub
   use Gust.DataCase
 
   import ExUnit.CaptureLog

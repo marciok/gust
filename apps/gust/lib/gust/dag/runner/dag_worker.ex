@@ -4,8 +4,8 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   alias Gust.DAG.{Compiler, Definition, StageRunnerSupervisor}
   alias Gust.Flows
-  alias Gust.Run.Claim
   alias Gust.PubSub
+  alias Gust.Run.Claim
 
   alias __MODULE__, as: State
 

@@ -1,8 +1,8 @@
 defmodule GustWeb.DagLive.Index do
-  alias Gust.DAG.{Loader}
+  alias Gust.DAG.Loader
+  alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.PubSub
-  alias Gust.DAG.Run.Trigger
   use GustWeb, :live_view
 
   @impl true

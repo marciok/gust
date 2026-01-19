@@ -21,7 +21,7 @@ defmodule Gust.Run.Claim.Repo do
     end
   end
 
-  def next_run() do
+  def next_run do
     node = to_string(Node.self())
     token = Ecto.UUID.generate()
     now = DateTime.utc_now()

@@ -3,7 +3,7 @@ defmodule DAG.Run.Cron.JobLoaderTest do
   alias Gust.DAG.Scheduler
   use Gust.DataCase
   import Gust.FlowsFixtures
-  alias Gust.DAG.Run.Cron.{Scheduler, JobLoader}
+  alias Gust.DAG.Run.Cron.{JobLoader, Scheduler}
 
   import Mox
 

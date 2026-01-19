@@ -19,7 +19,7 @@ defmodule Gust.Run.Claim do
   @callback next_run() :: next_run_result()
 
   def renew_run(run_id, token), do: impl().renew_run(run_id, token)
-  def next_run(), do: impl().next_run()
+  def next_run, do: impl().next_run()
 
   defp impl do
     Application.get_env(:gust, :run_claim, Gust.Run.Claim.Repo)

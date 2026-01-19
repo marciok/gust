@@ -1,7 +1,7 @@
 defmodule DAG.Run.RequeueTest do
   alias Gust.DAG.Run.Trigger
-  alias Gust.PubSub
   alias Gust.Flows
+  alias Gust.PubSub
   use Gust.DataCase, async: true
 
   import Gust.FlowsFixtures

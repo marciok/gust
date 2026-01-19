@@ -2,12 +2,11 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
   @moduledoc false
 
   import Crontab.CronExpression
-  alias Gust.DAG.Scheduler
-  alias Quantum.Job, as: QJob
   alias Gust.DAG.Definition
+  alias Gust.DAG.Run.Cron.Scheduler
   alias Gust.DAG.Run.Trigger
   alias Gust.PubSub
-  alias Gust.DAG.Run.Cron.Scheduler
+  alias Quantum.Job, as: QJob
 
   use GenServer
 

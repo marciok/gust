@@ -10,7 +10,7 @@ defmodule Gust.Leader do
 
   use GenServer
   require Logger
-  alias Gust.DAG.Run.Cron.{Scheduler, JobLoader}
+  alias Gust.DAG.Run.Cron.{JobLoader, Scheduler}
 
   @lock_key 16_071_988
 
