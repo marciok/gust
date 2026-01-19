@@ -58,7 +58,7 @@ defmodule Run.PoolerTest do
           assert_receive {:runs_claimed, %{node: _node}}, 200
         end)
 
-      assert logs =~ "Not starting DAG: #{sec_dag.name} becasuse contains errors"
+      assert logs =~ "Not starting DAG: #{sec_dag.name} because contains errors"
       assert logs =~ "Runs claimed: 3"
     end
   end
