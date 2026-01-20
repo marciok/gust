@@ -89,7 +89,6 @@ defmodule GustWeb.DagLive.Dashboard do
   @impl true
   def handle_event("cancel_task", %{"id" => task_id}, socket) do
     task = Flows.get_task!(task_id)
-    # TODO: Redo so it called by pubsub
 
     flash =
       case task.status do
