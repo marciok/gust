@@ -67,6 +67,10 @@ defmodule GustWeb.Layouts do
       <footer class="app-footer w-full">
         <div class="app-footer__content">
           <div class="app-footer__meta">
+            <select class="select">
+              <option disabled selected>Nodes Connected</option>
+              <option :for={node <- Node.list()}>{node}</option>
+            </select>
             <span class="app-footer__value">{System.get_env("MIX_ENV")}</span>
           </div>
         </div>

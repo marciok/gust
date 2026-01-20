@@ -1,5 +1,6 @@
 defmodule GustWeb.DagLive.Dashboard do
-  alias Gust.DAG.{Loader, RunRestarter, Terminator}
+  alias Gust.DAG.{Loader, Terminator}
+  alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.Flows.Run
   alias Gust.PubSub
@@ -13,7 +14,9 @@ defmodule GustWeb.DagLive.Dashboard do
     page = params["page"] || "1"
     dag = load_dag(String.to_integer(page), params["name"])
 
-    case Loader.get_definition(dag.id) do
+    dag_def = Loader.get_definition(dag.id)
+
+    case dag_def do
       {:ok, dag_def} ->
         mount_success(socket, dag, dag_def, params, page)
 
@@ -109,8 +112,8 @@ defmodule GustWeb.DagLive.Dashboard do
 
   @impl true
   def handle_event("restart_run", %{"id" => run_id}, socket) do
-    run = Flows.get_run!(run_id)
-    RunRestarter.restart_run(run)
+    run = Flows.get_run!(run_id) |> Trigger.reset_run()
+
     {:noreply, socket |> put_flash(:info, "Run: #{run.id} was restarted")}
   end
 
@@ -118,19 +121,21 @@ defmodule GustWeb.DagLive.Dashboard do
   def handle_event("restart_task", %{"id" => task_id}, socket) do
     dag_def = socket.assigns.dag_def
     task = Flows.get_task!(task_id)
-    tasks = dag_def.tasks
+    tasks_graph = dag_def.tasks
 
-    RunRestarter.restart_task(tasks, task)
+    Trigger.reset_task(tasks_graph, task)
 
     {:noreply, socket |> put_flash(:info, "Task: #{task.name} was restarted")}
   end
 
   @impl true
   def handle_event("trigger_run", %{"id" => id}, socket) do
-    run = RunRestarter.start_dag(String.to_integer(id))
-    run = Flows.get_run_with_tasks!(run.id)
+    dag_id = String.to_integer(id)
+    {:ok, run} = Flows.create_run(%{dag_id: dag_id})
 
-    {:noreply, socket |> put_flash(:info, "Run #{run.id} triggered")}
+    run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
+
+    {:noreply, socket |> stream_insert(:runs, run) |> put_flash(:info, "Run #{run.id} triggered")}
   end
 
   @impl true

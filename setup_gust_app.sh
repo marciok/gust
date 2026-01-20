@@ -34,7 +34,7 @@ cd "$GUST_APP"
 
 echo "==> Adding Gust + Plug dependencies to mix.exs"
 
-GUST_APP_VERSION="0.1.25"
+GUST_APP_VERSION="0.1.26"
 
 # Insert deps inside defp deps do ... end
 # sed is portable across Linux/macOS using this strategy
@@ -46,7 +46,7 @@ sed -i.bak '/defp deps do/,/end/ c\
       {:plug_cowboy, "~> 2.7", only: :prod},\
       {:hackney, "~> 1.9"},\
       {:file_system, "~> 1.1", only: :dev},\
-      {:gust_web, "0.1.25"}\
+      {:gust_web, "0.1.26"}\
     ]\
   end
 ' mix.exs

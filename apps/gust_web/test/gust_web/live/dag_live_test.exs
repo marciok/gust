@@ -90,12 +90,13 @@ defmodule GustWeb.DagLiveTest do
       dag_id = dag.id
       {:ok, index_live, _html} = live(conn, ~p"/dags")
 
-      new_run = run_fixture(%{dag_id: dag_id})
+      GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
 
-      GustWeb.DAGRunRestarterMock |> expect(:start_dag, fn ^dag_id -> new_run end)
+      triggered_flash = index_live |> element("#trigger-dag-run-#{dag.id}") |> render_click()
 
-      assert index_live |> element("#trigger-dag-run-#{dag.id}") |> render_click() =~
-               "Run #{new_run.id} triggered"
+      last_run = Flows.get_dag_with_runs!(dag_id).runs |> List.last()
+
+      assert triggered_flash =~ "Run #{last_run.id} triggered"
     end
   end
 end
