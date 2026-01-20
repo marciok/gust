@@ -100,7 +100,7 @@ end
 ## Features
 
   - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
-  -  Support multiple nodes.
+  - Support multiple nodes.
   - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
   - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
   - Retry logic with backoff, plus state clearing for clean restarts.
@@ -162,7 +162,7 @@ Include this line to copy your `dags` folder:
 COPY dags /app/dags
 ```
 
-After the Dockerfile is set, create a `docker-compose.yml` to include the include the rest of the dependencies.
+After the Dockerfile is set, create a `docker-compose.yml` to include the rest of the dependencies.
 ```yml
 services:
   db:
@@ -202,9 +202,9 @@ services:
       DATABASE_URL: "ecto://gust:gust@db:5432/gust_prod"
       POOL_SIZE: "10"
       GUST_ROLE: "web" # Web Gust role
-      DNS_CLUSTER_QUERY: "core" # Query "core" connect nodes.
+      DNS_CLUSTER_QUERY: "core" # Query 'core' to connect nodes.
       # Note: You have to update `server` file so nodes can connect.
-    command: ["/app/bin/server"] # Check below.
+    command: ["/app/bin/server"] # See server script configuration below".
   core:
     deploy:
       replicas: 3
@@ -223,7 +223,7 @@ services:
       POOL_SIZE: "10"
       GUST_ROLE: "core" # Core Gust role
       # Note: You have to create `start-core` on `rel/overlays/bin/`
-    command: ["/app/bin/start-core"] # Check below.
+    command: ["/app/bin/start-core"] # See start-core script instructions below.
 volumes:
   gust_pgdata:
 ```
@@ -233,7 +233,6 @@ volumes:
  #!/bin/sh
 set -eu
 
-cd -P -- "$(dirname -- "$0")"
 IP="$(hostname -i | awk '{print $1}')"
 export RELEASE_DISTRIBUTION=name # Needed for DNSCluster
 export RELEASE_NODE="gust@${IP}" # Needed for DNSCluster
@@ -242,7 +241,7 @@ cd -P -- "$(dirname -- "$0")"
 PHX_SERVER=true exec ./my_app start
  ```
 
-Create a `start-core` file on `rel/overlays/bin/` and ` chmod a+x rel/overlays/bin/start-core`
+Create a `start-core` file on `rel/overlays/bin/` and `chmod a+x rel/overlays/bin/start-core`
 ```
 #!/bin/sh
 set -eu
@@ -253,7 +252,7 @@ export RELEASE_NODE="gust@${IP}" # Needed for DNSCluster
 
 exec /app/bin/my_app start
 ```
- **Note:  There's some repetiton, in the future we will have one file to start both Gust roles**
+ **Note:  There's some repetition, in the future we will have one file to start both Gust roles**
 
 
 
