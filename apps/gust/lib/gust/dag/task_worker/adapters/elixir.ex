@@ -2,6 +2,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
   @moduledoc false
 
   use Gust.DAG.TaskWorker
+  alias Gust.DAG.Logger
 
   @impl true
   def handle_info(
@@ -11,7 +12,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
     fun_name = String.to_atom(task.name)
     args = [%{run_id: task.run_id}]
 
-    Gust.DAG.Logger.set_task(task.id, task.attempt)
+    Logger.set_task(task.id, task.attempt)
 
     {status, result} =
       case try_run(dag_def.mod, fun_name, args, opts[:store_result]) do
@@ -22,7 +23,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
           {:error, error}
       end
 
-    Gust.DAG.Logger.unset()
+    Logger.unset()
 
     send(stage_pid, {:task_result, result, task.id, status})
 

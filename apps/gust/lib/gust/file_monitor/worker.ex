@@ -2,6 +2,7 @@ defmodule Gust.FileMonitor.Worker do
   @moduledoc false
 
   use GenServer
+  alias Gust.DAG.Adapter
   alias Gust.DAG.Parser
   alias Gust.FileMonitor
 
@@ -48,6 +49,6 @@ defmodule Gust.FileMonitor.Worker do
 
   defp adapter_for_path(path) do
     extension = Path.extname(path)
-    Gust.DAG.Adapter.parser_for_extension(extension)
+    Adapter.parser_for_extension(extension)
   end
 end

@@ -1,4 +1,6 @@
 defmodule Gust.DAG.Parser.Adapters.Elixir do
+  @moduledoc false
+
   alias Gust.DAG.Definition
   alias Gust.DAG.Graph
   @behaviour Gust.DAG.Parser.Adapter

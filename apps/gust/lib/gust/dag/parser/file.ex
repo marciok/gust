@@ -2,10 +2,11 @@ defmodule Gust.DAG.Parser.File do
   @moduledoc false
 
   @behaviour Gust.DAG.Parser
+  alias Gust.DAG.Adapter
 
   @impl true
   def parse_folder(folder) do
-    Enum.map(Gust.DAG.Adapter.parser_modules(), fn adapter ->
+    Enum.map(Adapter.parser_modules(), fn adapter ->
       adapter.list_files(folder)
       |> Enum.map(&"#{Path.absname(folder)}/#{&1}")
       |> Enum.map(fn path ->
