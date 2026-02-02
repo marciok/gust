@@ -28,10 +28,10 @@ defmodule Dag.Runner.StageWorkerTest do
   end
 
   def upstream_did_not_fail(%{run: _run, dag_def: dag_def, task: task}) do
-    mod = dag_def.mod
-
     Gust.DAGTaskRunnerSupervisorMock
-    |> expect(:start_child, fn _task, ^mod, _pid, _opts ->
+    |> expect(:start_child, fn _task, %Gust.DAG.Definition{} = incoming_def, _pid, _opts ->
+      assert incoming_def.mod == dag_def.mod
+      assert incoming_def.adapter == dag_def.adapter
       {:ok, spawn(fn -> Process.sleep(10) end)}
     end)
 
@@ -193,7 +193,8 @@ defmodule Dag.Runner.StageWorkerTest do
       send(runner_pid, {:task_result, error, task.id, :error})
 
       Gust.DAGTaskRunnerSupervisorMock
-      |> expect(:start_child, fn _task, ^mod, _pid, _opts ->
+      |> expect(:start_child, fn _task, %Gust.DAG.Definition{} = incoming_def, _pid, _opts ->
+        assert incoming_def.mod == mod
         {:ok, spawn(fn -> Process.sleep(10) end)}
       end)
 

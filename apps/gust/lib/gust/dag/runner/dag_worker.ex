@@ -2,7 +2,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
   @moduledoc false
   use GenServer
 
-  alias Gust.DAG.{Compiler, Definition, StageRunnerSupervisor}
+  alias Gust.DAG.{Adapter, Definition, StageRunnerSupervisor}
   alias Gust.Flows
   alias Gust.PubSub
   alias Gust.Run.Claim
@@ -24,8 +24,11 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   @impl true
   def init(%State{dag_def: dag_def, run: run} = state) do
-    runtime_mod = Compiler.compile(dag_def)
-    dag_def = %{dag_def | mod: runtime_mod}
+    dag_def =
+      dag_def
+      |> runtime_adapter()
+      |> then(& &1.setup(dag_def))
+
     delay = Application.get_env(:gust, :reclaim_run_delay, 5_000)
 
     token = run.claim_token
@@ -104,7 +107,10 @@ defmodule Gust.DAG.Runner.DAGWorker do
     {callback, _options} = Keyword.pop(options, :on_finished_callback)
     if callback, do: apply(dag_def.mod, callback, [status, run])
 
-    Compiler.purge(dag_def.mod)
+    dag_def
+    |> runtime_adapter()
+    |> then(& &1.teardown(dag_def))
+
     {:stop, :normal, state}
   end
 
@@ -140,5 +146,9 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   defp broadcast({:ok, %Flows.Run{id: id, status: status}}) do
     Gust.PubSub.broadcast_run_status(id, status)
+  end
+
+  defp runtime_adapter(%Definition{adapter: adapter}) do
+    Adapter.impl!(adapter, :runtime)
   end
 end

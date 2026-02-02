@@ -1,4 +1,4 @@
-defmodule DAG.Runner.TaskWorkerTest do
+defmodule DAG.TaskWorker.Adapters.ElixirTest do
   require Logger
   use Gust.DataCase, async: false
   import Gust.FlowsFixtures
@@ -38,9 +38,12 @@ defmodule DAG.Runner.TaskWorkerTest do
       run_id = task.run_id
       task_id = task.id
 
+      dag_def = %Gust.DAG.Definition{mod: mod, adapter: :elixir}
+
       worker_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self(), opts: %{}}}
+          {Gust.DAG.TaskWorker.Adapters.Elixir,
+           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{}}}
         )
 
       ref = Process.monitor(worker_pid)
@@ -71,9 +74,12 @@ defmodule DAG.Runner.TaskWorkerTest do
 
       [{mod, _bin}] = Code.compile_string(dag_content)
 
+      dag_def = %Gust.DAG.Definition{mod: mod, adapter: :elixir}
+
       worker_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self(), opts: %{}}}
+          {Gust.DAG.TaskWorker.Adapters.Elixir,
+           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{}}}
         )
 
       ref = Process.monitor(worker_pid)
@@ -103,9 +109,12 @@ defmodule DAG.Runner.TaskWorkerTest do
 
       [{mod, _bin}] = Code.compile_string(dag_content)
 
+      dag_def = %Gust.DAG.Definition{mod: mod, adapter: :elixir}
+
       worker_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.TaskWorker, %{task: task, mod: mod, stage_pid: self(), opts: %{}}}
+          {Gust.DAG.TaskWorker.Adapters.Elixir,
+           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{}}}
         )
 
       ref = Process.monitor(worker_pid)
@@ -138,10 +147,12 @@ defmodule DAG.Runner.TaskWorkerTest do
 
       [{mod, _bin}] = Code.compile_string(dag_content)
 
+      dag_def = %Gust.DAG.Definition{mod: mod, adapter: :elixir}
+
       worker_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.TaskWorker,
-           %{task: task, mod: mod, stage_pid: self(), opts: %{store_result: true}}}
+          {Gust.DAG.TaskWorker.Adapters.Elixir,
+           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{store_result: true}}}
         )
 
       ref = Process.monitor(worker_pid)
