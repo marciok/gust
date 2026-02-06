@@ -32,6 +32,5 @@ defmodule Gust.DAG.StageCoordinator do
     do: impl().update_restart_timer(coord, task, ref)
 
   def impl,
-    do:
-      Application.get_env(:gust, :dag_stage_coordinator, Gust.DAG.StageCoordinator.RetryingRunner)
+    do: Application.get_env(:gust, :dag_stage_coordinator, Gust.DAG.StageCoordinator.RetryingTask)
 end

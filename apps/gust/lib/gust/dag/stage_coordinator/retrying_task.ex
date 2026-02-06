@@ -1,5 +1,4 @@
-# TODO: Rename to RetryingTask
-defmodule Gust.DAG.StageCoordinator.RetryingRunner do
+defmodule Gust.DAG.StageCoordinator.RetryingTask do
   @moduledoc false
   alias Gust.DAG.TaskDelayer
   alias Gust.Flows
