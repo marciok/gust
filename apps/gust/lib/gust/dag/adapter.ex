@@ -41,12 +41,8 @@ defmodule Gust.DAG.Adapter do
   defp adapters do
     configured = Application.get_env(:gust, :dag_adapter, [])
 
-    Keyword.merge(@default_adapters, configured, fn key, default_val, configured_val ->
-      if key == :elixir and is_map(default_val) and is_map(configured_val) do
-        Map.merge(default_val, configured_val)
-      else
-        configured_val
-      end
+    Keyword.merge(@default_adapters, configured, fn _key, default_val, configured_val ->
+      Map.merge(default_val, configured_val)
     end)
   end
 end

@@ -28,12 +28,18 @@ defmodule Gust.DAG.AdapterTest do
           parser: Gust.DAG.Parser.Adapters.Elixir,
           runtime: :runtime_impl,
           task_worker: :task_worker_impl
+        },
+        mock: %{
+          parser: :mock_parser,
+          runtime: :mock_runtime,
+          task_worker: :mock_task_worker
         }
       )
 
       assert Adapter.impl!(:elixir, :parser) == Gust.DAG.Parser.Adapters.Elixir
       assert Adapter.impl!(:elixir, :runtime) == :runtime_impl
       assert Adapter.impl!(:elixir, :task_worker) == :task_worker_impl
+      assert Adapter.impl!(:mock, :parser) == :mock_parser
     end
 
     test "raises when the adapter is not configured" do

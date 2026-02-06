@@ -43,7 +43,7 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       worker_pid =
         start_link_supervised!(
           {Gust.DAG.TaskWorker.Adapters.Elixir,
-           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{}}}
+           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{store_result: false}}}
         )
 
       ref = Process.monitor(worker_pid)
@@ -67,7 +67,7 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
 
           task :#{task.name} do
             Process.sleep(100)
-            "#{result}"
+            %{res: "#{result}"}
           end
         end
       """
@@ -79,11 +79,11 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       worker_pid =
         start_link_supervised!(
           {Gust.DAG.TaskWorker.Adapters.Elixir,
-           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{}}}
+           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{store_result: true}}}
         )
 
       ref = Process.monitor(worker_pid)
-      assert_receive {:task_result, ^result, ^task_id, :ok}, 200
+      assert_receive {:task_result, %{res: ^result}, ^task_id, :ok}, 200
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
 
       on_exit(fn ->
@@ -114,7 +114,7 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       worker_pid =
         start_link_supervised!(
           {Gust.DAG.TaskWorker.Adapters.Elixir,
-           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{}}}
+           %{task: task, dag_def: dag_def, stage_pid: self(), opts: %{store_result: false}}}
         )
 
       ref = Process.monitor(worker_pid)

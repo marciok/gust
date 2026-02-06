@@ -34,22 +34,6 @@ defmodule Gust.DAG.TaskWorker do
       defp via_tuple(name) do
         {:via, Registry, {Gust.Registry, name}}
       end
-
-      defp try_run(mod, fun_name, args, store_result) do
-        apply_and_validate(mod, fun_name, args, store_result)
-      rescue
-        e -> {:error, e}
-      end
-
-      defp apply_and_validate(mod, fun_name, args, store_result) do
-        result = apply(mod, fun_name, args)
-
-        if store_result && !is_map(result) do
-          raise "Task returned #{inspect(result)} but store_result requires a map"
-        else
-          {:ok, result}
-        end
-      end
     end
   end
 end

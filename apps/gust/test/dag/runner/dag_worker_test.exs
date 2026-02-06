@@ -26,6 +26,7 @@ defmodule DAG.Runner.DagWorkerTest do
   end
 
   setup do
+    Application.put_env(:gust, :dag_adapter, elixir: %{runtime: Gust.RuntimeAdapterMock})
     Application.put_env(:gust, :reclaim_run_delay, 99_999_999)
     dag = dag_fixture()
 
@@ -36,11 +37,7 @@ defmodule DAG.Runner.DagWorkerTest do
       stages: [["hi", "hey", "ho"], ["bye"]]
     }
 
-    Gust.DAGCompilerMock
-    |> expect(:compile, fn dag_def ->
-      dag_def.mod
-    end)
-
+    Gust.RuntimeAdapterMock |> expect(:setup, fn dag_def, _runtime -> dag_def end)
     %{run: run, dag_def: dag_def}
   end
 
@@ -72,11 +69,7 @@ defmodule DAG.Runner.DagWorkerTest do
       last_stage = dag_def.stages |> List.last()
       dag_def = %Gust.DAG.Definition{dag_def | stages: [last_stage]}
       run_id = run.id
-
-      Gust.DAGCompilerMock
-      |> expect(:purge, fn _mod ->
-        nil
-      end)
+      Gust.RuntimeAdapterMock |> expect(:teardown, fn _dag_def, _runtime -> :ok end)
 
       Gust.DAGStageRunnerSupervisorMock
       |> expect(:start_child, fn ^dag_def, task_ids, _pid ->
@@ -107,11 +100,7 @@ defmodule DAG.Runner.DagWorkerTest do
       last_stage = dag_def.stages |> List.last()
       dag_def = %Gust.DAG.Definition{dag_def | stages: [last_stage]}
       run_id = run.id
-
-      Gust.DAGCompilerMock
-      |> expect(:purge, fn _mod ->
-        nil
-      end)
+      Gust.RuntimeAdapterMock |> expect(:teardown, fn _dag_def, _runtime -> :ok end)
 
       Gust.DAGStageRunnerSupervisorMock
       |> expect(:start_child, fn ^dag_def, task_ids, _pid ->
@@ -138,6 +127,7 @@ defmodule DAG.Runner.DagWorkerTest do
     end
 
     test "next stage is empty", %{run: run, dag_def: dag_def} do
+      Gust.RuntimeAdapterMock |> expect(:teardown, fn _dag_def, _runtime -> :ok end)
       Gust.PubSub.subscribe_run(run.id)
       last_stage = dag_def.stages |> List.last()
 
@@ -169,11 +159,6 @@ defmodule DAG.Runner.DagWorkerTest do
       }
 
       run_id = run.id
-
-      Gust.DAGCompilerMock
-      |> expect(:purge, fn _mod ->
-        nil
-      end)
 
       Gust.DAGStageRunnerSupervisorMock
       |> expect(:start_child, fn ^dag_def, task_ids, _pid ->
@@ -265,15 +250,11 @@ defmodule DAG.Runner.DagWorkerTest do
     end
 
     test "next stage is empty", %{run: run, dag_def: dag_def} do
+      Gust.RuntimeAdapterMock |> expect(:teardown, fn _dag_def, _runtime -> :ok end)
       Gust.PubSub.subscribe_run(run.id)
       last_stage = dag_def.stages |> List.last()
       dag_def = %Gust.DAG.Definition{dag_def | stages: [last_stage]}
       run_id = run.id
-
-      Gust.DAGCompilerMock
-      |> expect(:purge, fn _mod ->
-        nil
-      end)
 
       Gust.DAGStageRunnerSupervisorMock
       |> expect(:start_child, fn ^dag_def, task_ids, _pid ->

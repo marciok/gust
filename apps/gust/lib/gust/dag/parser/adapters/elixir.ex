@@ -9,11 +9,6 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
   def extension, do: ".ex"
 
   @impl true
-  def list_files(folder) do
-    ex_files(folder)
-  end
-
-  @impl true
   def parse_file(file_path) do
     parse_ex_file(file_path)
   end
@@ -39,16 +34,6 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
       {{:error, error_type}, errors} ->
         {:error, error_type, errors}
     end
-  end
-
-  defp ex_files(folder) do
-    folder
-    |> File.ls!()
-    |> Enum.filter(&maybe_ex_file(&1))
-  end
-
-  def maybe_ex_file(path) do
-    if Path.extname(path) == extension(), do: path, else: nil
   end
 
   defp use_dsl?(ast) do
@@ -82,7 +67,7 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
   end
 
   defp define_dag(file_path) do
-    name = Path.basename(file_path, ".ex")
+    name = Path.basename(file_path, extension())
     dag_def = default_dag_def(name, file_path)
 
     dag_def =
@@ -142,13 +127,13 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
   end
 
   defp list_tasks!(mod) do
-    tasks = mod.__dag_tasks__()
+    mod.__dag_tasks__()
+    |> Enum.map(fn {task_name, opts} ->
+      option =
+        Keyword.validate!(opts, [:downstream, :store_result, :ctx])
+        |> Keyword.put_new(:store_result, false)
 
-    tasks
-    |> Enum.each(fn {_task_name, opts} ->
-      Keyword.validate!(opts, [:downstream, :store_result, :ctx])
+      {task_name, option}
     end)
-
-    tasks
   end
 end

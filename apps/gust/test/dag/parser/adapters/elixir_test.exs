@@ -19,26 +19,6 @@ defmodule DAG.Parser.Adapters.ElixirTest do
     end
   end
 
-  describe "list_files/1" do
-    test "returns only .ex files", %{tmp_dir: dags_folder} do
-      File.write!("#{dags_folder}/first.ex", "")
-      File.write!("#{dags_folder}/second.ex", "")
-      File.write!("#{dags_folder}/ignored.txt", "")
-
-      assert ["first.ex", "second.ex"] == Enum.sort(Adapter.list_files(dags_folder))
-    end
-  end
-
-  describe "maybe_ex_file/1" do
-    test "returns path when .ex file" do
-      assert "my_dag.ex" == Adapter.maybe_ex_file("my_dag.ex")
-    end
-
-    test "returns nil for non .ex file" do
-      assert nil == Adapter.maybe_ex_file("my_dag.txt")
-    end
-  end
-
   describe "parse_file/1" do
     test "file is not valid", %{tmp_dir: dags_folder} do
       dag_definition = """
@@ -123,7 +103,7 @@ defmodule DAG.Parser.Adapters.ElixirTest do
           "bye" => %{
             upstream: MapSet.new(["hi"]),
             downstream: MapSet.new([]),
-            store_result: nil
+            store_result: false
           },
           "hi" => %{
             upstream: MapSet.new([]),

@@ -29,4 +29,22 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
 
     {:stop, :normal, state}
   end
+
+  defp try_run(mod, fun_name, args, store_result) do
+    apply_and_validate(mod, fun_name, args, store_result)
+  rescue
+    e -> {:error, e}
+  end
+
+  defp apply_and_validate(mod, fun_name, args, store_result) do
+    result = apply(mod, fun_name, args)
+    maybe_validate_result(store_result, result)
+  end
+
+  def maybe_validate_result(false, result), do: {:ok, result}
+  def maybe_validate_result(true, result) when is_map(result), do: {:ok, result}
+
+  def maybe_validate_result(true, result) do
+    raise("Task returned #{inspect(result)} but store_result requires a map")
+  end
 end

@@ -13,7 +13,8 @@ defmodule Gust.DAG.Runner.DAGWorker do
             dag_def: %Definition{},
             stages: [],
             reclaim_token: nil,
-            reclaim_run_delay: nil
+            reclaim_run_delay: nil,
+            runtime_id: nil
 
   @status_map %{
     ok: :succeeded,
@@ -24,15 +25,24 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   @impl true
   def init(%State{dag_def: dag_def, run: run} = state) do
+    runtime_id = random_udid()
+
     dag_def =
       dag_def
       |> runtime_adapter()
-      |> then(& &1.setup(dag_def))
+      |> then(& &1.setup(dag_def, runtime_id))
 
     delay = Application.get_env(:gust, :reclaim_run_delay, 5_000)
 
     token = run.claim_token
-    state = %{state | dag_def: dag_def, reclaim_token: token, reclaim_run_delay: delay}
+
+    state = %{
+      state
+      | dag_def: dag_def,
+        reclaim_token: token,
+        reclaim_run_delay: delay,
+        runtime_id: runtime_id
+    }
 
     Process.send_after(self(), {:renew_claim, token}, delay)
     {:ok, state, {:continue, :init_stage}}
@@ -99,7 +109,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
   @impl true
   def handle_info(
         {:stage_completed, status},
-        %State{stages: [], dag_def: dag_def, run: run} = state
+        %State{stages: [], dag_def: dag_def, run: run, runtime_id: runtime_id} = state
       ) do
     update_status(run, @status_map[status])
     options = dag_def.options
@@ -109,7 +119,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
     dag_def
     |> runtime_adapter()
-    |> then(& &1.teardown(dag_def))
+    |> then(& &1.teardown(dag_def, runtime_id))
 
     {:stop, :normal, state}
   end
@@ -150,5 +160,11 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   defp runtime_adapter(%Definition{adapter: adapter}) do
     Adapter.impl!(adapter, :runtime)
+  end
+
+  defp random_udid do
+    timestamp = :os.system_time(:microsecond)
+    random = :crypto.strong_rand_bytes(4) |> Base.encode16()
+    "#{timestamp}-#{random}"
   end
 end
