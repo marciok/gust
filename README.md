@@ -255,8 +255,43 @@ exec /app/bin/my_app start
  **Note:  There's some repetition, in the future we will have one file to start both Gust roles**
 
 
+## How to Run Tests Locally
 
+1. Start Postgres.
+2. Copy `.env.example` to `.env.test`:
+   ```bash
+   cp .env.example .env.test
+   ```
+3. Load test environment variables:
+   ```bash
+   source .env.test
+   ```
+4. Install dependencies:
+   ```bash
+   mix setup
+   ```
+5. Create and migrate the test database:
+   ```bash
+   MIX_ENV=test mix ecto.create
+   MIX_ENV=test mix ecto.migrate
+   ```
+6. Run tests:
+   ```bash
+   mix test
+   ```
 
+### Useful Commands
+
+```bash
+mix test test/path/to/file_test.exs
+mix test --failed
+MIX_ENV=test mix coveralls.html --umbrella
+```
+
+### Common Failures
+
+- `connection refused`: Postgres is not running or `PGHOST`/`PGUSER`/`PGPASSWORD` are incorrect.
+- `database "gust_rc_test" does not exist`: run `MIX_ENV=test mix ecto.create && MIX_ENV=test mix ecto.migrate`.
 
 
 ---
