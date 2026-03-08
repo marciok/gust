@@ -1,4 +1,6 @@
 defmodule GustPy.Runtime.Adapter do
+  @moduledoc false
+
   @behaviour Gust.DAG.Runtime.Adapter
 
   alias Gust.DAG.Definition

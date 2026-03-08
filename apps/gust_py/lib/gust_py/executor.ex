@@ -1,4 +1,6 @@
 defmodule GustPy.Executor do
+  @moduledoc false
+
   @callback start_task_via_port(term(), term(), term()) :: term()
   @callback run(term()) :: term()
 

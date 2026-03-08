@@ -1,4 +1,6 @@
 defmodule GustPy.Parser.Adapter do
+  @moduledoc false
+
   @behaviour Gust.DAG.Parser.Adapter
   alias Gust.DAG.Definition
   alias Gust.DAG.Graph

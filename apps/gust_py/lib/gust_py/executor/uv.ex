@@ -1,4 +1,6 @@
 defmodule GustPy.Executor.UV do
+  @moduledoc false
+
   @behaviour GustPy.Executor
 
   @working_dir_flag "UV_WORKING_DIR"
@@ -45,7 +47,7 @@ defmodule GustPy.Executor.UV do
     ])
   end
 
-  defp working_dir() do
+  defp working_dir do
     dag_folder = Application.get_env(:gust, :dags_folder)
     Application.get_env(:gust_py, :uv_working_dir, dag_folder)
   end

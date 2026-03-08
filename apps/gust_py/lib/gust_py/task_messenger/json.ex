@@ -1,4 +1,6 @@
 defmodule GustPy.TaskMessenger.JSON do
+  @moduledoc false
+
   @behaviour GustPy.TaskMessenger
 
   @enforce_keys [:type]
@@ -44,7 +46,7 @@ defmodule GustPy.TaskMessenger.JSON do
   end
 
   def handle_next(%Msg{} = msg) do
-    Logger.warning("Received unknown port message", msg: inspect(msg))
+    Logger.warning("Received unknown port message: #{inspect(msg)}")
     :noreply
   end
 

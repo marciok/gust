@@ -1,7 +1,7 @@
 defmodule DAG.Runtime.Adapters.ElixirTest do
   use Gust.DataCase
-  alias Gust.DAG.Runtime.Adapters.Elixir, as: Adapter
   alias Gust.DAG.Definition
+  alias Gust.DAG.Runtime.Adapters.Elixir, as: Adapter
   import Gust.FSHelpers
 
   @original_mod_name "TheOffspring"
@@ -28,7 +28,7 @@ defmodule DAG.Runtime.Adapters.ElixirTest do
 
   describe "setup/2" do
     test "module is compiled and available", %{original_def: dag_def} do
-      runtime_id = 12345
+      runtime_id = 12_345
       %{mod: updated_mod} = Adapter.setup(dag_def, runtime_id)
       assert Code.ensure_loaded?(updated_mod)
       assert "Elixir.Gust.Runner.#{@original_mod_name}_#{runtime_id}" == to_string(updated_mod)

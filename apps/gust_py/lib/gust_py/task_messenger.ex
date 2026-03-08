@@ -1,4 +1,6 @@
 defmodule GustPy.TaskMessenger do
+  @moduledoc false
+
   @type done_message :: {:result, term()} | {:error, term()}
 
   @callback decode(binary()) :: {:ok, map()} | {:error, term()}

@@ -1,10 +1,12 @@
 defmodule GustPy.TaskWorker.Adapter do
+  @moduledoc false
+
   use Gust.DAG.TaskWorker
   require Logger
 
   alias Gust.DAG.Logger, as: DagLogger
-  alias GustPy.TaskWorker.Error
   alias GustPy.TaskMessenger, as: Messenger
+  alias GustPy.TaskWorker.Error
 
   @impl true
   def handle_info(:run, %{task: task, dag_def: dag_def} = state) do
