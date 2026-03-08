@@ -126,30 +126,13 @@ defmodule DAG.Runner.DagWorkerTest do
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
     end
 
-    test "next stage is empty", %{run: run, dag_def: dag_def} do
-      Gust.RuntimeAdapterMock |> expect(:teardown, fn _dag_def, _runtime -> :ok end)
+    test "next stage is empty and callback is set", %{run: run, dag_def: dag_def} do
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn _dag_def, _runtime -> :ok end)
+      |> expect(:on_finished_callback, fn _dag_def, _callback_fn_name, _run, _status -> :ok end)
+
       Gust.PubSub.subscribe_run(run.id)
       last_stage = dag_def.stages |> List.last()
-
-      defmodule TestModCallback do
-        def start_agent do
-          Agent.start_link(fn -> [] end, name: __MODULE__)
-        end
-
-        def callback(status, run) do
-          Agent.update(__MODULE__, fn calls -> [{status, run.id} | calls] end)
-          {status, run.id}
-        end
-
-        def calls do
-          Agent.get(__MODULE__, & &1)
-        end
-      end
-
-      test_mod = TestModCallback
-      {:ok, _} = TestModCallback.start_agent()
-
-      on_exit(fn -> :code.purge(test_mod) end)
 
       dag_def = %Gust.DAG.Definition{
         dag_def
@@ -182,7 +165,6 @@ defmodule DAG.Runner.DagWorkerTest do
       assert Repo.get!(Flows.Run, run.id).status == :failed
 
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
-      assert [{:error, ^run_id}] = TestModCallback.calls()
     end
   end
 

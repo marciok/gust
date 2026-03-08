@@ -16,6 +16,11 @@ defmodule Gust.DAG.Runtime.Adapters.Elixir do
     purge(mod)
   end
 
+  @impl true
+  def on_finished_callback(%Definition{mod: mod}, fn_name, run, status) do
+    apply(mod, fn_name, [status, run])
+  end
+
   defp compile(%Definition{file_path: file_path} = dag_def, runtime_id) do
     {:ok, ast} = Code.string_to_quoted(File.read!(file_path))
 

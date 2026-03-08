@@ -114,8 +114,13 @@ defmodule Gust.DAG.Runner.DAGWorker do
     update_status(run, @status_map[status])
     options = dag_def.options
 
-    {callback, _options} = Keyword.pop(options, :on_finished_callback)
-    if callback, do: apply(dag_def.mod, callback, [status, run])
+    {callback_fn_name, _options} = Keyword.pop(options, :on_finished_callback)
+
+    if callback_fn_name do
+      dag_def
+      |> runtime_adapter()
+      |> then(& &1.on_finished_callback(dag_def, callback_fn_name, run, status))
+    end
 
     dag_def
     |> runtime_adapter()

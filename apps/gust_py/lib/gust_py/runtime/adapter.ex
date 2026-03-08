@@ -12,9 +12,28 @@ defmodule GustPy.Runtime.Adapter do
   end
 
   @impl true
+  def on_finished_callback(%Definition{file_path: file, name: name}, fn_name, run, status) do
+    args = [
+      "run",
+      "done",
+      "--file",
+      file,
+      "--dag",
+      name,
+      "--fn-name",
+      fn_name,
+      "--status",
+      Atom.to_string(status),
+      "--run-id",
+      Integer.to_string(run.id)
+    ]
+
+    GustPy.Executor.run(args)
+  end
+
+  @impl true
   def teardown(%Definition{file_path: file_path}, _runtime_id) do
     File.rm!(file_path)
-    :ok
   end
 
   defp tmp_copy_path(file_path, runtime_id) do
