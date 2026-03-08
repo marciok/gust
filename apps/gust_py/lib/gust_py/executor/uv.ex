@@ -12,25 +12,23 @@ defmodule GustPy.Executor.UV do
   defp task_args(dag_def, task_name, task_context) do
     [
       ~c"run",
-      ~c"invoke_dag",
+      ~c"gust",
+      ~c"task",
+      ~c"run",
       ~c"--file",
       dag_def.file_path,
       ~c"--dag",
-      dag_def.name,
+      dag_def.mod,
       ~c"--task",
       task_name,
-      ~c"--ctx",
+      ~c"--ctx-json",
       Jason.encode!(task_context)
     ]
   end
 
   @impl true
-  def parse_dag(file_path) do
-    run(["parse_dags", "--file", file_path])
-  end
-
   def run(args_list) do
-    System.cmd(exec(), ["run" | args_list], env: %{@working_dir_flag => working_dir()})
+    System.cmd(exec(), ["run", "gust" | args_list], env: %{@working_dir_flag => working_dir()})
   end
 
   def open_port(args_list) do

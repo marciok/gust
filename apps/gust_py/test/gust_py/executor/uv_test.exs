@@ -53,7 +53,7 @@ defmodule GustPy.Executor.UVTest do
 
     assert status == 0
     assert output =~ "UV_WORKING_DIR=/tmp/dags"
-    assert output =~ "ARGS=run hello"
+    assert output =~ "ARGS=run gust hello"
   end
 
   test "open_port/1 passes args and sets UV_WORKING_DIR from gust_py override", %{
@@ -71,17 +71,6 @@ defmodule GustPy.Executor.UVTest do
     contents = File.read!(output_file)
     assert contents =~ "UV_WORKING_DIR=/custom/uv"
     assert contents =~ "ARGS=alpha beta"
-  end
-
-  test "parse_dag/1 runs parse_dags with the provided file path" do
-    Application.put_env(:gust, :dags_folder, "/tmp/dags")
-    Application.delete_env(:gust_py, :uv_working_dir)
-
-    {output, status} = UV.parse_dag("/tmp/dags/sample.py")
-
-    assert status == 0
-    assert output =~ "UV_WORKING_DIR=/tmp/dags"
-    assert output =~ "ARGS=run parse_dags --file /tmp/dags/sample.py"
   end
 
   test "start_task_via_port/3 passes the dag info and encoded context", %{
@@ -106,7 +95,7 @@ defmodule GustPy.Executor.UVTest do
     assert contents =~ "UV_WORKING_DIR=/tmp/dags"
 
     assert contents =~
-             "ARGS=run invoke_dag --file /tmp/dags/demo.py --dag demo_dag --task task_alpha --ctx #{expected_ctx}"
+             "ARGS=run gust task run --file /tmp/dags/demo.py --dag nil --task task_alpha --ctx-json #{expected_ctx}"
   end
 
   defp uv_script do

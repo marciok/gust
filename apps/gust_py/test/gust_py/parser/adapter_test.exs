@@ -21,7 +21,7 @@ defmodule GustPy.Parser.AdapterTest do
         "bye" => %{"deps" => [], "save" => false}
       },
       "file_path" => @file_path,
-      "options" => %{"schedule" => nil}
+      "options" => %{"schedule" => nil, "on_finished_callback" => "done_running"}
     }
   ]
 
@@ -46,17 +46,6 @@ defmodule GustPy.Parser.AdapterTest do
   setup :verify_on_exit!
   setup :set_mox_from_context
 
-  setup do
-    previous_executor = Application.get_env(:gust_py, :executor)
-    Application.put_env(:gust_py, :executor, GustPy.ExecutorMock)
-
-    on_exit(fn ->
-      restore_app_env(:gust_py, :executor, previous_executor)
-    end)
-
-    :ok
-  end
-
   describe "extension/0" do
     test "returns .py" do
       assert ".py" == Adapter.extension()
@@ -66,7 +55,7 @@ defmodule GustPy.Parser.AdapterTest do
   describe "parse_file/1" do
     test "returns a parsed dag definition from executor output" do
       GustPy.ExecutorMock
-      |> expect(:parse_dag, fn @file_path ->
+      |> expect(:run, fn ["parse", "--file", @file_path] ->
         {Jason.encode!(@valid_dag), 0}
       end)
 
@@ -76,7 +65,7 @@ defmodule GustPy.Parser.AdapterTest do
       assert dag_def.mod == "Enya"
       assert dag_def.adapter == :python
       assert dag_def.file_path == @file_path
-      assert dag_def.options == [schedule: nil]
+      assert dag_def.options == [{:on_finished_callback, "done_running"}, {:schedule, nil}]
       assert dag_def.messages == []
       assert dag_def.error == %{}
 
@@ -115,7 +104,7 @@ defmodule GustPy.Parser.AdapterTest do
 
     test "returns parsing error when executor reports a parse error" do
       GustPy.ExecutorMock
-      |> expect(:parse_dag, fn @file_path ->
+      |> expect(:run, fn ["parse", "--file", @file_path] ->
         {Jason.encode!(@invalid_dag), 0}
       end)
 
@@ -127,7 +116,7 @@ defmodule GustPy.Parser.AdapterTest do
 
     test "returns error when executor exits with non-zero status" do
       GustPy.ExecutorMock
-      |> expect(:parse_dag, fn @file_path ->
+      |> expect(:run, fn ["parse", "--file", @file_path] ->
         {"", 1}
       end)
 
@@ -135,7 +124,4 @@ defmodule GustPy.Parser.AdapterTest do
                Adapter.parse_file(@file_path)
     end
   end
-
-  defp restore_app_env(app, key, nil), do: Application.delete_env(app, key)
-  defp restore_app_env(app, key, value), do: Application.put_env(app, key, value)
 end

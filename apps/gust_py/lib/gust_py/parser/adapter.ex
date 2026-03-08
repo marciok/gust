@@ -11,7 +11,7 @@ defmodule GustPy.Parser.Adapter do
   def parse_file(file_path) do
     name = Path.basename(file_path, extension())
 
-    with {out, 0} <- Executor.parse_dag(file_path),
+    with {out, 0} <- Executor.run(["parse", "--file", file_path]),
          [dag_json | _] <- Jason.decode!(out),
          {:ok, dag_def} <- parse_dag_def(dag_json, name) do
       {:ok, dag_def}
