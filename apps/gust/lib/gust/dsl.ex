@@ -106,6 +106,9 @@ defmodule Gust.DSL do
   """
   defmacro task(name, opts_and_ctx, do: block) do
     {ctx_pattern, opts} = Keyword.pop(opts_and_ctx, :ctx)
+
+    opts = use_old_opts(opts)
+
     ctx_pattern = ctx_pattern || quote do: %{run_id: run_id}
 
     quote do
@@ -115,6 +118,24 @@ defmodule Gust.DSL do
         unquote(ctx_pattern) = ctx
         unquote(block)
       end
+    end
+  end
+
+  defp use_old_opts(opts) do
+    opts
+    |> rename_opt(:deps, :downstream)
+    |> rename_opt(:save, :store_result)
+  end
+
+  defp rename_opt(opts, old_key, new_key) do
+    case Keyword.fetch(opts, old_key) do
+      {:ok, value} ->
+        opts
+        |> Keyword.put_new(new_key, value)
+        |> Keyword.delete(old_key)
+
+      :error ->
+        opts
     end
   end
 
