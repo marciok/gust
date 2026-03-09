@@ -25,6 +25,10 @@ A task orchestration system designed to be efficient, fast and developer-friendl
   <a href="https://hexdocs.pm/gust">
     <img src="https://img.shields.io/hexpm/v/gust?color=0084d1&label=Gust" alt="Gust" />
   </a>
+
+  <a href="https://hexdocs.pm/gust_py">
+    <img src="https://img.shields.io/hexpm/v/gust_py?color=0084d1&label=Gust+Web" alt="Gust Python" />
+  </a>
 </p>
 
 ---
@@ -66,7 +70,7 @@ defmodule HelloWorld do
   end
 
   # Declaring "first_task" task; setting a downstream task and telling Gust to store its result.
-  task :first_task, downstream: [:second_task], store_result: true do
+  task :first_task, downstream: [:second_task], save: true do
     greetings = "Hi from first_task"
     Logger.info(greetings)
 
@@ -74,7 +78,7 @@ defmodule HelloWorld do
     secret = Flows.get_secret_by_name("SUPER_SECRET")
     Logger.warning("I know your secret: #{secret.value}")
 
-    # The return value must be a map when `store_result` is true.
+    # The return value must be a map when `save` is true.
     %{result: greetings}
   end
   
@@ -101,6 +105,7 @@ end
 
   - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
   - Support multiple nodes.
+  - [Support for Python DAGs](https://github.com/marciok/gust/tree/main/apps/gust_py)
   - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
   - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
   - Retry logic with backoff, plus state clearing for clean restarts.

@@ -2,6 +2,7 @@ defmodule Gust.FileMonitor.Worker do
   @moduledoc false
 
   use GenServer
+  alias Gust.DAG.Adapter
   alias Gust.DAG.Parser
   alias Gust.FileMonitor
 
@@ -29,19 +30,25 @@ defmodule Gust.FileMonitor.Worker do
   end
 
   def handle_info({:check_queue, path}, %{events_queue: queue, loader: loader} = state) do
-    Parser.maybe_ex_file(path) |> broadcast_path(loader)
+    case adapter_for_path(path) do
+      nil -> nil
+      adapter -> broadcast_path(path, loader, adapter)
+    end
 
     {:noreply, %{state | events_queue: MapSet.delete(queue, path)}}
   end
 
   defp delay, do: Application.get_env(:gust, :file_reload_delay)
 
-  defp broadcast_path(nil, _loader), do: nil
-
-  defp broadcast_path(path, loader) do
+  defp broadcast_path(path, loader, adapter) do
     action = if File.exists?(path), do: "reload", else: "removed"
     dag_name = path |> Path.basename() |> Path.rootname()
 
-    send(loader, {dag_name, Parser.parse(path), action})
+    send(loader, {dag_name, Parser.parse(adapter, path), action})
+  end
+
+  defp adapter_for_path(path) do
+    extension = Path.extname(path)
+    Adapter.parser_for_extension(extension)
   end
 end

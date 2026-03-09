@@ -164,7 +164,7 @@ defmodule Gust.DAG.Runner.StageWorker do
 
   defp start_task(task, dag_def) do
     task_opts = dag_def.tasks[task.name]
-    {:ok, _pid} = TaskRunnerSupervisor.start_child(task, dag_def.mod, self(), task_opts)
+    {:ok, _pid} = TaskRunnerSupervisor.start_child(task, dag_def, self(), task_opts)
     update_status(task, :running)
   end
 

@@ -13,10 +13,12 @@ defmodule DAG.DefinitionTest do
     assert dfn.messages == []
     assert dfn.file_path == ""
     assert dfn.options == []
+    assert dfn.adapter == :elixir
 
     assert Map.keys(dfn) |> Enum.sort() ==
              [
                :__struct__,
+               :adapter,
                :error,
                :file_path,
                :messages,

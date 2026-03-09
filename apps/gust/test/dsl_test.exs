@@ -68,6 +68,27 @@ defmodule DSLTest do
     :code.delete(mod)
   end
 
+  test "task macro with save option" do
+    dag_code = """
+      defmodule MyValidDagEmpty do
+        use Gust.DSL
+
+        task :hi, save: true do
+          # saying hi
+          1 + 1
+        end
+
+      end
+    """
+
+    [{mod, _bin}] = Code.compile_string(dag_code)
+
+    assert mod.__dag_tasks__() == [{:hi, [store_result: true]}]
+
+    :code.purge(mod)
+    :code.delete(mod)
+  end
+
   test "task macro with store_result option" do
     dag_code = """
       defmodule MyValidDagEmpty do
@@ -89,7 +110,7 @@ defmodule DSLTest do
     :code.delete(mod)
   end
 
-  test "task macro without downstream opts" do
+  test "task macro with downstream opts" do
     dag_code = """
       defmodule MyValidDagEmpty do
         use Gust.DSL

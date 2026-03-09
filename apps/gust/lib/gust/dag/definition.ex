@@ -2,6 +2,7 @@ defmodule Gust.DAG.Definition do
   @moduledoc false
   defstruct name: "",
             mod: nil,
+            adapter: :elixir,
             error: %{},
             messages: [],
             task_list: [],
@@ -13,6 +14,7 @@ defmodule Gust.DAG.Definition do
   @type t :: %__MODULE__{
           name: String.t(),
           mod: module() | nil,
+          adapter: atom(),
           error: map(),
           messages: list(),
           task_list: list(),
