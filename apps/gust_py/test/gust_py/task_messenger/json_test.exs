@@ -19,7 +19,7 @@ defmodule GustPy.TaskMessenger.JSONTest do
                JSON.decode(Jason.encode!(payload))
     end
 
-    test "decodes call message for get_task_by_name_run" do
+    test "decodes call message for get_task_by_name_run when task exists" do
       payload = %{
         "type" => "call",
         "op" => "get_task_by_name_run",
@@ -100,6 +100,25 @@ defmodule GustPy.TaskMessenger.JSONTest do
                })
 
       assert data == %{id: task.id, result: %{"value" => 55}}
+    end
+
+    test "rasise when task when found" do
+      dag = dag_fixture(%{name: unique_dag_name()})
+      run = run_fixture(%{dag_id: dag.id})
+      task = task_fixture(%{run_id: run.id, name: "task_alpha", result: %{"value" => 55}})
+
+      not_found_task = "task_alpha_sum_41"
+
+      assert_raise RuntimeError,
+                   ~r"Task #{not_found_task} not found in run_id: #{run.id}",
+                   fn ->
+                     JSON.handle_next(%JSON{
+                       type: :call,
+                       op: :get_task_by_name_run,
+                       name: not_found_task,
+                       run_id: run.id
+                     })
+                   end
     end
 
     test "returns done with result value from map" do

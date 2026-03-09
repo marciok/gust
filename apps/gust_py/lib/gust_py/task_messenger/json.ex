@@ -69,14 +69,18 @@ defmodule GustPy.TaskMessenger.JSON do
 
   defp reply_with_task(task_name, run_id) do
     run = Gust.Flows.get_task_by_name_run(task_name, run_id)
-    %{ok: true, data: serialize_task(run)}
+
+    if run do
+      %{ok: true, data: serialize_task(run)}
+    else
+      raise("Task #{task_name} not found in run_id: #{run_id}")
+    end
   end
 
   defp new(%{"type" => "log", "msg" => msg}) do
     %Msg{type: :log, msg: msg}
   end
 
-  # TODO: to_atom op
   defp new(%{"type" => "call", "op" => "get_secret_by_name", "name" => name}) do
     %Msg{type: :call, op: :get_secret_by_name, name: name}
   end
