@@ -25,6 +25,10 @@ A task orchestration system designed to be efficient, fast and developer-friendl
   <a href="https://hexdocs.pm/gust">
     <img src="https://img.shields.io/hexpm/v/gust?color=0084d1&label=Gust" alt="Gust" />
   </a>
+
+  <a href="https://hexdocs.pm/gust_py">
+    <img src="https://img.shields.io/hexpm/v/gust_py?color=0084d1&label=Gust+Web" alt="Gust Python" />
+  </a>
 </p>
 
 ---
