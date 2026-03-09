@@ -50,7 +50,7 @@ defmodule GustPy.Parser.Adapter do
 
     stages = tasks |> Graph.to_stages() |> then(fn {:ok, stages} -> stages end)
 
-    options = for {k, v} <- opts, into: [], do: {String.to_atom(k), v}
+    options = parse_options(opts)
 
     {:ok,
      %Definition{
@@ -67,8 +67,20 @@ defmodule GustPy.Parser.Adapter do
 
   defp parse_downstream(tasks) do
     for {task_name, %{"downstream" => deps}} <- tasks do
-      options = [downstream: Enum.map(deps, &String.to_atom/1)]
-      {String.to_atom(task_name), options}
+      {task_name, [downstream: deps]}
     end
   end
+
+  defp parse_options(opts) do
+    Enum.flat_map(["on_finished_callback", "schedule"], fn key ->
+      if Map.has_key?(opts, key) do
+        [{option_key(key), Map.fetch!(opts, key)}]
+      else
+        []
+      end
+    end)
+  end
+
+  defp option_key("on_finished_callback"), do: :on_finished_callback
+  defp option_key("schedule"), do: :schedule
 end

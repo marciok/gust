@@ -102,6 +102,27 @@ defmodule GustPy.Parser.AdapterTest do
       assert dag_def.tasks["bye"].store_result == false
     end
 
+    test "ignores unknown option keys from executor output" do
+      dag =
+        put_in(
+          @valid_dag,
+          [Access.at(0), "options"],
+          %{
+            "schedule" => nil,
+            "on_finished_callback" => "done_running",
+            "unexpected" => "value"
+          }
+        )
+
+      GustPy.ExecutorMock
+      |> expect(:run, fn ["parse", "--file", @file_path] ->
+        {Jason.encode!(dag), 0}
+      end)
+
+      assert {:ok, %Definition{} = dag_def} = Adapter.parse_file(@file_path)
+      assert dag_def.options == [{:on_finished_callback, "done_running"}, {:schedule, nil}]
+    end
+
     test "returns parsing error when executor reports a parse error" do
       GustPy.ExecutorMock
       |> expect(:run, fn ["parse", "--file", @file_path] ->
