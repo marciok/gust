@@ -14,14 +14,34 @@ defmodule GustPy.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
-      deps: deps()
+      deps: deps(),
+      description: "Python DAG support for Gust",
+      package: [
+        licenses: ["Apache-2.0"],
+        links: %{"GitHub" => "https://github.com/marciok/gust"},
+        files: [
+          "lib",
+          "mix.exs",
+          "README.md"
+        ]
+      ]
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:gust, in_umbrella: true}
+      gust_dep()
     ]
   end
+
+  defp gust_dep() do
+    if publish_dep?() do
+      {:gust, "#{@version}"}
+    else
+      {:gust, in_umbrella: true}
+    end
+  end
+
+  defp publish_dep?(), do: System.get_env("PUBLISH_DEP") == "true"
 end
