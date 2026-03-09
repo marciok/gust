@@ -2,7 +2,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
   @moduledoc false
   use GenServer
 
-  alias Gust.DAG.{Compiler, Definition, StageRunnerSupervisor}
+  alias Gust.DAG.{Adapter, Definition, StageRunnerSupervisor}
   alias Gust.Flows
   alias Gust.PubSub
   alias Gust.Run.Claim
@@ -13,7 +13,8 @@ defmodule Gust.DAG.Runner.DAGWorker do
             dag_def: %Definition{},
             stages: [],
             reclaim_token: nil,
-            reclaim_run_delay: nil
+            reclaim_run_delay: nil,
+            runtime_id: nil
 
   @status_map %{
     ok: :succeeded,
@@ -24,12 +25,24 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   @impl true
   def init(%State{dag_def: dag_def, run: run} = state) do
-    runtime_mod = Compiler.compile(dag_def)
-    dag_def = %{dag_def | mod: runtime_mod}
+    runtime_id = random_udid()
+
+    dag_def =
+      dag_def
+      |> runtime_adapter()
+      |> then(& &1.setup(dag_def, runtime_id))
+
     delay = Application.get_env(:gust, :reclaim_run_delay, 5_000)
 
     token = run.claim_token
-    state = %{state | dag_def: dag_def, reclaim_token: token, reclaim_run_delay: delay}
+
+    state = %{
+      state
+      | dag_def: dag_def,
+        reclaim_token: token,
+        reclaim_run_delay: delay,
+        runtime_id: runtime_id
+    }
 
     Process.send_after(self(), {:renew_claim, token}, delay)
     {:ok, state, {:continue, :init_stage}}
@@ -96,15 +109,23 @@ defmodule Gust.DAG.Runner.DAGWorker do
   @impl true
   def handle_info(
         {:stage_completed, status},
-        %State{stages: [], dag_def: dag_def, run: run} = state
+        %State{stages: [], dag_def: dag_def, run: run, runtime_id: runtime_id} = state
       ) do
     update_status(run, @status_map[status])
     options = dag_def.options
 
-    {callback, _options} = Keyword.pop(options, :on_finished_callback)
-    if callback, do: apply(dag_def.mod, callback, [status, run])
+    {callback_fn_name, _options} = Keyword.pop(options, :on_finished_callback)
 
-    Compiler.purge(dag_def.mod)
+    if callback_fn_name do
+      dag_def
+      |> runtime_adapter()
+      |> then(& &1.on_finished_callback(dag_def, callback_fn_name, run, status))
+    end
+
+    dag_def
+    |> runtime_adapter()
+    |> then(& &1.teardown(dag_def, runtime_id))
+
     {:stop, :normal, state}
   end
 
@@ -140,5 +161,15 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   defp broadcast({:ok, %Flows.Run{id: id, status: status}}) do
     Gust.PubSub.broadcast_run_status(id, status)
+  end
+
+  defp runtime_adapter(%Definition{adapter: adapter}) do
+    Adapter.impl!(adapter, :runtime)
+  end
+
+  defp random_udid do
+    timestamp = :os.system_time(:microsecond)
+    random = :crypto.strong_rand_bytes(4) |> Base.encode16()
+    "#{timestamp}-#{random}"
   end
 end

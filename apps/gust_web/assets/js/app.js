@@ -28,6 +28,7 @@ import mermaid from "mermaid"
 
 import Prism from "prismjs"
 import "prismjs/components/prism-elixir.js"
+import "prismjs/components/prism-python.js"
 import "prismjs/plugins/line-numbers/prism-line-numbers.js"
 import "prismjs/plugins/line-highlight/prism-line-highlight.js"
 

@@ -34,7 +34,7 @@ cd "$GUST_APP"
 
 echo "==> Adding Gust + Plug dependencies to mix.exs"
 
-GUST_APP_VERSION="0.1.26"
+GUST_APP_VERSION="0.1.27"
 
 # Insert deps inside defp deps do ... end
 # sed is portable across Linux/macOS using this strategy
@@ -46,7 +46,7 @@ sed -i.bak '/defp deps do/,/end/ c\
       {:plug_cowboy, "~> 2.7", only: :prod},\
       {:hackney, "~> 1.9"},\
       {:file_system, "~> 1.1", only: :dev},\
-      {:gust_web, "0.1.26"}\
+      {:gust_web, "0.1.27"}\
     ]\
   end
 ' mix.exs
@@ -248,10 +248,10 @@ defmodule HelloWorld do
   use Gust.DSL, schedule: "* * * * *"
   require Logger
 
-  task :first_task, downstream: [:second_task], store_result: true do
+  task :first_task, downstream: [:second_task], save: true do
     greetings = "Hi from first_task"
     Logger.info(greetings)
-    # The return value must be a map when store result is true
+    # The return value must be a map when save is true
     %{result: greetings}
   end
 

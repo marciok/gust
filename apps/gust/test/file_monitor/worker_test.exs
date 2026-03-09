@@ -5,9 +5,11 @@ defmodule FileMonitor.WorkerTest do
 
   setup do
     dir = make_rand_dir!("dags")
+    previous_adapters = Application.get_env(:gust, :dag_adapter, [])
 
     on_exit(fn ->
       File.rm_rf!(dir)
+      Application.put_env(:gust, :dag_adapter, previous_adapters)
     end)
 
     {:ok, tmp_dir: dir}
@@ -17,6 +19,17 @@ defmodule FileMonitor.WorkerTest do
   setup :set_mox_from_context
 
   setup %{tmp_dir: tmp_dir} do
+    Application.put_env(:gust, :dag_adapter,
+      elixir: %{
+        parser: Gust.DAGParserAdapterMock,
+        runtime: Gust.DAG.Runtime.Adapters.Elixir,
+        task_worker: Gust.DAG.TaskWorker.Adapters.Elixir
+      }
+    )
+
+    Gust.DAGParserAdapterMock
+    |> stub(:extension, fn -> ".ex" end)
+
     Gust.FileMonitorMock
     |> expect(:start_link, fn keywords ->
       assert [dirs: [tmp_dir], latency: 0] == keywords
@@ -42,12 +55,6 @@ defmodule FileMonitor.WorkerTest do
     event_file_path = "#{tmp_dir}/#{name}.ex"
     File.write!(event_file_path, "")
 
-    Gust.DAGParserMock
-    |> expect(:maybe_ex_file, fn path ->
-      assert path == event_file_path
-      path
-    end)
-
     delay = 200
     original_delay = Application.get_env(:gust, :file_reload_delay)
     Application.put_env(:gust, :file_reload_delay, delay)
@@ -55,7 +62,8 @@ defmodule FileMonitor.WorkerTest do
     dag_def = %Gust.DAG.Definition{name: name}
 
     Gust.DAGParserMock
-    |> expect(:parse, fn path ->
+    |> expect(:parse, fn adapter, path ->
+      assert adapter == Gust.DAGParserAdapterMock
       assert path == event_file_path
       {:ok, dag_def}
     end)
@@ -69,10 +77,7 @@ defmodule FileMonitor.WorkerTest do
   end
 
   test "ignore broadcast reload for non ex files", %{tmp_dir: tmp_dir, dag_watcher_pid: pid} do
-    event_file_path = "#{tmp_dir}/dag_name.ex"
-
-    Gust.DAGParserMock
-    |> expect(:maybe_ex_file, fn ^event_file_path -> nil end)
+    event_file_path = "#{tmp_dir}/dag_name.txt"
 
     send(pid, {:file_event, "watcher_pid", {event_file_path, [:created]}})
 
@@ -89,15 +94,10 @@ defmodule FileMonitor.WorkerTest do
     File.write!(event_file_path, "")
 
     Gust.DAGParserMock
-    |> expect(:parse, fn path ->
+    |> expect(:parse, fn adapter, path ->
+      assert adapter == Gust.DAGParserAdapterMock
       assert path == event_file_path
       {:ok, dag_def}
-    end)
-
-    Gust.DAGParserMock
-    |> expect(:maybe_ex_file, fn path ->
-      assert path == event_file_path
-      path
     end)
 
     send(pid, {:file_event, "watcher_pid", {event_file_path, [:removed]}})
@@ -110,18 +110,13 @@ defmodule FileMonitor.WorkerTest do
     event_file_path = "#{tmp_dir}/#{name}.ex"
 
     Gust.DAGParserMock
-    |> expect(:parse, fn path ->
+    |> expect(:parse, fn adapter, path ->
+      assert adapter == Gust.DAGParserAdapterMock
       assert path == event_file_path
       {:error, :enoent}
     end)
 
     File.write!(event_file_path, "")
-
-    Gust.DAGParserMock
-    |> expect(:maybe_ex_file, fn path ->
-      assert path == event_file_path
-      path
-    end)
 
     send(pid, {:file_event, "watcher_pid", {event_file_path, [:removed]}})
 
@@ -133,18 +128,13 @@ defmodule FileMonitor.WorkerTest do
     event_file_path = "#{tmp_dir}/#{name}.ex"
 
     Gust.DAGParserMock
-    |> expect(:parse, fn path ->
+    |> expect(:parse, fn adapter, path ->
+      assert adapter == Gust.DAGParserAdapterMock
       assert path == event_file_path
       {:error, {:dsl_not_found}}
     end)
 
     File.write!(event_file_path, "")
-
-    Gust.DAGParserMock
-    |> expect(:maybe_ex_file, fn path ->
-      assert path == event_file_path
-      path
-    end)
 
     send(pid, {:file_event, "watcher_pid", {event_file_path, [:removed]}})
 
@@ -157,19 +147,14 @@ defmodule FileMonitor.WorkerTest do
     dag_def = %Gust.DAG.Definition{name: name}
 
     Gust.DAGParserMock
-    |> expect(:parse, fn path ->
+    |> expect(:parse, fn adapter, path ->
+      assert adapter == Gust.DAGParserAdapterMock
       assert path == event_file_path
       {:ok, dag_def}
     end)
 
     dag_def = %Gust.DAG.Definition{name: name}
     File.write!(event_file_path, "")
-
-    Gust.DAGParserMock
-    |> expect(:maybe_ex_file, fn path ->
-      assert path == event_file_path
-      path
-    end)
 
     send(pid, {:file_event, "watcher_pid", {event_file_path, [:removed]}})
 
