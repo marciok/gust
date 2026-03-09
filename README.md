@@ -66,7 +66,7 @@ defmodule HelloWorld do
   end
 
   # Declaring "first_task" task; setting a downstream task and telling Gust to store its result.
-  task :first_task, downstream: [:second_task], store_result: true do
+  task :first_task, downstream: [:second_task], save: true do
     greetings = "Hi from first_task"
     Logger.info(greetings)
 
@@ -74,7 +74,7 @@ defmodule HelloWorld do
     secret = Flows.get_secret_by_name("SUPER_SECRET")
     Logger.warning("I know your secret: #{secret.value}")
 
-    # The return value must be a map when `store_result` is true.
+    # The return value must be a map when `save` is true.
     %{result: greetings}
   end
   

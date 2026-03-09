@@ -15,10 +15,10 @@ defmodule GustPy.Parser.AdapterTest do
       "task_list" => ["hello", "world", "olam", "bye"],
       "stages" => [],
       "tasks" => %{
-        "hello" => %{"deps" => ["world", "olam"], "save" => true},
-        "world" => %{"deps" => ["bye"], "save" => false},
-        "olam" => %{"deps" => ["bye"], "save" => false},
-        "bye" => %{"deps" => [], "save" => false}
+        "hello" => %{"downstream" => ["world", "olam"], "save" => true},
+        "world" => %{"downstream" => ["bye"], "save" => false},
+        "olam" => %{"downstream" => ["bye"], "save" => false},
+        "bye" => %{"downstream" => [], "save" => false}
       },
       "file_path" => @file_path,
       "options" => %{"schedule" => nil, "on_finished_callback" => "done_running"}

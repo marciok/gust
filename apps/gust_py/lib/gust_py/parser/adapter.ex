@@ -40,7 +40,7 @@ defmodule GustPy.Parser.Adapter do
          %{"mod" => mod, "tasks" => tasks, "options" => opts, "file_path" => file_path},
          name
        ) do
-    list = parse_deps(tasks)
+    list = parse_downstream(tasks)
 
     tasks = Graph.link_tasks(list) |> put_store_result(tasks)
 
@@ -61,8 +61,8 @@ defmodule GustPy.Parser.Adapter do
      }}
   end
 
-  defp parse_deps(tasks) do
-    for {task_name, %{"deps" => deps}} <- tasks do
+  defp parse_downstream(tasks) do
+    for {task_name, %{"downstream" => deps}} <- tasks do
       options = [downstream: Enum.map(deps, &String.to_atom/1)]
       {String.to_atom(task_name), options}
     end

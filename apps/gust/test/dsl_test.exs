@@ -110,32 +110,6 @@ defmodule DSLTest do
     :code.delete(mod)
   end
 
-  test "task macro with deps opts" do
-    dag_code = """
-      defmodule MyValidDagEmpty do
-        use Gust.DSL
-
-        task :bye do
-          # saying bye
-          2 + 2
-        end
-
-        task :hi, deps: [:bye] do
-          # saying hi
-          1 + 1
-        end
-
-      end
-    """
-
-    [{mod, _bin}] = Code.compile_string(dag_code)
-
-    assert mod.__dag_tasks__() == [{:hi, [downstream: [:bye]]}, {:bye, []}]
-
-    :code.purge(mod)
-    :code.delete(mod)
-  end
-
   test "task macro with downstream opts" do
     dag_code = """
       defmodule MyValidDagEmpty do

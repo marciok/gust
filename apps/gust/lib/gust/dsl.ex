@@ -26,7 +26,7 @@ defmodule Gust.DSL do
           Logger.info(message)
         end
 
-        task :first_task, downstream: [:second_task], store_result: true do
+        task :first_task, downstream: [:second_task], save: true do
           greetings = "Hi from first_task"
           Logger.info(greetings)
           
@@ -34,7 +34,7 @@ defmodule Gust.DSL do
           secret = Flows.get_secret_by_name("SUPER_SECRET")
           Logger.warning("I know your secret: \#{secret.value}")
 
-          # The return value must be a map when `store_result` is true.
+          # The return value must be a map when `save` is true.
           %{result: greetings}
         end
 
@@ -83,7 +83,7 @@ defmodule Gust.DSL do
   ## Task Options
 
     * `:downstream` — A list of task names (atoms) to run after this task completes.
-    * `:store_result` — When true, the task's return value will be persisted.
+    * `:save` — When true, the task's return value will be persisted.
         * Note: If enabled, the return value **must be a map**.
     * `:ctx` — A pattern that will be matched against the context passed to the task.
         * Defaults to: `%{run_id: run_id}`.
@@ -98,11 +98,11 @@ defmodule Gust.DSL do
         :ok
       end
 
-      task :persist_result, store_result: true do
+      task :persist_result, save: true do
         %{result: :ok}
       end
 
-  When using `store_result: true`, the return value **must** be a map so it can be merged into the overall DAG results.
+  When using `save: true`, the return value **must** be a map so it can be merged into the overall DAG results.
   """
   defmacro task(name, opts_and_ctx, do: block) do
     {ctx_pattern, opts} = Keyword.pop(opts_and_ctx, :ctx)
@@ -123,7 +123,6 @@ defmodule Gust.DSL do
 
   defp use_old_opts(opts) do
     opts
-    |> rename_opt(:deps, :downstream)
     |> rename_opt(:save, :store_result)
   end
 
