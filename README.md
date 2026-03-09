@@ -27,7 +27,7 @@ A task orchestration system designed to be efficient, fast and developer-friendl
   </a>
 
   <a href="https://hexdocs.pm/gust_py">
-    <img src="https://img.shields.io/hexpm/v/gust_py?color=0084d1&label=Gust+Web" alt="Gust Python" />
+    <img src="https://img.shields.io/hexpm/v/gust_py?color=0084d1&label=Gust+Python" alt="Gust Python" />
   </a>
 </p>
 
@@ -54,6 +54,8 @@ Gust is the perfect fit for our needs, and I encourage you to try it and push it
 ```elixir
 defmodule HelloWorld do
   # `schedule` and `on_finished_callback` are optional.
+  # You can use special expressions provided by the quantum package, ex: @daily, @hourly, and etc..
+  # https://hexdocs.pm/quantum/crontab-format.html
   use Gust.DSL, schedule: "* * * * *", on_finished_callback: :notify_something
 
   # Gust logs are stored and displayed through GustWeb via Logger.

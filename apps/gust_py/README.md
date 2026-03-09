@@ -34,7 +34,7 @@ end
     ]
   ```
  3. [Install Python's uv package manager](https://docs.astral.sh/uv/) in your DAG folder
- 4. Add the `gust-py`  dependency:
+ 4. Add the `gust-py`  [dependency](https://github.com/marciok/gust_py):
   ```bash
  uv add gust-py
   ``` 
