@@ -9,7 +9,10 @@ defmodule DAG.Runtime.Adapters.ElixirTest do
   setup do
     content = """
       defmodule #{@original_mod_name} do
-        
+        def notify(status, pid) do
+          send(pid, {:callback_called, status})
+          :custom_result
+        end
       end
     """
 
@@ -35,11 +38,22 @@ defmodule DAG.Runtime.Adapters.ElixirTest do
     end
   end
 
-  describe "teardown/1" do
-    test "purge code", %{original_def: dag_def} do
-      Adapter.teardown(dag_def, nil)
+  describe "teardown/2" do
+    test "purges code and returns :ok", %{original_def: dag_def} do
+      dag_def = Adapter.setup(dag_def, "runtime")
 
+      assert Code.ensure_loaded?(dag_def.mod)
+      assert :ok = Adapter.teardown(dag_def, "runtime")
       assert Code.ensure_loaded?(dag_def.mod) == false
+    end
+  end
+
+  describe "on_finished_callback/4" do
+    test "invokes the callback and returns :ok", %{original_def: dag_def} do
+      dag_def = Adapter.setup(dag_def, "runtime")
+
+      assert :ok = Adapter.on_finished_callback(dag_def, :notify, self(), :ok)
+      assert_receive {:callback_called, :ok}
     end
   end
 end

@@ -14,11 +14,13 @@ defmodule Gust.DAG.Runtime.Adapters.Elixir do
   @impl true
   def teardown(%Definition{mod: mod}, _runtime_id) do
     purge(mod)
+    :ok
   end
 
   @impl true
   def on_finished_callback(%Definition{mod: mod}, fn_name, run, status) do
     apply(mod, fn_name, [status, run])
+    :ok
   end
 
   defp compile(%Definition{file_path: file_path} = dag_def, runtime_id) do
