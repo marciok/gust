@@ -251,7 +251,7 @@ defmodule HelloWorld do
   task :first_task, downstream: [:second_task], save: true do
     greetings = "Hi from first_task"
     Logger.info(greetings)
-    # The return value must be a map when store result is true
+    # The return value must be a map when save is true
     %{result: greetings}
   end
 
