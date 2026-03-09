@@ -64,3 +64,15 @@ jobs:
           mix hex.build
           mix hex.publish --yes --replace
 
+      - name: Publish gust-py
+        working-directory: apps/gust_py
+        env:
+          HEX_API_KEY: ${{ secrets.HEX }}
+          PUBLISH_DEP: true
+        run: |
+          mix deps.get
+          mix assets.deploy
+          mix hex.build
+          mix hex.publish --yes --replace
+
+
