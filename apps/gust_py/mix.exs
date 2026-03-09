@@ -2,6 +2,7 @@ defmodule GustPy.MixProject do
   use Mix.Project
 
   @version "0.1.0"
+  @gust_version "0.1.27"
 
   def project do
     [
@@ -37,7 +38,7 @@ defmodule GustPy.MixProject do
 
   defp gust_dep() do
     if publish_dep?() do
-      {:gust, "#{@version}"}
+      {:gust, @gust_version}
     else
       {:gust, in_umbrella: true}
     end
