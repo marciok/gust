@@ -6,7 +6,7 @@ defmodule GustPy.MixProject do
   def project do
     [
       app: :gust_py,
-      version: @version 
+      version: @version,
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
