@@ -101,6 +101,7 @@ end
 
   - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
   - Support multiple nodes.
+  - [Support for Python DAGs](https://github.com/marciok/gust/tree/main/apps/gust_py)
   - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
   - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
   - Retry logic with backoff, plus state clearing for clean restarts.
