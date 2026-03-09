@@ -114,6 +114,15 @@ defmodule GustPy.Parser.AdapterTest do
                Adapter.parse_file(@file_path)
     end
 
+    test "returns parsing error when executor reports an empty json" do
+      GustPy.ExecutorMock
+      |> expect(:run, fn ["parse", "--file", @file_path] ->
+        []
+      end)
+
+      assert {:error, {[], "Not a GustPy file", ""}} = Adapter.parse_file(@file_path)
+    end
+
     test "returns error when executor exits with non-zero status" do
       GustPy.ExecutorMock
       |> expect(:run, fn ["parse", "--file", @file_path] ->

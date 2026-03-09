@@ -18,6 +18,10 @@ defmodule GustPy.Parser.Adapter do
          {:ok, dag_def} <- parse_dag_def(dag_json, name) do
       {:ok, dag_def}
     else
+      [] ->
+        error = {[], "Not a GustPy file", ""}
+        {:error, error}
+
       {:error, error} ->
         {:error, error}
 
