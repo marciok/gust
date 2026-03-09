@@ -34,7 +34,7 @@ defmodule GustPy.Executor.UV do
   end
 
   def open_port(args_list) do
-    worging_dir = working_dir() |> to_charlist()
+    working_dir = working_dir() |> to_charlist()
     uv = exec() |> to_charlist()
 
     Port.open({:spawn_executable, uv}, [
@@ -42,7 +42,7 @@ defmodule GustPy.Executor.UV do
       :use_stdio,
       :exit_status,
       {:packet, 4},
-      {:env, [{to_charlist(@working_dir_flag), worging_dir}]},
+      {:env, [{to_charlist(@working_dir_flag), working_dir}]},
       {:args, args_list}
     ])
   end
