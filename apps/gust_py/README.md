@@ -60,7 +60,7 @@ class HelloWorld(Dag):
     def first_task(self, ctx):
         greetings = "Hi!"
         secret = get_secret_by_name("SECRET")
-        log(f"I know your secret: {secret["data"]["value"]}")
+        log(f"I know your secret: {secret}")
 
         return {"result": greetings}
 
