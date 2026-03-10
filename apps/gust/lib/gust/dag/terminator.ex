@@ -6,6 +6,6 @@ defmodule Gust.DAG.Terminator do
   # coveralls-ignore-start
   def kill_task(task, status), do: impl().kill_task(task, status)
   def cancel_timer(task, status), do: impl().cancel_timer(task, status)
-  def impl, do: Application.get_env(:gust, :dag_terminator, Gust.DAG.Terminator.Process)
+  def impl, do: Application.get_env(:gust, :dag_terminator, Gust.DAG.Terminator.Worker)
   # coveralls-ignore-stop
 end
