@@ -105,7 +105,7 @@ defmodule GustPy.TaskMessenger.JSONTest do
     test "rasise when task when found" do
       dag = dag_fixture(%{name: unique_dag_name()})
       run = run_fixture(%{dag_id: dag.id})
-      task = task_fixture(%{run_id: run.id, name: "task_alpha", result: %{"value" => 55}})
+      task_fixture(%{run_id: run.id, name: "task_alpha", result: %{"value" => 55}})
 
       not_found_task = "task_alpha_sum_41"
 
