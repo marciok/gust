@@ -31,6 +31,30 @@ defmodule GustPy.TaskWorker.AdapterTest do
     state
   end
 
+  describe "handle_cast/2 when :kill is given" do
+    test "kills the OS python process and stops" do
+      port =
+        Port.open({:spawn_executable, System.find_executable("sleep")}, [
+          :exit_status,
+          args: ["30"]
+        ])
+
+      {:os_pid, os_python_pid} = Port.info(port, :os_pid)
+      state = %{os_python_pid: os_python_pid}
+
+      assert {:stop, :normal, ^state} = Adapter.handle_cast({:kill}, state)
+
+      assert_receive {^port, {:exit_status, _status}}, 1_000
+
+      assert {stderr, 1} =
+               System.cmd("kill", ["-0", Integer.to_string(os_python_pid)],
+                 stderr_to_stdout: true
+               )
+
+      assert stderr =~ Integer.to_string(os_python_pid)
+    end
+  end
+
   describe "handle_info/2 when :run is given" do
     test "start port and set on state", %{
       state: %{dag_def: dag_def, task: %Task{name: task_name, run_id: run_id}} = state
@@ -133,6 +157,25 @@ defmodule GustPy.TaskWorker.AdapterTest do
 
       assert {:noreply, returned_state} = Adapter.handle_info({port, {:data, "payload"}}, state)
       assert returned_state.done == {:result, %{ok: true}}
+    end
+
+    test "port data records os python pid from start messages", %{
+      state:
+        %{
+          port: port,
+          dag_def: _dag_def,
+          task: %Task{name: _task_name, run_id: _run_id}
+        } = state
+    } do
+      os_python_pid = 12_345
+      msg = %{"type" => "start"}
+
+      GustPy.TaskMessengerMock
+      |> expect(:decode, fn "payload" -> {:ok, msg} end)
+      |> expect(:handle_next, fn ^msg -> {:start, os_python_pid} end)
+
+      assert {:noreply, returned_state} = Adapter.handle_info({port, {:data, "payload"}}, state)
+      assert returned_state.os_python_pid == os_python_pid
     end
   end
 

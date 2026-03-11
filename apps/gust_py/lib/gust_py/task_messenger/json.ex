@@ -4,7 +4,7 @@ defmodule GustPy.TaskMessenger.JSON do
   @behaviour GustPy.TaskMessenger
 
   @enforce_keys [:type]
-  defstruct [:type, :msg, :op, :name, :run_id, :data, :ok, :trace]
+  defstruct [:type, :msg, :op, :name, :run_id, :data, :ok, :trace, :pid]
 
   require Logger
 
@@ -39,6 +39,10 @@ defmodule GustPy.TaskMessenger.JSON do
 
   def handle_next(%Msg{type: :result, ok: true, data: result}) do
     {:done, {:result, result_value(result)}}
+  end
+
+  def handle_next(%Msg{type: :start, pid: os_python_pid}) do
+    {:start, os_python_pid}
   end
 
   def handle_next(%Msg{type: :error, ok: false, trace: trace}) do
@@ -79,6 +83,10 @@ defmodule GustPy.TaskMessenger.JSON do
 
   defp new(%{"type" => "log", "msg" => msg}) do
     %Msg{type: :log, msg: msg}
+  end
+
+  defp new(%{"type" => "start", "pid" => os_python_pid}) do
+    %Msg{type: :start, pid: os_python_pid}
   end
 
   defp new(%{"type" => "call", "op" => "get_secret_by_name", "name" => name}) do

@@ -1,5 +1,5 @@
 defmodule GustWeb.DagLive.Dashboard do
-  alias Gust.DAG.{Loader, Terminator}
+  alias Gust.DAG.{Adapter, Loader, Terminator}
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.Flows.Run
@@ -93,7 +93,9 @@ defmodule GustWeb.DagLive.Dashboard do
     flash =
       case task.status do
         :running ->
-          Terminator.kill_task(task, :cancelled)
+          dag_def = socket.assigns.dag_def
+          runtime = Adapter.impl!(dag_def.adapter, :runtime)
+          Terminator.kill_task(task, :cancelled, runtime)
           "Task: #{task.name} was cancelled"
 
         :retrying ->
