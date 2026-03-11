@@ -43,6 +43,13 @@ defmodule GustPy.TaskMessenger.JSONTest do
                JSON.decode(Jason.encode!(payload))
     end
 
+    test "decodes start message" do
+      payload = %{"type" => "start", "pid" => 12_345}
+
+      assert {:ok, %JSON{type: :start, pid: 12_345}} =
+               JSON.decode(Jason.encode!(payload))
+    end
+
     test "decodes error message" do
       payload = %{"type" => "error", "ok" => false, "trace" => "boom"}
 

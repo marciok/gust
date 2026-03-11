@@ -26,6 +26,12 @@ defmodule DAG.Runtime.Adapters.ElixirTest do
       mod: Module.concat([@original_mod_name])
     }
 
+    on_exit(fn ->
+      mod = Module.concat([@original_mod_name])
+      :code.purge(mod)
+      :code.delete(mod)
+    end)
+
     %{original_def: dag_def}
   end
 
@@ -40,17 +46,19 @@ defmodule DAG.Runtime.Adapters.ElixirTest do
 
   describe "teardown/2" do
     test "purges code and returns :ok", %{original_def: dag_def} do
-      dag_def = Adapter.setup(dag_def, "runtime")
+      runtime_id = System.unique_integer([:positive])
+      dag_def = Adapter.setup(dag_def, runtime_id)
 
       assert Code.ensure_loaded?(dag_def.mod)
-      assert :ok = Adapter.teardown(dag_def, "runtime")
+      assert :ok = Adapter.teardown(dag_def, runtime_id)
       assert Code.ensure_loaded?(dag_def.mod) == false
     end
   end
 
   describe "on_finished_callback/4" do
     test "invokes the callback and returns :ok", %{original_def: dag_def} do
-      dag_def = Adapter.setup(dag_def, "runtime")
+      runtime_id = System.unique_integer([:positive])
+      dag_def = Adapter.setup(dag_def, runtime_id)
 
       assert :ok = Adapter.on_finished_callback(dag_def, :notify, self(), :ok)
       assert_receive {:callback_called, :ok}

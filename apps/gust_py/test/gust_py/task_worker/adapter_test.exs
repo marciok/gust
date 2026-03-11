@@ -158,6 +158,25 @@ defmodule GustPy.TaskWorker.AdapterTest do
       assert {:noreply, returned_state} = Adapter.handle_info({port, {:data, "payload"}}, state)
       assert returned_state.done == {:result, %{ok: true}}
     end
+
+    test "port data records os python pid from start messages", %{
+      state:
+        %{
+          port: port,
+          dag_def: _dag_def,
+          task: %Task{name: _task_name, run_id: _run_id}
+        } = state
+    } do
+      os_python_pid = 12_345
+      msg = %{"type" => "start"}
+
+      GustPy.TaskMessengerMock
+      |> expect(:decode, fn "payload" -> {:ok, msg} end)
+      |> expect(:handle_next, fn ^msg -> {:start, os_python_pid} end)
+
+      assert {:noreply, returned_state} = Adapter.handle_info({port, {:data, "payload"}}, state)
+      assert returned_state.os_python_pid == os_python_pid
+    end
   end
 
   describe "handle_info/2 when exit_status is called" do
