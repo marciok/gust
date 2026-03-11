@@ -5,15 +5,23 @@ defmodule GustPy.TaskWorker.Adapter do
   require Logger
 
   alias Gust.DAG.Logger, as: DagLogger
+  alias GustPy.Executor
   alias GustPy.TaskMessenger, as: Messenger
   alias GustPy.TaskWorker.Error
+
+  @impl true
+  def handle_cast({:kill}, %{os_python_pid: os_python_pid} = state) do
+    {"", 0} = System.cmd("kill", ["-9", Integer.to_string(os_python_pid)])
+
+    {:stop, :normal, state}
+  end
 
   @impl true
   def handle_info(:run, %{task: task, dag_def: dag_def} = state) do
     task_context = %{run_id: task.run_id}
 
     DagLogger.set_task(task.id, task.attempt)
-    port = GustPy.Executor.start_task_via_port(dag_def, task.name, task_context)
+    port = Executor.start_task_via_port(dag_def, task.name, task_context)
 
     {:noreply, Map.put(state, :port, port)}
   end
@@ -53,6 +61,9 @@ defmodule GustPy.TaskWorker.Adapter do
 
       {:done, done} ->
         Map.put(state, :done, done)
+
+      {:start, os_python_pid} ->
+        Map.put(state, :os_python_pid, os_python_pid)
 
       :noreply ->
         state

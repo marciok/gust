@@ -513,8 +513,17 @@ defmodule GustWeb.DagLiveDashboardTest do
           ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{running_task.name}"
         )
 
+      previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
+
+      on_exit(fn ->
+        Application.put_env(:gust, :dag_adapter, previous_dag_adapter)
+      end)
+
+      Application.put_env(:gust, :dag_adapter, elixir: %{runtime: Gust.RuntimeAdapterMock})
+      runtime = Gust.RuntimeAdapterMock
+
       GustWeb.DAGTerminatorMock
-      |> expect(:kill_task, fn ^running_task, :cancelled -> nil end)
+      |> expect(:kill_task, fn ^running_task, :cancelled, ^runtime -> nil end)
 
       assert dashboard_live |> element("#cancel-task") |> render_click() =~
                "Task: #{running_task.name} was cancelled"

@@ -23,6 +23,12 @@ defmodule Gust.DAG.Runtime.Adapters.Elixir do
     :ok
   end
 
+  @impl true
+  def kill(task_pid) do
+    true = Process.exit(task_pid, :kill)
+    :ok
+  end
+
   defp compile(%Definition{file_path: file_path} = dag_def, runtime_id) do
     {:ok, ast} = Code.string_to_quoted(File.read!(file_path))
 
