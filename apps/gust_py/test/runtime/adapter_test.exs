@@ -61,4 +61,19 @@ defmodule GustPy.Runtime.AdapterTest do
 
     Adapter.on_finished_callback(dag_def, fn_name, run, status)
   end
+
+  test "kill sends a kill cast to the task process" do
+    test_pid = self()
+
+    task_pid =
+      spawn(fn ->
+        receive do
+          {:"$gen_cast", {:kill}} ->
+            send(test_pid, :kill_received)
+        end
+      end)
+
+    assert :ok = Adapter.kill(task_pid)
+    assert_receive :kill_received
+  end
 end

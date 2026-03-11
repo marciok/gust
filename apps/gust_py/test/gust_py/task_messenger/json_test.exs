@@ -43,6 +43,13 @@ defmodule GustPy.TaskMessenger.JSONTest do
                JSON.decode(Jason.encode!(payload))
     end
 
+    test "decodes start message" do
+      payload = %{"type" => "start", "pid" => 12_345}
+
+      assert {:ok, %JSON{type: :start, pid: 12_345}} =
+               JSON.decode(Jason.encode!(payload))
+    end
+
     test "decodes error message" do
       payload = %{"type" => "error", "ok" => false, "trace" => "boom"}
 
@@ -105,7 +112,7 @@ defmodule GustPy.TaskMessenger.JSONTest do
     test "rasise when task when found" do
       dag = dag_fixture(%{name: unique_dag_name()})
       run = run_fixture(%{dag_id: dag.id})
-      task = task_fixture(%{run_id: run.id, name: "task_alpha", result: %{"value" => 55}})
+      task_fixture(%{run_id: run.id, name: "task_alpha", result: %{"value" => 55}})
 
       not_found_task = "task_alpha_sum_41"
 
@@ -129,6 +136,13 @@ defmodule GustPy.TaskMessenger.JSONTest do
     test "returns done with result value for non-map" do
       msg = %JSON{type: :result, ok: true, data: 123}
       assert {:done, {:result, 123}} = JSON.handle_next(msg)
+    end
+
+    test "returns start with os python pid" do
+      os_python_pid = 12_345
+
+      assert {:start, ^os_python_pid} =
+               JSON.handle_next(%JSON{type: :start, pid: os_python_pid})
     end
 
     test "returns done with error" do

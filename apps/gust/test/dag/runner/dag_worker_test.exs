@@ -87,10 +87,12 @@ defmodule DAG.Runner.DagWorkerTest do
 
       ref = Process.monitor(runner_pid)
 
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :running}}, 400
+
       send(runner_pid, {:stage_completed, :cancelled})
 
-      assert_receive {:dag, :run_status, %{run_id: ^run_id}}, 400
-      assert Repo.get!(Flows.Run, run.id).status == :failed
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :failed}}, 400
+      assert Flows.get_run!(run.id).status == :failed
 
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
     end
@@ -118,9 +120,11 @@ defmodule DAG.Runner.DagWorkerTest do
 
       ref = Process.monitor(runner_pid)
 
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :running}}, 400
+
       send(runner_pid, {:stage_completed, :upstream_failed})
 
-      assert_receive {:dag, :run_status, %{run_id: ^run_id}}, 400
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :failed}}, 400
       assert %Flows.Run{status: :failed} = Flows.get_run!(run.id)
 
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
