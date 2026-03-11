@@ -66,7 +66,7 @@ defmodule DAG.Runtime.Adapters.ElixirTest do
 
       ref = Process.monitor(task_pid)
 
-      assert true = Adapter.kill(task_pid)
+      assert :ok = Adapter.kill(task_pid)
       assert_receive {:DOWN, ^ref, :process, ^task_pid, :killed}
     end
   end

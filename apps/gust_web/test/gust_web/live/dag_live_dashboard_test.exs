@@ -513,6 +513,12 @@ defmodule GustWeb.DagLiveDashboardTest do
           ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{running_task.name}"
         )
 
+      previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
+
+      on_exit(fn ->
+        Application.put_env(:gust, :dag_adapter, previous_dag_adapter)
+      end)
+
       Application.put_env(:gust, :dag_adapter, elixir: %{runtime: Gust.RuntimeAdapterMock})
       runtime = Gust.RuntimeAdapterMock
 

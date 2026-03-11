@@ -26,6 +26,7 @@ defmodule Gust.DAG.Runtime.Adapters.Elixir do
   @impl true
   def kill(task_pid) do
     true = Process.exit(task_pid, :kill)
+    :ok
   end
 
   defp compile(%Definition{file_path: file_path} = dag_def, runtime_id) do

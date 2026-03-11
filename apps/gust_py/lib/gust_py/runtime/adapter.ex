@@ -6,8 +6,8 @@ defmodule GustPy.Runtime.Adapter do
   alias Gust.DAG.Definition
 
   @impl true
-  def kill(task_id) do
-    GenServer.cast(task_id, {:kill})
+  def kill(task_pid) do
+    GenServer.cast(task_pid, {:kill})
   end
 
   @impl true

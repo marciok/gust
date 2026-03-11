@@ -25,6 +25,7 @@ defmodule DAG.Terminator.WorkerTest do
       Gust.RuntimeAdapterMock
       |> expect(:kill, fn task_pid ->
         assert [{^task_pid, _val}] = Registry.lookup(Gust.Registry, task_pid_key)
+        :ok
       end)
 
     {:ok, _} = Registry.register(Gust.Registry, "stage_run_#{task.run_id}", nil)

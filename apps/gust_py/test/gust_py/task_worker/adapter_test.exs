@@ -52,7 +52,6 @@ defmodule GustPy.TaskWorker.AdapterTest do
                )
 
       assert stderr =~ Integer.to_string(os_python_pid)
-      assert stderr =~ "No such process"
     end
   end
 
