@@ -17,11 +17,10 @@ defmodule Gust.DAG.Terminator.Worker do
   end
 
   @impl true
-  def handle_cast({:terminate, task, status}, state) do
+  def handle_cast({:terminate, task, status, runtime}, state) do
     stage_pid = lookup("stage_run_#{task.run_id}")
     task_pid = lookup("task_#{task.id}")
-
-    true = Process.exit(task_pid, :kill)
+    runtime.kill(task_pid)
 
     send(stage_pid, {:task_result, nil, task.id, status})
 
@@ -36,10 +35,10 @@ defmodule Gust.DAG.Terminator.Worker do
   end
 
   @impl true
-  def kill_task(task, status) do
+  def kill_task(task, status, runtime) do
     run = Flows.get_run!(task.run_id)
     run_node = String.to_atom(run.claimed_by)
-    GenServer.cast({__MODULE__, run_node}, {:terminate, task, status})
+    GenServer.cast({__MODULE__, run_node}, {:terminate, task, status, runtime})
   end
 
   @impl true

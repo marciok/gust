@@ -131,6 +131,13 @@ defmodule GustPy.TaskMessenger.JSONTest do
       assert {:done, {:result, 123}} = JSON.handle_next(msg)
     end
 
+    test "returns start with os python pid" do
+      os_python_pid = 12_345
+
+      assert {:start, ^os_python_pid} =
+               JSON.handle_next(%JSON{type: :start, pid: os_python_pid})
+    end
+
     test "returns done with error" do
       msg = %JSON{type: :error, ok: false, trace: "boom"}
 

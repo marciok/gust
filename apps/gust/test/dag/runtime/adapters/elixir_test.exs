@@ -56,4 +56,18 @@ defmodule DAG.Runtime.Adapters.ElixirTest do
       assert_receive {:callback_called, :ok}
     end
   end
+
+  describe "kill/1" do
+    test "kills the task process" do
+      task_pid =
+        spawn(fn ->
+          Process.sleep(:infinity)
+        end)
+
+      ref = Process.monitor(task_pid)
+
+      assert true = Adapter.kill(task_pid)
+      assert_receive {:DOWN, ^ref, :process, ^task_pid, :killed}
+    end
+  end
 end

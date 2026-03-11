@@ -6,6 +6,11 @@ defmodule GustPy.Runtime.Adapter do
   alias Gust.DAG.Definition
 
   @impl true
+  def kill(task_id) do
+    GenServer.cast(task_id, {:kill})
+  end
+
+  @impl true
   def setup(%Definition{file_path: file_path} = dag_def, runtime_id) do
     tmp_path = tmp_copy_path(file_path, runtime_id)
     File.cp!(file_path, tmp_path)
