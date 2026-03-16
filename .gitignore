@@ -25,6 +25,7 @@ erl_crash.dump
 .DS_Store
 
 dags/
+!/examples/dags/
 
 .envrc
 .env
