@@ -6,7 +6,7 @@ defmodule DailyStockDecider do
 
   ## Overview
 
-    This DAG is designed to evaluate a single stock, currently `#{@ticker}`, once per run.
+    This DAG is designed to evaluate a single stock, currently `@ticker`, once per run.
     It gathers:
 
     - recent daily market data
@@ -81,7 +81,7 @@ defmodule DailyStockDecider do
 
   defp prompt(%{"company" => company, "market" => market, "news" => news, "macro" => macro, "as_of" => as_of}) do
     """
-    You are analyzing whether to buy, hold, or sell NVDA for a daily decision as of: #{inspect(as_of)}.
+    You are analyzing whether to buy, hold, or sell #{String.upcase(@ticker)} for a daily decision as of: #{inspect(as_of)}.
 
     Company:
     #{inspect(company)}
@@ -352,7 +352,7 @@ defmodule DailyStockDecider do
 
   task :email_results, ctx: %{run_id: run_id} do
     gpt = Flows.get_task_by_name_run("ask_gpt", run_id).result
-    gemmini = Flows.get_task_by_name_run("ask_gemini", run_id).result
+    gemini = Flows.get_task_by_name_run("ask_gemini", run_id).result
     claude = Flows.get_task_by_name_run("ask_claude", run_id).result
     %{"result" => decide_action} = Flows.get_task_by_name_run("decide_action", run_id).result
 
@@ -360,7 +360,7 @@ defmodule DailyStockDecider do
       Flows.get_secret_by_name("MAILGUN").value |> Jason.decode!()
 
     summary =
-      [{"GPT", gpt}, {"Gemmini", gemmini}, {"Claude", claude}]
+      [{"GPT", gpt}, {"Gemini", gemini}, {"Claude", claude}]
       |> Enum.reduce("", fn {name, llm}, acc ->
         table = """
           #{name}: #{llm["action"]}
