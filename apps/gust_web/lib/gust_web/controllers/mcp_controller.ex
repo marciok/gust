@@ -1,6 +1,5 @@
 defmodule GustWeb.MCPController do
   use GustWeb, :controller
-  import Plug.Conn
 
   alias GustWeb.MCP.Server
 
