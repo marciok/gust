@@ -4,7 +4,7 @@ defmodule GustWeb.MCP.Tools.Call do
   alias Gust.DAG.{Adapter, Definition, Loader, Terminator}
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
-  alias GustWeb.MCP.{Content, Tool}
+  alias GustWeb.MCP.{Content, Tool, Tools}
 
   def handle(%Tool{name: :list_dags}, _args) do
     {false,
@@ -104,6 +104,12 @@ defmodule GustWeb.MCP.Tools.Call do
     dag.id |> trigger_dag_run_reply()
   end
 
+  def handle(%Tool{name: name} = tool, _args) do
+    tool = Tools.find(to_string(name)) || tool
+
+    {true, [content(invalid_properties_text(tool))]}
+  end
+
   defp get_def_by_task(task) do
     run = Flows.get_run!(task.run_id)
     Loader.get_definition(run.dag_id)
@@ -140,6 +146,19 @@ defmodule GustWeb.MCP.Tools.Call do
     run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
 
     {false, [content("Run #{run.id} triggered")]}
+  end
+
+  defp invalid_properties_text(%Tool{name: name, props: []}) do
+    "Tool #{name} supports no properties."
+  end
+
+  defp invalid_properties_text(%Tool{name: name, props: props}) do
+    properties =
+      Enum.map_join(props, ", ", fn {prop_name, _required, %{"description" => description}} ->
+        "#{prop_name}: #{description}"
+      end)
+
+    "Tool #{name} supports the following properties: #{properties}"
   end
 
   defp content(txt), do: Content.new(txt)

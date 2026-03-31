@@ -8,6 +8,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
   alias GustWeb.MCP.Content
   alias GustWeb.MCP.Tool
   alias GustWeb.MCP.Tools.Call
+  alias GustWeb.MCP.Tools.List
 
   setup :verify_on_exit!
   setup :set_mox_from_context
@@ -257,6 +258,23 @@ defmodule GustWeb.MCP.Tools.CallTest do
     [message] = text_list(contents)
     assert String.starts_with?(message, "Run ")
     assert message =~ " triggered"
+  end
+
+  test "handle/2 returns a fallback error describing supported properties" do
+    tool = List.find("query_dag_run")
+
+    GustWeb.MCPToolsMock
+    |> expect(:find, fn "query_dag_run" -> tool end)
+
+    assert {true, contents} =
+             Call.handle(%Tool{name: :query_dag_run}, %{"unexpected" => "value"})
+
+    assert text_list(contents) == [
+             "Tool query_dag_run supports the following properties: " <>
+               "dag_name: The DAG name in lowercase. Use underscores for compound names, e.g. my_dag, " <>
+               "limit: Maximum number of runs to return. Defaults to 10 if not specified., " <>
+               "offset: Number of runs to skip for pagination. Defaults to 0 if not specified."
+           ]
   end
 
   defp expect_dag_definition(dag, dag_def_or_result) do
