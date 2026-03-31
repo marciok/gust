@@ -10,7 +10,7 @@ defmodule GustWeb.MCP.Tools.Call do
     {false,
      for {id, {:ok, %Definition{name: name, file_path: fp, options: opts, error: e}}} <-
            Loader.get_definitions() do
-       Content.new(
+       content(
          "Name: #{name}; ID: #{id}; Error: #{inspect(e)}, Options: #{inspect(opts)} file_path: #{fp}"
        )
      end}
@@ -19,7 +19,7 @@ defmodule GustWeb.MCP.Tools.Call do
   def handle(%Tool{name: :list_secrets}, _args) do
     {false,
      for %Flows.Secret{name: name, id: id, value_type: type} <- Flows.list_secrets() do
-       Content.new("Name: #{name}; ID: #{id}; Type: #{type}")
+       content("Name: #{name}; ID: #{id}; Type: #{type}")
      end}
   end
 
@@ -33,7 +33,7 @@ defmodule GustWeb.MCP.Tools.Call do
     {false,
      for %Flows.Run{id: id, inserted_at: inserted_at, updated_at: updated, status: status} <-
            dag.runs do
-       Content.new(
+       content(
          "ID: #{id}; Inserted at: #{inserted_at}; Updated at: #{updated}; Status: #{status}"
        )
      end}
@@ -54,7 +54,7 @@ defmodule GustWeb.MCP.Tools.Call do
 
     {false,
      [
-       Content.new(
+       content(
          "Name: #{name}; ID: #{dag_id}; Error: #{inspect(e)}, Options: #{inspect(opts)} File path: #{fp}; Stages: #{inspect(stages)}; Module: #{mod}: Adapter: #{adapter}; Tasks: #{inspect(tasks)}"
        )
      ]}
@@ -66,7 +66,7 @@ defmodule GustWeb.MCP.Tools.Call do
     {false,
      for %Flows.Task{id: id, name: name, status: status, error: e, result: res} <-
            run.tasks do
-       Content.new(
+       content(
          "ID: #{id}; Name: #{name}, Status: #{status}; Error: #{inspect(e)}, Result: #{inspect(res)}"
        )
      end}
@@ -75,22 +75,22 @@ defmodule GustWeb.MCP.Tools.Call do
   def handle(%Tool{name: :restart_run}, %{"run_id" => run_id}) do
     run = Flows.get_run!(run_id) |> Trigger.reset_run()
 
-    {false, ["Run: #{run.id} was restarted"]}
+    {false, [content("Run: #{run.id} was restarted")]}
   end
 
   def handle(%Tool{name: :restart_task}, %{"task_id" => task_id}) do
     task = Flows.get_task!(task_id)
-    dag_def = get_def_by_task(task)
+    {:ok, dag_def} = get_def_by_task(task)
     tasks_graph = dag_def.tasks
 
     Trigger.reset_task(tasks_graph, task)
 
-    {false, ["Task: #{task.name} was restarted"]}
+    {false, [content("Task: #{task.name} was restarted")]}
   end
 
   def handle(%Tool{name: :cancel_task}, %{"task_id" => task_id}) do
     task = Flows.get_task!(task_id)
-    dag_def = get_def_by_task(task)
+    {:ok, dag_def} = get_def_by_task(task)
 
     text =
       case task.status do
@@ -104,7 +104,7 @@ defmodule GustWeb.MCP.Tools.Call do
           "Task: #{task.name} retrying cancelled"
       end
 
-    {false, [text]}
+    {false, [content(text)]}
   end
 
   def handle(%Tool{name: :trigger_dag_run}, %{"dag_name" => dag_name}) do
@@ -113,11 +113,13 @@ defmodule GustWeb.MCP.Tools.Call do
 
     run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
 
-    {false, ["Run #{run.id} triggered"]}
+    {false, [content("Run #{run.id} triggered")]}
   end
 
   defp get_def_by_task(task) do
     run = Flows.get_run!(task.run_id)
     Loader.get_definition(run.dag_id)
   end
+
+  defp content(txt), do: Content.new(txt)
 end

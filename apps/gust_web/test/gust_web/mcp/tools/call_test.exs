@@ -124,7 +124,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
       file_path: "/tmp/dags/definition_dag.ex"
     }
 
-    expect_dag_definition(dag, {:ok, dag_def})
+    expect_dag_definition(dag, dag_def)
 
     assert {false, [%Content{} = content]} =
              Call.handle(%Tool{name: :get_dag_def}, %{"dag_id" => dag.id})
@@ -176,8 +176,8 @@ defmodule GustWeb.MCP.Tools.CallTest do
       fetched_run
     end)
 
-    assert Call.handle(%Tool{name: :restart_run}, %{"run_id" => run.id}) ==
-             {false, ["Run: #{run.id} was restarted"]}
+    assert {false, contents} = Call.handle(%Tool{name: :restart_run}, %{"run_id" => run.id})
+    assert text_list(contents) == ["Run: #{run.id} was restarted"]
   end
 
   test "handle/2 delegates restart_task with the dag task graph and task" do
@@ -196,8 +196,8 @@ defmodule GustWeb.MCP.Tools.CallTest do
       []
     end)
 
-    assert Call.handle(%Tool{name: :restart_task}, %{"task_id" => task.id}) ==
-             {false, ["Task: #{task.name} was restarted"]}
+    assert {false, contents} = Call.handle(%Tool{name: :restart_task}, %{"task_id" => task.id})
+    assert text_list(contents) == ["Task: #{task.name} was restarted"]
   end
 
   test "handle/2 cancels a running task via the terminator" do
@@ -221,8 +221,8 @@ defmodule GustWeb.MCP.Tools.CallTest do
       nil
     end)
 
-    assert Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id}) ==
-             {false, ["Task: #{task.name} was cancelled"]}
+    assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
+    assert text_list(contents) == ["Task: #{task.name} was cancelled"]
   end
 
   test "handle/2 cancels a retrying task timer via the terminator" do
@@ -237,8 +237,8 @@ defmodule GustWeb.MCP.Tools.CallTest do
       nil
     end)
 
-    assert Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id}) ==
-             {false, ["Task: #{task.name} retrying cancelled"]}
+    assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
+    assert text_list(contents) == ["Task: #{task.name} retrying cancelled"]
   end
 
   test "handle/2 creates and dispatches a run for the requested dag" do
@@ -251,9 +251,11 @@ defmodule GustWeb.MCP.Tools.CallTest do
       run
     end)
 
-    assert {false, ["Run " <> _ = message]} =
+    assert {false, contents} =
              Call.handle(%Tool{name: :trigger_dag_run}, %{"dag_name" => dag.name})
 
+    [message] = text_list(contents)
+    assert String.starts_with?(message, "Run ")
     assert message =~ " triggered"
   end
 
@@ -261,7 +263,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
     GustWeb.DAGLoaderMock
     |> expect(:get_definition, fn dag_id ->
       assert dag_id == dag.id
-      dag_def_or_result
+      {:ok, dag_def_or_result}
     end)
   end
 
