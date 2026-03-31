@@ -37,11 +37,6 @@ defmodule GustWeb.Router do
     live "/secrets/:id/edit", SecretLive.Index, :edit
   end
 
-  scope "/mcp", GustWeb do
-    pipe_through :api
-    post "/server", MCPController, :message
-  end
-
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:gust_web, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put
@@ -50,6 +45,11 @@ defmodule GustWeb.Router do
     # you can use Plug.BasicAuth to set up some basic authentication
     # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
+
+    scope "/mcp", GustWeb do
+      pipe_through :api
+      post "/server", MCPController, :message
+    end
 
     scope "/dev" do
       pipe_through :browser
