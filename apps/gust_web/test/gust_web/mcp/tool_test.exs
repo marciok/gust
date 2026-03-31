@@ -41,7 +41,11 @@ defmodule GustWeb.MCP.ToolTest do
     tool =
       Tool.new(:query_dag_run, "Query DAG runs", [
         Tool.prop("dag_name", "string", "DAG name", required: true),
-        Tool.prop("limit", "integer", "Maximum number of runs", default: 10, minimum: 1)
+        Tool.prop("limit", "integer", "Maximum number of runs",
+          default: 10,
+          minimum: 1,
+          required: true
+        )
       ])
 
     assert %{
@@ -50,7 +54,7 @@ defmodule GustWeb.MCP.ToolTest do
              "inputSchema" => %{
                "type" => "object",
                "additionalProperties" => false,
-               "required" => ["dag_name"],
+               "required" => ["dag_name", "limit"],
                "properties" => %{
                  "dag_name" => %{
                    "description" => "DAG name",

@@ -21,17 +21,29 @@ defmodule GustWeb.MCP.Server do
     handle(%Body{method: method, id: id, params: body["params"]})
   end
 
+  def decode!(
+        %{
+          "jsonrpc" => @jsonrpc_version,
+          "method" => method
+        } = body
+      ) do
+    handle(%Body{method: method, params: body["params"]})
+  end
+
   def handle(%Body{method: "initialize", id: id}) do
     result = %{
       "protocolVersion" => @protocol_version,
       "capabilities" => %{
-        "tools" => %{},
-        "resources" => %{}
+        "tools" => %{}
       },
       "serverInfo" => @info
     }
 
     jsonrpc(id, result)
+  end
+
+  def handle(%Body{method: "notifications/initialized"}) do
+    %{"jsonrpc" => @jsonrpc_version, "result" => []}
   end
 
   def handle(%Body{method: "tools/" <> action, id: id} = body) do

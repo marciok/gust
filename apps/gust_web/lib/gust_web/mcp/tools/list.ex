@@ -28,14 +28,16 @@ defmodule GustWeb.MCP.Tools.List do
             "Maximum number of runs to return. Defaults to 10 if not specified.",
             default: 10,
             minimum: 1,
-            maximum: 100
+            maximum: 100,
+            required: true
           ),
           Tool.prop(
             "offset",
             "integer",
             "Number of runs to skip for pagination. Defaults to 0 if not specified.",
             default: 0,
-            minimum: 0
+            minimum: 0,
+            required: true
           )
         ]
       ),

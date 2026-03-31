@@ -35,7 +35,7 @@ defmodule GustWeb.MCP.Tools.ListTest do
                     "The DAG name in lowercase. Use underscores for compound names, e.g. my_dag",
                   "type" => "string"
                 }},
-               {"limit", false,
+               {"limit", true,
                 %{
                   "default" => 10,
                   "description" =>
@@ -44,7 +44,7 @@ defmodule GustWeb.MCP.Tools.ListTest do
                   "minimum" => 1,
                   "type" => "integer"
                 }},
-               {"offset", false,
+               {"offset", true,
                 %{
                   "default" => 0,
                   "description" =>

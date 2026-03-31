@@ -16,7 +16,7 @@ defmodule GustWeb.MCP.Tools.Server do
     }
   end
 
-  def reply("list", %{}) do
+  def reply("list", _params) do
     %{
       "tools" =>
         for tool <- Tools.all() do

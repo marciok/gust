@@ -23,8 +23,7 @@ defmodule GustWeb.MCPControllerTest do
     result = %{
       "protocolVersion" => @protocol_version,
       "capabilities" => %{
-        "tools" => %{},
-        "resources" => %{}
+        "tools" => %{}
       },
       "serverInfo" => @server_info
     }

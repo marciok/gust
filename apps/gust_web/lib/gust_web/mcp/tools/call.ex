@@ -39,25 +39,13 @@ defmodule GustWeb.MCP.Tools.Call do
      end}
   end
 
-  def handle(%Tool{name: :get_dag_def}, %{"dag_id" => dag_id}) do
-    {_,
-     %Definition{
-       name: name,
-       adapter: adapter,
-       options: opts,
-       tasks: tasks,
-       stages: stages,
-       error: e,
-       mod: mod,
-       file_path: fp
-     }} = Loader.get_definition(dag_id)
+  def handle(%Tool{name: :get_dag_def}, %{"dag_name" => dag_name}) do
+    dag = Flows.get_dag_by_name(dag_name)
+    dag.id |> dag_definition_reply()
+  end
 
-    {false,
-     [
-       content(
-         "Name: #{name}; ID: #{dag_id}; Error: #{inspect(e)}, Options: #{inspect(opts)} File path: #{fp}; Stages: #{inspect(stages)}; Module: #{mod}: Adapter: #{adapter}; Tasks: #{inspect(tasks)}"
-       )
-     ]}
+  def handle(%Tool{name: :get_dag_def}, %{"dag_id" => dag_id}) do
+    dag_id |> dag_definition_reply()
   end
 
   def handle(%Tool{name: :get_tasks_on_run}, %{"run_id" => run_id}) do
@@ -107,18 +95,51 @@ defmodule GustWeb.MCP.Tools.Call do
     {false, [content(text)]}
   end
 
+  def handle(%Tool{name: :trigger_dag_run}, %{"dag_id" => dag_id}) do
+    dag_id |> trigger_dag_run_reply()
+  end
+
   def handle(%Tool{name: :trigger_dag_run}, %{"dag_name" => dag_name}) do
     dag = Flows.get_dag_by_name(dag_name)
-    {:ok, run} = Flows.create_run(%{dag_id: dag.id})
-
-    run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
-
-    {false, [content("Run #{run.id} triggered")]}
+    dag.id |> trigger_dag_run_reply()
   end
 
   defp get_def_by_task(task) do
     run = Flows.get_run!(task.run_id)
     Loader.get_definition(run.dag_id)
+  end
+
+  defp dag_definition_reply(dag_id) do
+    dag_def = Loader.get_definition(dag_id) |> normalize_dag_def()
+    {false, [content(dag_definition_text(dag_id, dag_def))]}
+  end
+
+  defp dag_definition_text(
+         dag_id,
+         %Definition{
+           name: name,
+           adapter: adapter,
+           options: opts,
+           tasks: tasks,
+           stages: stages,
+           error: e,
+           mod: mod,
+           file_path: fp
+         }
+       ) do
+    "Name: #{name}; ID: #{dag_id}; Error: #{inspect(e)}, Options: #{inspect(opts)} " <>
+      "File path: #{fp}; Stages: #{inspect(stages)}; Module: #{mod}: " <>
+      "Adapter: #{adapter}; Tasks: #{inspect(tasks)}"
+  end
+
+  defp normalize_dag_def({:ok, dag_def}), do: dag_def
+
+  defp trigger_dag_run_reply(dag_id) do
+    {:ok, run} = Flows.create_run(%{dag_id: dag_id})
+
+    run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
+
+    {false, [content("Run #{run.id} triggered")]}
   end
 
   defp content(txt), do: Content.new(txt)
