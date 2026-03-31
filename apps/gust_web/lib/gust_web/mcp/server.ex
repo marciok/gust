@@ -42,7 +42,7 @@ defmodule GustWeb.MCP.Server do
     jsonrpc(id, result)
   end
 
-  def handle(%Body{method: "notifications/initialized"}) do
+  def handle(%Body{method: "notifications/" <> _notif_type}) do
     %{"jsonrpc" => @jsonrpc_version, "result" => []}
   end
 
