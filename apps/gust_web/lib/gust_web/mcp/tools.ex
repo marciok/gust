@@ -4,7 +4,7 @@ defmodule GustWeb.MCP.Tools do
   alias GustWeb.MCP.Tool
 
   @callback all() :: [Tool.t()]
-  @callback find(String.t()) :: Tool.t()
+  @callback find(String.t()) :: Tool.t() | nil
 
   # coveralls-ignore-start
   def all, do: impl().all()
