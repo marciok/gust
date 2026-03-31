@@ -41,7 +41,7 @@ defmodule GustWeb.MCP.Tools.List do
       ),
       Tool.new(
         :get_dag_def,
-        "Get dag defintion for a given dag_id",
+        "Get dag definition for a given dag_id",
         [Tool.prop("dag_id", "integer", "DAG ID", required: true)]
       ),
       Tool.new(
@@ -65,7 +65,7 @@ defmodule GustWeb.MCP.Tools.List do
       ),
       Tool.new(
         :cancel_task,
-        "Cancel task for a given task_id, when cacelling task the run will also be cancelled",
+        "Cancel task for a given task_id, when cancelling task the run will also be cancelled",
         [
           Tool.prop("task_id", "integer", "Task ID", required: true)
         ]
@@ -77,7 +77,8 @@ defmodule GustWeb.MCP.Tools.List do
           Tool.prop(
             "dag_name",
             "string",
-            "Its a single string, lower cases, if its a composed name use underline ex: my_dag"
+            "Its a single string, lower cases, if its a composed name use underline ex: my_dag",
+            required: true
           )
         ]
       )
