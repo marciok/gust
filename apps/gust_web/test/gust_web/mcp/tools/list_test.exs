@@ -14,6 +14,7 @@ defmodule GustWeb.MCP.Tools.ListTest do
              :query_dag_run,
              :get_dag_def,
              :get_tasks_on_run,
+             :get_logs_on_task,
              :restart_run,
              :restart_task,
              :cancel_task,
@@ -52,6 +53,17 @@ defmodule GustWeb.MCP.Tools.ListTest do
                   "minimum" => 0,
                   "type" => "integer"
                 }}
+             ]
+           } = tool
+  end
+
+  test "all/0 defines get_logs_on_task with a required task id" do
+    tool = Enum.find(List.all(), &(&1.name == :get_logs_on_task))
+
+    assert %Tool{
+             description: "Get logs for a given task",
+             props: [
+               {"task_id", true, %{"description" => "Task ID", "type" => "integer"}}
              ]
            } = tool
   end

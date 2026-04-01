@@ -8,11 +8,9 @@ defmodule GustWeb.MCP.Tools.Call do
 
   def handle(%Tool{name: :list_dags}, _args) do
     {false,
-     for {id, {:ok, %Definition{name: name, file_path: fp, options: opts, error: e}}} <-
+     for {id, {:ok, %Definition{} = dag_def}} <-
            Loader.get_definitions() do
-       content(
-         "Name: #{name}; ID: #{id}; Error: #{inspect(e)}, Options: #{inspect(opts)} file_path: #{fp}"
-       )
+       dag_def_text(id, dag_def) |> content()
      end}
   end
 
@@ -28,20 +26,31 @@ defmodule GustWeb.MCP.Tools.Call do
         "limit" => limit,
         "offset" => offset
       }) do
-    dag = Flows.get_dag_by_name_with_runs!(dag_name, limit: limit, offset: offset)
+    dag = Flows.get_dag_by_name(dag_name)
 
-    {false,
-     for %Flows.Run{id: id, inserted_at: inserted_at, updated_at: updated, status: status} <-
-           dag.runs do
-       content(
-         "ID: #{id}; Inserted at: #{inserted_at}; Updated at: #{updated}; Status: #{status}"
-       )
-     end}
+    if dag do
+      dag = Flows.get_dag_by_name_with_runs!(dag_name, limit: limit, offset: offset)
+
+      {false,
+       for %Flows.Run{id: id, inserted_at: inserted_at, updated_at: updated, status: status} <-
+             dag.runs do
+         content(
+           "ID: #{id}; Inserted at: #{inserted_at}; Updated at: #{updated}; Status: #{status}"
+         )
+       end}
+    else
+      dag_not_found(dag_name)
+    end
   end
 
   def handle(%Tool{name: :get_dag_def}, %{"dag_name" => dag_name}) do
     dag = Flows.get_dag_by_name(dag_name)
-    dag.id |> dag_definition_reply()
+
+    if dag do
+      dag.id |> dag_definition_reply()
+    else
+      dag_not_found(dag_name)
+    end
   end
 
   def handle(%Tool{name: :get_dag_def}, %{"dag_id" => dag_id}) do
@@ -56,6 +65,18 @@ defmodule GustWeb.MCP.Tools.Call do
            run.tasks do
        content(
          "ID: #{id}; Name: #{name}, Status: #{status}; Error: #{inspect(e)}, Result: #{inspect(res)}"
+       )
+     end}
+  end
+
+  def handle(%Tool{name: :get_logs_on_task}, %{"task_id" => task_id}) do
+    task = Flows.get_task_with_logs!(task_id)
+
+    {false,
+     for %Flows.Log{id: id, level: lvl, inserted_at: inserted_at, content: content} <-
+           task.logs do
+       content(
+         "ID: #{id}; level: #{lvl}, inserted_at: #{inspect(inserted_at)}; Content: #{content}"
        )
      end}
   end
@@ -101,7 +122,12 @@ defmodule GustWeb.MCP.Tools.Call do
 
   def handle(%Tool{name: :trigger_dag_run}, %{"dag_name" => dag_name}) do
     dag = Flows.get_dag_by_name(dag_name)
-    dag.id |> trigger_dag_run_reply()
+
+    if dag do
+      dag.id |> trigger_dag_run_reply()
+    else
+      dag_not_found(dag_name)
+    end
   end
 
   def handle(%Tool{name: name} = tool, _args) do
@@ -115,12 +141,12 @@ defmodule GustWeb.MCP.Tools.Call do
     Loader.get_definition(run.dag_id)
   end
 
-  defp dag_definition_reply(dag_id) do
-    dag_def = Loader.get_definition(dag_id) |> normalize_dag_def()
-    {false, [content(dag_definition_text(dag_id, dag_def))]}
+  defp dag_definition_reply(id) do
+    {:ok, dag_def} = Loader.get_definition(id)
+    {false, [dag_def_text(id, dag_def) |> content()]}
   end
 
-  defp dag_definition_text(
+  defp dag_def_text(
          dag_id,
          %Definition{
            name: name,
@@ -128,17 +154,25 @@ defmodule GustWeb.MCP.Tools.Call do
            options: opts,
            tasks: tasks,
            stages: stages,
+           messages: warnings,
            error: e,
            mod: mod,
            file_path: fp
          }
        ) do
-    "Name: #{name}; ID: #{dag_id}; Error: #{inspect(e)}, Options: #{inspect(opts)} " <>
-      "File path: #{fp}; Stages: #{inspect(stages)}; Module: #{mod}: " <>
-      "Adapter: #{adapter}; Tasks: #{inspect(tasks)}"
+    """
+    Name: #{name}
+    ID: #{dag_id}
+    File Path: #{fp}
+    Options: #{inspect(opts)}
+    Stages: #{inspect(stages)}
+    Module: #{mod}
+    Adapter: #{adapter}
+    Tasks: #{inspect(tasks)}
+    Error: #{inspect(e)}
+    Warnings: #{inspect(warnings)}
+    """
   end
-
-  defp normalize_dag_def({:ok, dag_def}), do: dag_def
 
   defp trigger_dag_run_reply(dag_id) do
     {:ok, run} = Flows.create_run(%{dag_id: dag_id})
@@ -162,4 +196,11 @@ defmodule GustWeb.MCP.Tools.Call do
   end
 
   defp content(txt), do: Content.new(txt)
+
+  defp dag_not_found(name) do
+    {true,
+     [
+       content("DAG with name #{name} does not exists. Use list_dags to find available DAG names")
+     ]}
+  end
 end

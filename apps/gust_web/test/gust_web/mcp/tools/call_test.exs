@@ -14,17 +14,17 @@ defmodule GustWeb.MCP.Tools.CallTest do
   setup :set_mox_from_context
 
   test "handle/2 returns text content for loaded DAG definitions and ignores non-ok entries" do
+    dag_def = %Definition{
+      name: "daily_stock_decider",
+      file_path: "/tmp/dags/daily_stock_decider.ex",
+      options: [schedule: "@daily"],
+      error: %{reason: "warning"}
+    }
+
     GustWeb.DAGLoaderMock
     |> expect(:get_definitions, fn ->
       %{
-        12 =>
-          {:ok,
-           %Definition{
-             name: "daily_stock_decider",
-             file_path: "/tmp/dags/daily_stock_decider.ex",
-             options: [schedule: "@daily"],
-             error: %{reason: "warning"}
-           }},
+        12 => {:ok, dag_def},
         99 => {:error, :parse_failed}
       }
     end)
@@ -32,9 +32,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert {false, [%Content{} = content]} =
              Call.handle(%Tool{name: :list_dags}, %{"unused" => true})
 
-    assert content.text ==
-             "Name: daily_stock_decider; ID: 12; Error: %{reason: \"warning\"}, " <>
-               "Options: [schedule: \"@daily\"] file_path: /tmp/dags/daily_stock_decider.ex"
+    assert content.text == dag_definition_text(12, dag_def)
   end
 
   test "handle/2 returns an empty content list when no DAG definitions are available" do
@@ -108,6 +106,19 @@ defmodule GustWeb.MCP.Tools.CallTest do
     refute run_text(newest_run, :succeeded) in text_list(contents)
   end
 
+  test "handle/2 returns a not found error when query_dag_run receives an unknown dag_name" do
+    dag_name = "missing_dag"
+
+    assert {true, contents} =
+             Call.handle(%Tool{name: :query_dag_run}, %{
+               "dag_name" => dag_name,
+               "limit" => 10,
+               "offset" => 0
+             })
+
+    assert text_list(contents) == [dag_not_found_text(dag_name)]
+  end
+
   test "handle/2 returns dag definition details for the requested dag id" do
     dag = dag_fixture(%{name: "definition_dag"})
 
@@ -130,11 +141,16 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert {false, [%Content{} = content]} =
              Call.handle(%Tool{name: :get_dag_def}, %{"dag_id" => dag.id})
 
-    assert content.text ==
-             "Name: #{dag_def.name}; ID: #{dag.id}; Error: #{inspect(dag_def.error)}, " <>
-               "Options: #{inspect(dag_def.options)} File path: #{dag_def.file_path}; " <>
-               "Stages: #{inspect(dag_def.stages)}; Module: #{dag_def.mod}: " <>
-               "Adapter: #{dag_def.adapter}; Tasks: #{inspect(dag_def.tasks)}"
+    assert content.text == dag_definition_text(dag.id, dag_def)
+  end
+
+  test "handle/2 returns a not found error when get_dag_def receives an unknown dag_name" do
+    dag_name = "missing_dag"
+
+    assert {true, contents} =
+             Call.handle(%Tool{name: :get_dag_def}, %{"dag_name" => dag_name})
+
+    assert text_list(contents) == [dag_not_found_text(dag_name)]
   end
 
   test "handle/2 returns task details for the requested run" do
@@ -164,6 +180,36 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert text_list(contents) |> Enum.sort() == [
              task_text(task_1),
              task_text(task_2)
+           ]
+  end
+
+  test "handle/2 returns logs for the requested task" do
+    dag = dag_fixture(%{name: "logs_dag"})
+    run = run_fixture(%{dag_id: dag.id})
+    task = task_fixture(%{run_id: run.id, name: "extract_prices"})
+
+    log_1 =
+      log_fixture(%{
+        task_id: task.id,
+        content: "Started fetching data",
+        level: "info",
+        attempt: 1
+      })
+
+    log_2 =
+      log_fixture(%{
+        task_id: task.id,
+        content: "Retry scheduled",
+        level: "warn",
+        attempt: 1
+      })
+
+    assert {false, contents} =
+             Call.handle(%Tool{name: :get_logs_on_task}, %{"task_id" => task.id})
+
+    assert text_list(contents) |> Enum.sort() == [
+             log_text(log_1),
+             log_text(log_2)
            ]
   end
 
@@ -260,6 +306,15 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert message =~ " triggered"
   end
 
+  test "handle/2 returns a not found error when trigger_dag_run receives an unknown dag_name" do
+    dag_name = "missing_dag"
+
+    assert {true, contents} =
+             Call.handle(%Tool{name: :trigger_dag_run}, %{"dag_name" => dag_name})
+
+    assert text_list(contents) == [dag_not_found_text(dag_name)]
+  end
+
   test "handle/2 returns a fallback error describing supported properties" do
     tool = List.find("query_dag_run")
 
@@ -301,11 +356,34 @@ defmodule GustWeb.MCP.Tools.CallTest do
 
   defp text_list(contents), do: Enum.map(contents, & &1.text)
 
+  defp dag_definition_text(dag_id, dag_def) do
+    """
+    Name: #{dag_def.name}
+    ID: #{dag_id}
+    File Path: #{dag_def.file_path}
+    Options: #{inspect(dag_def.options)}
+    Stages: #{inspect(dag_def.stages)}
+    Module: #{dag_def.mod}
+    Adapter: #{dag_def.adapter}
+    Tasks: #{inspect(dag_def.tasks)}
+    Error: #{inspect(dag_def.error)}
+    Warnings: #{inspect(dag_def.messages)}
+    """
+  end
+
   defp run_text(run, status) do
     "ID: #{run.id}; Inserted at: #{run.inserted_at}; Updated at: #{run.updated_at}; Status: #{status}"
   end
 
   defp task_text(task) do
     "ID: #{task.id}; Name: #{task.name}, Status: #{task.status}; Error: #{inspect(task.error)}, Result: #{inspect(task.result)}"
+  end
+
+  defp log_text(log) do
+    "ID: #{log.id}; level: #{log.level}, inserted_at: #{inspect(log.inserted_at)}; Content: #{log.content}"
+  end
+
+  defp dag_not_found_text(dag_name) do
+    "DAG with name #{dag_name} does not exists. Use list_dags to find available DAG names"
   end
 end

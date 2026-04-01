@@ -52,6 +52,11 @@ defmodule GustWeb.MCP.Tools.List do
         [Tool.prop("run_id", "integer", "Run ID", required: true)]
       ),
       Tool.new(
+        :get_logs_on_task,
+        "Get logs for a given task",
+        [Tool.prop("task_id", "integer", "Task ID", required: true)]
+      ),
+      Tool.new(
         :restart_run,
         "Restart run for a given run_id",
         [
