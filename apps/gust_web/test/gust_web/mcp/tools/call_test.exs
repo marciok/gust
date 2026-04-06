@@ -13,18 +13,33 @@ defmodule GustWeb.MCP.Tools.CallTest do
   setup :verify_on_exit!
   setup :set_mox_from_context
 
-  test "handle/2 returns text content for loaded DAG definitions and ignores non-ok entries" do
+  setup do
     dag_def = %Definition{
-      name: "daily_stock_decider",
-      file_path: "/tmp/dags/daily_stock_decider.ex",
-      options: [schedule: "@daily"],
-      error: %{reason: "warning"}
+      name: "definition_dag",
+      adapter: :elixir,
+      options: [schedule: "@hourly"],
+      tasks: %{
+        "extract_data" => %{downstream: MapSet.new(["publish_data"]), upstream: MapSet.new()},
+        "publish_data" => %{downstream: MapSet.new(), upstream: MapSet.new(["extract_data"])}
+      },
+      stages: [["extract_data"], ["publish_data"]],
+      error: %{},
+      mod: Gust.Example.DefinitionDag,
+      file_path: "/tmp/dags/definition_dag.ex"
     }
+
+    %{dag_def: dag_def}
+  end
+
+  test "handle/2 returns text content for loaded DAG definitions and ignores non-ok entries", %{
+    dag_def: dag_def
+  } do
+    dag = dag_fixture(%{name: "daily_stock_decider"})
 
     GustWeb.DAGLoaderMock
     |> expect(:get_definitions, fn ->
       %{
-        12 => {:ok, dag_def},
+        dag.id => {:ok, dag_def},
         99 => {:error, :parse_failed}
       }
     end)
@@ -32,7 +47,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert {false, [%Content{} = content]} =
              Call.handle(%Tool{name: :list_dags}, %{"unused" => true})
 
-    assert content.text == dag_definition_text(12, dag_def)
+    assert content.text == dag_definition_text(dag.id, dag_def, true)
   end
 
   test "handle/2 returns an empty content list when no DAG definitions are available" do
@@ -119,29 +134,61 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert text_list(contents) == [dag_not_found_text(dag_name)]
   end
 
-  test "handle/2 returns dag definition details for the requested dag id" do
+  test "handle/2 returns dag definition details for the requested dag id", %{dag_def: dag_def} do
     dag = dag_fixture(%{name: "definition_dag"})
-
-    dag_def = %Definition{
-      name: "definition_dag",
-      adapter: :elixir,
-      options: [schedule: "@hourly"],
-      tasks: %{
-        "extract_data" => %{downstream: MapSet.new(["publish_data"]), upstream: MapSet.new()},
-        "publish_data" => %{downstream: MapSet.new(), upstream: MapSet.new(["extract_data"])}
-      },
-      stages: [["extract_data"], ["publish_data"]],
-      error: %{},
-      mod: Gust.Example.DefinitionDag,
-      file_path: "/tmp/dags/definition_dag.ex"
-    }
 
     expect_dag_definition(dag, dag_def)
 
     assert {false, [%Content{} = content]} =
              Call.handle(%Tool{name: :get_dag_def}, %{"dag_id" => dag.id})
 
-    assert content.text == dag_definition_text(dag.id, dag_def)
+    assert content.text == dag_definition_text(dag.id, dag_def, dag.enabled)
+  end
+
+  test "handle/2 returns dag definition details for the requested dag name", %{dag_def: dag_def} do
+    dag = dag_fixture(%{name: "definition_dag_by_name"})
+
+    expect_dag_definition(dag, dag_def)
+
+    assert {false, [%Content{} = content]} =
+             Call.handle(%Tool{name: :get_dag_def}, %{"dag_name" => dag.name})
+
+    assert content.text == dag_definition_text(dag.id, dag_def, dag.enabled)
+  end
+
+  test "handle/2 enables a dag, dispatches pending runs, and returns the updated definition", %{
+    dag_def: dag_def
+  } do
+    dag = dag_fixture(%{name: "toggle_enabled_dag"})
+    {:ok, dag} = Gust.Flows.toggle_enabled(dag)
+
+    expect_dag_definition(dag, dag_def)
+
+    GustWeb.DAGRunTriggerMock
+    |> expect(:dispatch_all_runs, fn dag_id ->
+      assert dag_id == dag.id
+      nil
+    end)
+
+    assert {false, [%Content{} = content]} =
+             Call.handle(%Tool{name: :toggle_enabled_dag}, %{"dag_id" => dag.id})
+
+    assert content.text == dag_definition_text(dag.id, dag_def, true)
+    assert Gust.Flows.get_dag!(dag.id).enabled
+  end
+
+  test "handle/2 disables a dag without dispatching runs and returns the updated definition", %{
+    dag_def: dag_def
+  } do
+    dag = dag_fixture(%{name: "toggle_disabled_dag"})
+
+    expect_dag_definition(dag, dag_def)
+
+    assert {false, [%Content{} = content]} =
+             Call.handle(%Tool{name: :toggle_enabled_dag}, %{"dag_id" => dag.id})
+
+    assert content.text == dag_definition_text(dag.id, dag_def, false)
+    refute Gust.Flows.get_dag!(dag.id).enabled
   end
 
   test "handle/2 returns a not found error when get_dag_def receives an unknown dag_name" do
@@ -306,6 +353,24 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert message =~ " triggered"
   end
 
+  test "handle/2 creates and dispatches a run for the requested dag id" do
+    dag = dag_fixture(%{name: "triggerable_dag_by_id"})
+
+    GustWeb.DAGRunTriggerMock
+    |> expect(:dispatch_run, fn %Gust.Flows.Run{} = run ->
+      assert run.dag_id == dag.id
+      assert Ecto.assoc_loaded?(run.tasks)
+      run
+    end)
+
+    assert {false, contents} =
+             Call.handle(%Tool{name: :trigger_dag_run}, %{"dag_id" => dag.id})
+
+    [message] = text_list(contents)
+    assert String.starts_with?(message, "Run ")
+    assert message =~ " triggered"
+  end
+
   test "handle/2 returns a not found error when trigger_dag_run receives an unknown dag_name" do
     dag_name = "missing_dag"
 
@@ -332,6 +397,16 @@ defmodule GustWeb.MCP.Tools.CallTest do
            ]
   end
 
+  test "handle/2 falls back to the original tool when the tool registry has no match" do
+    GustWeb.MCPToolsMock
+    |> expect(:find, fn "unknown_tool" -> nil end)
+
+    assert {true, contents} =
+             Call.handle(%Tool{name: :unknown_tool, props: []}, %{"unexpected" => "value"})
+
+    assert text_list(contents) == ["Tool unknown_tool supports no properties."]
+  end
+
   defp expect_dag_definition(dag, dag_def_or_result) do
     GustWeb.DAGLoaderMock
     |> expect(:get_definition, fn dag_id ->
@@ -356,10 +431,11 @@ defmodule GustWeb.MCP.Tools.CallTest do
 
   defp text_list(contents), do: Enum.map(contents, & &1.text)
 
-  defp dag_definition_text(dag_id, dag_def) do
+  defp dag_definition_text(dag_id, dag_def, enabled) do
     """
     Name: #{dag_def.name}
     ID: #{dag_id}
+    Enabled: #{enabled}
     File Path: #{dag_def.file_path}
     Options: #{inspect(dag_def.options)}
     Stages: #{inspect(dag_def.stages)}

@@ -47,6 +47,11 @@ defmodule GustWeb.MCP.Tools.List do
         [Tool.prop("dag_id", "integer", "DAG ID", required: true)]
       ),
       Tool.new(
+        :toggle_enabled_dag,
+        "Toggle DAG enabled property",
+        [Tool.prop("dag_id", "integer", "DAG ID", required: true)]
+      ),
+      Tool.new(
         :get_tasks_on_run,
         "Get tasks for a given run",
         [Tool.prop("run_id", "integer", "Run ID", required: true)]

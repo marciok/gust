@@ -57,6 +57,16 @@ defmodule GustWeb.MCP.Tools.Call do
     dag_id |> dag_definition_reply()
   end
 
+  def handle(%Tool{name: :toggle_enabled_dag}, %{"dag_id" => dag_id}) do
+    {:ok, dag} = Flows.get_dag!(dag_id) |> Flows.toggle_enabled()
+
+    if dag.enabled do
+      Trigger.dispatch_all_runs(dag.id)
+    end
+
+    dag_id |> dag_definition_reply()
+  end
+
   def handle(%Tool{name: :get_tasks_on_run}, %{"run_id" => run_id}) do
     run = Flows.get_run_with_tasks!(run_id)
 
@@ -160,9 +170,12 @@ defmodule GustWeb.MCP.Tools.Call do
            file_path: fp
          }
        ) do
+    dag = Flows.get_dag!(dag_id)
+
     """
     Name: #{name}
     ID: #{dag_id}
+    Enabled: #{dag.enabled}
     File Path: #{fp}
     Options: #{inspect(opts)}
     Stages: #{inspect(stages)}

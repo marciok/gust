@@ -13,6 +13,7 @@ defmodule GustWeb.MCP.Tools.ListTest do
              :list_secrets,
              :query_dag_run,
              :get_dag_def,
+             :toggle_enabled_dag,
              :get_tasks_on_run,
              :get_logs_on_task,
              :restart_run,
