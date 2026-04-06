@@ -2,7 +2,7 @@ defmodule GustWeb.MCP.Server do
   @moduledoc false
 
   alias GustWeb.MCP.Message.Body
-  alias GustWeb.MCP.Tools
+  alias GustWeb.MCP.{Resources, Tools}
 
   @protocol_version "2025-03-26"
   @jsonrpc_version "2.0"
@@ -34,7 +34,8 @@ defmodule GustWeb.MCP.Server do
     result = %{
       "protocolVersion" => @protocol_version,
       "capabilities" => %{
-        "tools" => %{}
+        "tools" => %{},
+        "resources" => %{}
       },
       "serverInfo" => @info
     }
@@ -48,6 +49,10 @@ defmodule GustWeb.MCP.Server do
 
   def handle(%Body{method: "tools/" <> action, id: id} = body) do
     jsonrpc(id, Tools.Server.reply(action, body.params))
+  end
+
+  def handle(%Body{method: "resources/" <> action, id: id} = body) do
+    jsonrpc(id, Resources.Server.reply(action, body.params))
   end
 
   defp jsonrpc(id, result) do
