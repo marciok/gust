@@ -1,4 +1,5 @@
 defmodule GustWeb.MCP.Tools.CallTest do
+  alias Gust.Flows
   use Gust.DataCase, async: true
 
   import Mox
@@ -28,8 +29,32 @@ defmodule GustWeb.MCP.Tools.CallTest do
       file_path: "/tmp/dags/definition_dag.ex"
     }
 
-    %{dag_def: dag_def}
+    dag = dag_fixture(%{name: "definition_dag"})
+
+    %{dag_def: dag_def, dag: dag}
   end
+
+  setup %{dag_def: dag_def, dag: dag} do
+    run = run_fixture(%{dag_id: dag.id})
+    task = task_fixture(%{run_id: run.id, name: "transform_data", status: :failed})
+
+    %{run: run, task: task, dag_def: dag_def, dag: dag}
+  end
+
+  setup :mock_load_definition
+
+  defp mock_load_definition(%{mock_load_definition: true, dag: dag, dag_def: dag_def}) do
+    dag_id = dag.id
+
+    GustWeb.DAGLoaderMock
+    |> expect(:get_definition, fn ^dag_id ->
+      {:ok, dag_def}
+    end)
+
+    :ok
+  end
+
+  defp mock_load_definition(_other_context), do: :ok
 
   test "handle/2 returns text content for loaded DAG definitions and ignores non-ok entries", %{
     dag_def: dag_def
@@ -134,35 +159,34 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert text_list(contents) == [dag_not_found_text(dag_name)]
   end
 
-  test "handle/2 returns dag definition details for the requested dag id", %{dag_def: dag_def} do
-    dag = dag_fixture(%{name: "definition_dag"})
-
-    expect_dag_definition(dag, dag_def)
-
+  @tag :mock_load_definition
+  test "handle/2 returns dag definition details for the requested dag id", %{
+    dag: dag,
+    dag_def: dag_def
+  } do
     assert {false, [%Content{} = content]} =
              Call.handle(%Tool{name: :get_dag_def}, %{"dag_id" => dag.id})
 
     assert content.text == dag_definition_text(dag.id, dag_def, dag.enabled)
   end
 
-  test "handle/2 returns dag definition details for the requested dag name", %{dag_def: dag_def} do
-    dag = dag_fixture(%{name: "definition_dag_by_name"})
-
-    expect_dag_definition(dag, dag_def)
-
+  @tag :mock_load_definition
+  test "handle/2 returns dag definition details for the requested dag name", %{
+    dag_def: dag_def,
+    dag: dag
+  } do
     assert {false, [%Content{} = content]} =
              Call.handle(%Tool{name: :get_dag_def}, %{"dag_name" => dag.name})
 
     assert content.text == dag_definition_text(dag.id, dag_def, dag.enabled)
   end
 
+  @tag :mock_load_definition
   test "handle/2 enables a dag, dispatches pending runs, and returns the updated definition", %{
-    dag_def: dag_def
+    dag_def: dag_def,
+    dag: dag
   } do
-    dag = dag_fixture(%{name: "toggle_enabled_dag"})
     {:ok, dag} = Gust.Flows.toggle_enabled(dag)
-
-    expect_dag_definition(dag, dag_def)
 
     GustWeb.DAGRunTriggerMock
     |> expect(:dispatch_all_runs, fn dag_id ->
@@ -177,13 +201,11 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert Gust.Flows.get_dag!(dag.id).enabled
   end
 
+  @tag :mock_load_definition
   test "handle/2 disables a dag without dispatching runs and returns the updated definition", %{
-    dag_def: dag_def
+    dag_def: dag_def,
+    dag: dag
   } do
-    dag = dag_fixture(%{name: "toggle_disabled_dag"})
-
-    expect_dag_definition(dag, dag_def)
-
     assert {false, [%Content{} = content]} =
              Call.handle(%Tool{name: :toggle_enabled_dag}, %{"dag_id" => dag.id})
 
@@ -230,11 +252,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
            ]
   end
 
-  test "handle/2 returns logs for the requested task" do
-    dag = dag_fixture(%{name: "logs_dag"})
-    run = run_fixture(%{dag_id: dag.id})
-    task = task_fixture(%{run_id: run.id, name: "extract_prices"})
-
+  test "handle/2 returns logs for the requested task", %{task: task} do
     log_1 =
       log_fixture(%{
         task_id: task.id,
@@ -260,9 +278,8 @@ defmodule GustWeb.MCP.Tools.CallTest do
            ]
   end
 
-  test "handle/2 delegates restart_run to the configured trigger" do
-    dag = dag_fixture(%{name: "restartable_dag"})
-    run = run_fixture(%{dag_id: dag.id, status: :failed})
+  test "handle/2 delegates restart_run to the configured trigger", %{run: run} do
+    {:ok, run} = Flows.update_run_status(run, :failed)
 
     GustWeb.DAGRunTriggerMock
     |> expect(:reset_run, fn %Gust.Flows.Run{id: run_id} = fetched_run ->
@@ -274,29 +291,25 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert text_list(contents) == ["Run: #{run.id} was restarted"]
   end
 
-  test "handle/2 delegates restart_task with the dag task graph and task" do
-    %{dag: dag, task: task} =
-      task_setup("restart_task_dag", %{name: "transform_data", status: :failed})
-
-    tasks_graph = sample_tasks_graph()
-
-    expect_dag_definition(dag, %Definition{tasks: tasks_graph})
-
+  @tag :mock_load_definition
+  test "handle/2 delegates restart_task with the dag task graph and task", %{
+    dag_def: %Definition{tasks: tasks},
+    task: %Gust.Flows.Task{name: t_name} = task
+  } do
     GustWeb.DAGRunTriggerMock
-    |> expect(:reset_task, fn graph, fetched_task ->
-      assert graph == tasks_graph
-      assert fetched_task.id == task.id
-      assert fetched_task.name == "transform_data"
+    |> expect(:reset_task, fn ^tasks, ^task ->
       []
     end)
 
     assert {false, contents} = Call.handle(%Tool{name: :restart_task}, %{"task_id" => task.id})
-    assert text_list(contents) == ["Task: #{task.name} was restarted"]
+    assert text_list(contents) == ["Task: #{t_name} was restarted"]
   end
 
-  test "handle/2 cancels a running task via the terminator" do
-    %{dag: dag, task: task} =
-      task_setup("cancel_running_dag", %{name: "cancel_me", status: :running})
+  @tag :mock_load_definition
+  test "handle/2 cancels a running task via the terminator", %{
+    task: task
+  } do
+    {:ok, task} = Flows.update_task_status(task, :running)
 
     previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
 
@@ -306,11 +319,8 @@ defmodule GustWeb.MCP.Tools.CallTest do
 
     Application.put_env(:gust, :dag_adapter, elixir: %{runtime: __MODULE__})
 
-    expect_dag_definition(dag, %Definition{adapter: :elixir})
-
     GustWeb.DAGTerminatorMock
-    |> expect(:kill_task, fn fetched_task, :cancelled, runtime ->
-      assert fetched_task.id == task.id
+    |> expect(:kill_task, fn ^task, :cancelled, runtime ->
       assert runtime == __MODULE__
       nil
     end)
@@ -319,15 +329,14 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert text_list(contents) == ["Task: #{task.name} was cancelled"]
   end
 
-  test "handle/2 cancels a retrying task timer via the terminator" do
-    %{dag: dag, task: task} =
-      task_setup("cancel_retrying_dag", %{name: "retry_me", status: :retrying})
-
-    expect_dag_definition(dag, %Definition{adapter: :elixir})
+  @tag :mock_load_definition
+  test "handle/2 cancels a retrying task timer via the terminator", %{
+    task: task
+  } do
+    {:ok, task} = Flows.update_task_status(task, :retrying)
 
     GustWeb.DAGTerminatorMock
-    |> expect(:cancel_timer, fn fetched_task, :cancelled ->
-      assert fetched_task.id == task.id
+    |> expect(:cancel_timer, fn ^task, :cancelled ->
       nil
     end)
 
@@ -405,28 +414,6 @@ defmodule GustWeb.MCP.Tools.CallTest do
              Call.handle(%Tool{name: :unknown_tool, props: []}, %{"unexpected" => "value"})
 
     assert text_list(contents) == ["Tool unknown_tool supports no properties."]
-  end
-
-  defp expect_dag_definition(dag, dag_def_or_result) do
-    GustWeb.DAGLoaderMock
-    |> expect(:get_definition, fn dag_id ->
-      assert dag_id == dag.id
-      {:ok, dag_def_or_result}
-    end)
-  end
-
-  defp sample_tasks_graph do
-    %{
-      "transform_data" => %{downstream: MapSet.new(["publish_data"]), upstream: MapSet.new()},
-      "publish_data" => %{downstream: MapSet.new(), upstream: MapSet.new(["transform_data"])}
-    }
-  end
-
-  defp task_setup(dag_name, task_attrs) do
-    dag = dag_fixture(%{name: dag_name})
-    run = run_fixture(%{dag_id: dag.id})
-    task = task_fixture(Map.put(task_attrs, :run_id, run.id))
-    %{dag: dag, run: run, task: task}
   end
 
   defp text_list(contents), do: Enum.map(contents, & &1.text)
