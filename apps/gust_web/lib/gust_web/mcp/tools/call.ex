@@ -213,7 +213,7 @@ defmodule GustWeb.MCP.Tools.Call do
   defp dag_not_found(name) do
     {true,
      [
-       content("DAG with name #{name} does not exists. Use list_dags to find available DAG names")
+       content("DAG with name #{name} does not exist. Use list_dags to find available DAG names")
      ]}
   end
 end

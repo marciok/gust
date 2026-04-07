@@ -447,6 +447,6 @@ defmodule GustWeb.MCP.Tools.CallTest do
   end
 
   defp dag_not_found_text(dag_name) do
-    "DAG with name #{dag_name} does not exists. Use list_dags to find available DAG names"
+    "DAG with name #{dag_name} does not exist. Use list_dags to find available DAG names"
   end
 end
