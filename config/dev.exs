@@ -66,6 +66,8 @@ config :gust_web, GustWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :gust_web, dev_routes: true
 
+config :gust_web, mcp_enabled: true
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
