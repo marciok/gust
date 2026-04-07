@@ -12,6 +12,12 @@ defmodule GustWeb.MCP.Resources.Server do
     }
   end
 
+  def reply("templates/list", _params) do
+    %{
+      "resources" => []
+    }
+  end
+
   def reply("read", %{"uri" => uri}) do
     resource = Resources.find(uri)
     resource.handler.handle(resource)

@@ -57,4 +57,8 @@ defmodule GustWeb.MCP.Resources.ServerTest do
              ]
            } = Server.reply("read", %{"uri" => uri})
   end
+
+  test "reply/2 returns an empty list for templates/list" do
+    assert %{"resources" => []} = Server.reply("templates/list", %{})
+  end
 end

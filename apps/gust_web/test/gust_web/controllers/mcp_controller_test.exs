@@ -162,4 +162,15 @@ defmodule GustWeb.MCPControllerTest do
 
     assert ^response = json_response(conn, 200)
   end
+
+  test "POST /mcp returns 204 for notification requests", %{conn: conn} do
+    conn =
+      post(conn, "/mcp/server", %{
+        "jsonrpc" => @jsonrpc,
+        "method" => "notifications/initialized",
+        "params" => %{}
+      })
+
+    assert response(conn, 204) == ""
+  end
 end

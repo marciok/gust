@@ -43,9 +43,7 @@ defmodule GustWeb.MCP.Server do
     jsonrpc(id, result)
   end
 
-  def handle(%Body{method: "notifications/" <> _notif_type}) do
-    %{"jsonrpc" => @jsonrpc_version, "result" => []}
-  end
+  def handle(%Body{method: "notifications/" <> _notif_type}), do: :nocontent
 
   def handle(%Body{method: "tools/" <> action, id: id} = body) do
     jsonrpc(id, Tools.Server.reply(action, body.params))

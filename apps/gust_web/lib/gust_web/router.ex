@@ -26,6 +26,10 @@ defmodule GustWeb.Router do
   end
 
   scope "/", GustWeb do
+    match :*, "/.well-known/*path", WellKnownController, :not_found
+  end
+
+  scope "/", GustWeb do
     pipe_through if auth_enabled?, do: [:browser, :basic_auth], else: :browser
 
     get "/", PageController, :home
@@ -40,6 +44,7 @@ defmodule GustWeb.Router do
   scope "/mcp", GustWeb do
     pipe_through if auth_enabled?, do: [:api, :basic_auth], else: :api
     post "/server", MCPController, :message
+    get "/server/.well-known/oauth-authorization-server", WellKnownController, :not_found
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
@@ -55,7 +60,7 @@ defmodule GustWeb.Router do
       pipe_through :browser
 
       live_dashboard "/dashboard", metrics: GustWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
+      # forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
 end

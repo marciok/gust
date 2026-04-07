@@ -5,6 +5,13 @@ defmodule GustWeb.MCPController do
 
   def message(conn, params) do
     payload = Server.decode!(params)
-    json(conn, payload)
+
+    case payload do
+      %{"jsonrpc" => _} = data ->
+        json(conn, data)
+
+      :nocontent ->
+        send_resp(conn, 204, "")
+    end
   end
 end
