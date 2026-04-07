@@ -352,6 +352,17 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert text_list(contents) == ["Task: #{task.name} retrying cancelled"]
   end
 
+  @tag :mock_load_definition
+  test "handle/2 returns a message when cancel_task receives a task in an unsupported status", %{
+    task: task
+  } do
+    assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
+
+    assert text_list(contents) == [
+             "Task: #{task.name} cannot be cancelled from status :failed. Only :running and :retrying tasks can be cancelled."
+           ]
+  end
+
   test "handle/2 creates and dispatches a run for the requested dag" do
     dag = dag_fixture(%{name: "triggerable_dag"})
 
