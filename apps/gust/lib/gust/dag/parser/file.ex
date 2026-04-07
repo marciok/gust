@@ -32,6 +32,7 @@ defmodule Gust.DAG.Parser.File do
     folder
     |> File.ls!()
     |> Enum.filter(&maybe_dag_file(&1, ext))
+    |> Enum.sort()
   end
 
   def maybe_dag_file(path, ext) do

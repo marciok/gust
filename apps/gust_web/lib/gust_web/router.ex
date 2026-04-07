@@ -10,6 +10,10 @@ defmodule GustWeb.Router do
     plug :put_secure_browser_headers
   end
 
+  pipeline :api do
+    plug :accepts, ["json"]
+  end
+
   auth_enabled? = Application.compile_env(:gust_web, :basic_auth)
 
   if auth_enabled? do
@@ -33,10 +37,18 @@ defmodule GustWeb.Router do
     live "/secrets/:id/edit", SecretLive.Index, :edit
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", GustWeb do
-  #   pipe_through :api
-  # end
+  if Application.compile_env(:gust_web, :mcp_enabled) do
+    scope "/", GustWeb do
+      match :*, "/.well-known/*path", WellKnownController, :not_found
+    end
+
+    scope "/mcp", GustWeb do
+      pipe_through :api
+
+      post "/server", MCPController, :message
+      get "/server/.well-known/oauth-authorization-server", WellKnownController, :not_found
+    end
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:gust_web, :dev_routes) do
@@ -51,7 +63,7 @@ defmodule GustWeb.Router do
       pipe_through :browser
 
       live_dashboard "/dashboard", metrics: GustWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
+      # forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
 end
