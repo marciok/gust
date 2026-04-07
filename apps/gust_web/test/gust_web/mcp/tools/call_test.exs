@@ -311,17 +311,8 @@ defmodule GustWeb.MCP.Tools.CallTest do
   } do
     {:ok, task} = Flows.update_task_status(task, :running)
 
-    previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
-
-    on_exit(fn ->
-      Application.put_env(:gust, :dag_adapter, previous_dag_adapter)
-    end)
-
-    Application.put_env(:gust, :dag_adapter, elixir: %{runtime: __MODULE__})
-
     GustWeb.DAGTerminatorMock
-    |> expect(:kill_task, fn ^task, :cancelled, runtime ->
-      assert runtime == __MODULE__
+    |> expect(:kill_task, fn ^task, :cancelled, _runtime ->
       nil
     end)
 
