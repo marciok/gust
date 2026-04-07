@@ -50,7 +50,6 @@ defmodule GustWeb.Router do
     end
   end
 
-  # 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:gust_web, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put
