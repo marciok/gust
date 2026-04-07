@@ -170,6 +170,23 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert content.text == dag_definition_text(dag.id, dag_def, dag.enabled)
   end
 
+  test "handle/2 returns dag definition details when the loaded definition includes an error", %{
+    dag: dag
+  } do
+    dag_id = dag.id
+    error = %{line: 9, message: "unexpected token"}
+
+    GustWeb.DAGLoaderMock
+    |> expect(:get_definition, fn ^dag_id ->
+      {:error, error}
+    end)
+
+    assert {false, [%Content{} = content]} =
+             Call.handle(%Tool{name: :get_dag_def}, %{"dag_id" => dag.id})
+
+    assert content.text == "DAG with ID #{dag_id} cannot be parsed, error: #{inspect(error)}"
+  end
+
   @tag :mock_load_definition
   test "handle/2 returns dag definition details for the requested dag name", %{
     dag_def: dag_def,

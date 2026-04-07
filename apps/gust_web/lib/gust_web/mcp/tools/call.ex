@@ -152,8 +152,13 @@ defmodule GustWeb.MCP.Tools.Call do
   end
 
   defp dag_definition_reply(id) do
-    {:ok, dag_def} = Loader.get_definition(id)
-    {false, [dag_def_text(id, dag_def) |> content()]}
+    case Loader.get_definition(id) do
+      {:ok, dag_def} ->
+        {false, [dag_def_text(id, dag_def) |> content()]}
+
+      {:error, error} ->
+        {false, [content("DAG with ID #{id} cannot be parsed, error: #{inspect(error)}")]}
+    end
   end
 
   defp dag_def_text(
