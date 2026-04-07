@@ -20,6 +20,8 @@ config :gust_web, GustWeb.Endpoint,
   secret_key_base: System.get_env("SECRET_KEY_BASE"),
   server: false
 
+config :gust_web, mcp_enabled: true
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 
