@@ -1,3 +1,3 @@
 # Gust Examples
 
-Here you will find examples ranging from DAGs to full Gust projects.
+- [DAGs](https://github.com/marciok/gust/tree/main/examples/dags)
