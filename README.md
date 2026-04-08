@@ -102,6 +102,20 @@ end
 ![ss-1](https://gust-github.s3.us-east-1.amazonaws.com/gust-ss-1.png)
 
 ![ss2](https://gust-github.s3.us-east-1.amazonaws.com/gust-ss-2.png)
+
+--- 
+
+### MCP Server
+
+GustWeb includes a built-in MCP server that gives your LLM access to Gust’s core features, including listing DAGs, triggering runs, exploring DAG definitions, and debugging executions.
+
+To enable it, add the following to your config file:
+
+```elixir
+# dev.exs
+config :gust_web, mcp_enabled: true
+```
+
 ---
 
 ## Features
