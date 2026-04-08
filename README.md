@@ -39,6 +39,7 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 - [Overview](#overview)
 - [Getting Started](#getting-started)
 - [Features](#features)
+- [Examples](https://github.com/marciok/gust/tree/main/examples)
 
 
 ---
