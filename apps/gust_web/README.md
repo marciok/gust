@@ -1,18 +1,13 @@
 # GustWeb
 
-To start your Phoenix server:
+The web UI for Gust.
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server`
+---
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+GustWeb is a Phoenix web server. Run `mix phx.server` to start it.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+By default, it also starts the Gust core, which means DAGs are loaded and executed.
 
-## Learn more
+If you are working in multi-node mode and want to run only the web server, use:
 
-* Official website: https://www.phoenixframework.org/
-* Guides: https://hexdocs.pm/phoenix/overview.html
-* Docs: https://hexdocs.pm/phoenix
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
+`GUST_ROLE=web mix phx.server`
