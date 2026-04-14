@@ -7,7 +7,13 @@ import Config
 # any compile-time configuration in here, as it won't be applied.
 # The block below contains prod specific runtime configuration.
 if config_env() == :prod do
-  config :gust, b64_secrets_cloak_key: System.get_env("B64_SECRETS_CLOAK_KEY")
+  secrets_cloak_key =
+    System.get_env("B64_SECRETS_CLOAK_KEY") ||
+      raise """
+      environment variable B64_SECRETS_CLOAK_KEY is missing.
+      """
+
+  config :gust, b64_secrets_cloak_key: secrets_cloak_key
 
   database_url =
     System.get_env("DATABASE_URL") ||
