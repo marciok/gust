@@ -117,14 +117,14 @@ To enable it, add the following to your config file:
 config :gust_web, mcp_enabled: true
 ```
 
-### Connect to an MCP client:
+### Connect to an MCP client
 
 - claude: `claude mcp add --transport http gust-mcp http://localhost:4000/mcp/server`
 - codex: `codex mcp add gust-mcp --url http://localhost:4000/mcp/server`
 
-### SKILLS
+### Skills
 
-- [Available SKILLS](https://github.com/marciok/gust/tree/main/skills)
+- [Available Skills](https://github.com/marciok/gust/tree/main/skills)
 
 
 ---

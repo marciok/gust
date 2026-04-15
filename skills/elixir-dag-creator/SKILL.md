@@ -10,13 +10,13 @@ Use this guide to create a DAG in Elixir for Gust.
 
 ## Create a DAG file
 
-Create a valid Elixir module under `/dags`.
+Create a valid Elixir module under `dags/`.
 
 ## DAG syntax
 
 The Gust DSL turns an Elixir module into a DAG.
 
-When you add `use Gust.DSL` to a module in the `/dags` folder, Gust detects it automatically. You can configure a schedule, define callbacks, and in development the DAG is reloaded when files change.
+When you add `use Gust.DSL` to a module in the `dags/` folder, Gust detects it automatically. You can configure a schedule, define callbacks, and in development the DAG is reloaded when files change.
 
 After enabling the DSL, define tasks with `task`.
 
