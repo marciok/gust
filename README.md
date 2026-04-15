@@ -37,9 +37,9 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 - [Motivation](#motivation)
 - [Overview](#overview)
+- [Features](#features)
 - [Getting Started](#getting-started)
 - [Getting Started with Docker](#getting-started-with-docker)
-- [Features](#features)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
 
 
