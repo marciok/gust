@@ -38,6 +38,7 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 - [Motivation](#motivation)
 - [Overview](#overview)
 - [Getting Started](#getting-started)
+- [Getting Started with Docker](#getting-started-with-docker)
 - [Features](#features)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
 
@@ -129,6 +130,68 @@ config :gust_web, mcp_enabled: true
   - Hook for finished dag run.
   - Web UI for live monitoring, runs and secrets editing.
 ---
+
+
+
+## Getting started with Docker
+
+### Prerequisites
+
+- [x] Docker
+- [x] Docker Compose (`docker compose`)
+
+### Single-node setup
+
+1. Download the example `docker-compose.yml` file:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/examples/docker/single-node/docker-compose.yml -o docker-compose.yml
+```
+
+2. Generate the required secrets:
+
+`B64_SECRETS_CLOAK_KEY`
+
+```sh
+openssl rand -base64 32
+```
+
+`SECRET_KEY_BASE`
+
+```sh
+mix phx.gen.secret
+```
+
+If you do not have Phoenix installed locally, generate a compatible fallback value with:
+
+```sh
+openssl rand -hex 32
+```
+
+3. Replace the placeholders in `docker-compose.yml`:
+
+- `B64_SECRETS_CLOAK_KEY`
+- `SECRET_KEY_BASE`
+- `BASIC_AUTH_USER`
+- `BASIC_AUTH_PASS`
+
+4. Create a local `dags` folder:
+
+```sh
+mkdir dags
+```
+
+5. Download an example DAG:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/examples/dags/hello_world.ex -o dags/hello_world.ex
+```
+
+6. Start Gust:
+
+```sh
+docker compose up
+```
 
 
 

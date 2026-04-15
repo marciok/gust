@@ -1,0 +1,51 @@
+x-gust-common: &gust-common
+  image: marcioklepacz/gust-web:0.1.29
+  environment:
+    PHX_SERVER: "true"
+    PHX_HOST: "localhost"
+    PORT: "4000"
+    B64_SECRETS_CLOAK_KEY: ADD_HERE_AS_BASE64 # WARNING: generate using `openssl rand -base64 32`
+    SECRET_KEY_BASE: ADD_HERE_SECRET_KEY_BASE # WARNING:  generate using `openssl rand -hex 3` if don't have a Phoenix project, otherwise just: `mix phx.gen.secret`
+    DATABASE_URL: "ecto://gust:gust@db:5432/gust_prod"
+    POOL_SIZE: "10"
+    BASIC_AUTH_USER: admin # WARNING: change before deploying to production
+    BASIC_AUTH_PASS: # WARNING: change before deploying to production
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: postgres_gust_db
+    environment:
+      POSTGRES_USER: gust
+      POSTGRES_PASSWORD: gust
+      POSTGRES_DB: gust_prod
+    ports:
+      - "5432:5432"
+    volumes:
+      - gust_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gust -d gust_prod"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  gust-init:
+    <<: *gust-common
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["/app/bin/migrate"] 
+    restart: "no"
+
+  gust-web:
+    <<: *gust-common
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./dags:/dags # WARNING: Make sure you have a /dags folder
+    ports:
+      - "4000:4000"
+    command: ["/app/bin/server"] 
+volumes:
+  gust_pgdata:
