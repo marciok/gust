@@ -117,6 +117,16 @@ To enable it, add the following to your config file:
 config :gust_web, mcp_enabled: true
 ```
 
+### Connect to an MCP client
+
+- claude: `claude mcp add --transport http gust-mcp http://localhost:4000/mcp/server`
+- codex: `codex mcp add gust-mcp --url http://localhost:4000/mcp/server`
+
+### Skills
+
+- [Available Skills](https://github.com/marciok/gust/tree/main/skills)
+
+
 ---
 
 ## Features
@@ -192,7 +202,6 @@ curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/examples/dags/hel
 ```sh
 docker compose up
 ```
-
 
 
 ## Getting started
