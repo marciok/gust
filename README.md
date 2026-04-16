@@ -228,7 +228,7 @@ GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/
 	 `mix ecto.create --repo Gust.Repo && mix ecto.migrate --repo Gust.Repo`
 	 
 4. Run Gust start:
-	 `mix gust.start`
+	 `mix phx.server`
 
 5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG 🎉
 
