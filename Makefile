@@ -1,6 +1,6 @@
 
 dev:
-	mix gust.start
+	mix phx.server
 
 test:
 	mix test
