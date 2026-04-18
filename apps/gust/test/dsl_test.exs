@@ -120,7 +120,7 @@ defmodule DSLTest do
           2 + 2
         end
 
-        task :hi, downstreams: [:bye] do
+        task :hi, downstream: [:bye] do
           # saying hi
           1 + 1
         end
@@ -130,7 +130,7 @@ defmodule DSLTest do
 
     [{mod, _bin}] = Code.compile_string(dag_code)
 
-    assert mod.__dag_tasks__() == [{:hi, [downstreams: [:bye]]}, {:bye, []}]
+    assert mod.__dag_tasks__() == [{:hi, [downstream: [:bye]]}, {:bye, []}]
 
     :code.purge(mod)
     :code.delete(mod)

@@ -154,11 +154,13 @@ defmodule DAG.Parser.Adapters.ElixirTest do
       File.write!(file, dag_definition)
 
       {:ok, dag_def} = Adapter.parse_file(file)
+      [error_message] = dag_def.messages
 
-      assert %{
-               message:
-                 "unknown keys [:foo_bar] in [foo_bar: \"hi\"], the allowed keys are: [:downstream, :store_result, :ctx]"
-             } = dag_def.error
+      assert "unknown keys [:foo_bar] in [foo_bar: \"hi\"], the allowed keys are: [:downstream, :store_result, :ctx]" ==
+               error_message.message
+
+      assert "cannot compile module MyInvalidTaskDag (errors have been logged)" ==
+               dag_def.error.description
     end
 
     test "file has unknown dag options", %{tmp_dir: dags_folder} do
