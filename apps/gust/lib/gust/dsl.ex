@@ -53,6 +53,8 @@ defmodule Gust.DSL do
     * `on_finished_callback` - The name of the function to be called.
   """
 
+  @task_opts [:downstream, :store_result, :ctx]
+
   defmacro __using__(dag_options) do
     quote do
       import unquote(__MODULE__), only: [task: 2, task: 3]
@@ -109,6 +111,8 @@ defmodule Gust.DSL do
 
     opts = use_old_opts(opts)
 
+    validate_task_opts!(opts, __CALLER__)
+
     ctx_pattern = ctx_pattern || quote do: %{run_id: run_id}
 
     quote do
@@ -124,6 +128,23 @@ defmodule Gust.DSL do
   defp use_old_opts(opts) do
     opts
     |> rename_opt(:save, :store_result)
+  end
+
+  defp validate_task_opts!(opts, caller) do
+    case Keyword.validate(opts, @task_opts) do
+      {:ok, _} ->
+        :ok
+
+      {:error, keys} ->
+        IO.warn(
+          "unknown keys #{inspect(keys)} in #{inspect(opts)}, the allowed keys are: #{inspect(@task_opts)}"
+        )
+
+        raise CompileError,
+          file: caller.file,
+          line: caller.line,
+          description: "cannot compile module #{inspect(caller.module)} (errors have been logged)"
+    end
   end
 
   defp rename_opt(opts, old_key, new_key) do

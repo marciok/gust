@@ -129,11 +129,7 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
   defp list_tasks!(mod) do
     mod.__dag_tasks__()
     |> Enum.map(fn {task_name, opts} ->
-      option =
-        Keyword.validate!(opts, [:downstream, :store_result, :ctx])
-        |> Keyword.put_new(:store_result, false)
-
-      {task_name, option}
+      {task_name, Keyword.put_new(opts, :store_result, false)}
     end)
   end
 end
