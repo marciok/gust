@@ -23,7 +23,6 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     defp setup_gust(igniter) do
-      dags = Igniter.create_new_file(igniter, "dags/.keep", "")
       name = igniter |> Igniter.Project.Application.app_name()
 
       igniter
@@ -31,6 +30,7 @@ if Code.ensure_loaded?(Igniter) do
       |> config_setup(name)
       |> common_config("dev.exs")
       |> common_config("prod.exs")
+      |> Igniter.create_new_file("dags/.keep", "")
     end
 
     defp install_deps(igniter) do
@@ -62,7 +62,7 @@ if Code.ensure_loaded?(Igniter) do
         filename,
         :gust,
         [:dags_folder],
-        {:code, Path.join(File.cwd!(), "dags")}
+        {:code, Path.join(File.cwd!(), @dags_dir)}
       )
       |> Config.configure(
         filename,
