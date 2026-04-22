@@ -28,8 +28,6 @@ defmodule GustWeb.DashboardRouter do
 
         {session_name, session_opts, route_opts} = GustWeb.DashboardRouter.__options__(opts)
 
-        _route_opts = route_opts
-
         live_session session_name, session_opts do
           get "/css-:md5", GustWeb.Dashboard.Assets, :css, as: :gust_dashboard_asset
           get "/js-:md5", GustWeb.Dashboard.Assets, :js, as: :gust_dashboard_asset
