@@ -11,6 +11,17 @@ defmodule GustWeb.Layouts do
   # and other static content.
   embed_templates "layouts/*"
 
+  @doc false
+  def asset_path(conn, asset) when asset in [:css, :js] do
+    hash = GustWeb.Dashboard.Assets.current_hash(asset)
+
+    Phoenix.VerifiedRoutes.unverified_path(
+      conn,
+      conn.private.phoenix_router,
+      "#{asset}-#{hash}"
+    )
+  end
+
   @doc """
   Renders your app layout.
 
