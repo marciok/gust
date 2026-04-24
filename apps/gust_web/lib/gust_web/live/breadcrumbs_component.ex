@@ -7,24 +7,24 @@ defmodule GustWeb.BreadcrumbsComponent do
     <div class="breadcrumbs text-sm bg-white rounded shadow-sm overflow-hidden mb-4 px-4">
       <ul>
         <li>
-          <.link id="dags-link" navigate={~p"/dags"}>
+          <.link id="dags-link" navigate={~g"/dags"}>
             DAGs
           </.link>
         </li>
         <li>
-          <.link id="dag-runs-link" navigate={~p"/dags/#{@dag_def.name}/dashboard"}>
+          <.link id="dag-runs-link" navigate={~g"/dags/#{@dag_def.name}/dashboard"}>
             {@dag_def.name}
           </.link>
         </li>
         <li :if={@run}>
-          <.link id="dag-run-link" navigate={~p"/dags/#{@dag_def.name}/dashboard?run_id=#{@run.id}"}>
+          <.link id="dag-run-link" navigate={~g"/dags/#{@dag_def.name}/dashboard?run_id=#{@run.id}"}>
             {@run.id}
           </.link>
         </li>
         <li :if={@task}>
           <.link
             id="dag-run-task-link"
-            navigate={~p"/dags/#{@dag_def.name}/dashboard?run_id=#{@run.id}&task_name=#{@task.name}"}
+            navigate={~g"/dags/#{@dag_def.name}/dashboard?run_id=#{@run.id}&task_name=#{@task.name}"}
           >
             {@task.name}
           </.link>

@@ -77,6 +77,6 @@ defmodule GustWeb.SecretLive.Index do
      socket
      |> stream_insert(:secrets, secret)
      |> put_flash(:info, "Secret #{action_verb} successfully")
-     |> push_patch(to: ~p"/secrets")}
+     |> push_patch(to: ~g"/secrets")}
   end
 end

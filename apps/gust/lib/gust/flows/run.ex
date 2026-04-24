@@ -4,7 +4,7 @@ defmodule Gust.Flows.Run do
   use Ecto.Schema
   import Ecto.Changeset
 
-  schema "runs" do
+  schema "gust_runs" do
     belongs_to :dag, Gust.Flows.Dag
 
     field :status, Ecto.Enum,
