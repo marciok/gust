@@ -9,11 +9,15 @@ defmodule GustWeb.DashboardRouter do
 
       scope "/" do
         pipe_through :browser
-        gust_dashboard "/gust"
+        gust_dashboard()
       end
   """
 
-  defmacro gust_dashboard(path, opts \\ []) do
+  @dashboard_path Application.compile_env(:gust_web, :dashboard_path, "/")
+
+  defmacro gust_dashboard(opts \\ []) do
+    path = @dashboard_path
+
     opts =
       if Macro.quoted_literal?(opts) do
         Macro.prewalk(opts, &expand_alias(&1, __CALLER__))

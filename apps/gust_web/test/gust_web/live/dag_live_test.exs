@@ -24,7 +24,7 @@ defmodule GustWeb.DagLiveTest do
     end
 
     test "lists all valid dags on dag folder", %{conn: conn, dag: dag, broken_dag: broken_dag} do
-      {:ok, _index_live, html} = live(conn, ~p"/dags")
+      {:ok, _index_live, html} = live(conn, ~g"/dags")
 
       assert html =~ "DAGs Listing"
       assert html =~ dag.name
@@ -32,7 +32,7 @@ defmodule GustWeb.DagLiveTest do
     end
 
     test "dag file was reloaded", %{conn: conn, dag: dag, broken_dag: broken_dag} do
-      {:ok, index_live, _html} = live(conn, ~p"/dags")
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
       dag_name = dag.name
 
       dag_def = %Gust.DAG.Definition{name: broken_dag.name}
@@ -48,7 +48,7 @@ defmodule GustWeb.DagLiveTest do
     end
 
     test "file reload event when parse errored", %{conn: conn, dag: dag} do
-      {:ok, index_live, _html} = live(conn, ~p"/dags")
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
 
       dag_name = dag.name
 
@@ -66,7 +66,7 @@ defmodule GustWeb.DagLiveTest do
     end
 
     test "file deletion event when a dag exists", %{conn: conn, dag: dag} do
-      {:ok, index_live, _html} = live(conn, ~p"/dags")
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
 
       dag_name = dag.name
       Flows.delete_dag!(dag)
@@ -81,14 +81,14 @@ defmodule GustWeb.DagLiveTest do
     end
 
     test "navigate to runs afger click into a dag", %{conn: conn, dag: dag} do
-      {:ok, index_live, _html} = live(conn, ~p"/dags")
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
 
       assert has_element?(index_live, ~s{[href="/dags/#{dag.name}/dashboard"]})
     end
 
     test "click on dag run trigger", %{conn: conn, dag: dag} do
       dag_id = dag.id
-      {:ok, index_live, _html} = live(conn, ~p"/dags")
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
 
       GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
 

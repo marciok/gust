@@ -32,7 +32,6 @@ if Code.ensure_loaded?(Igniter) do
       |> runtime_config(name)
       |> test_config(name)
       |> Igniter.create_new_file("dags/.keep", ".gitkeep", onexists: :skip)
-      |> Igniter.Project.Formatter.import_dep(:gust_web)
       |> add_import(name)
       |> add_scope(name)
       |> final_notice()
@@ -103,6 +102,7 @@ if Code.ensure_loaded?(Igniter) do
       |> Config.configure("config.exs", :gust, [:dag_scheduler], Gust.DAG.Scheduler.Worker)
       |> Config.configure("config.exs", :gust, [:dag_loader], Gust.DAG.Loader.Worker)
       |> Config.configure("config.exs", :gust, [:dag_stage_runner], Gust.DAG.Runner.StageWorker)
+      |> Config.configure("config.exs", :gust_web, [:dashboard_path], "/gust")
     end
 
     defp dev_config(igniter, name) do
@@ -161,7 +161,7 @@ if Code.ensure_loaded?(Igniter) do
       scope_code = """
         pipe_through [:browser]
 
-        gust_dashboard "/gust"
+        gust_dashboard()
       """
 
       Igniter.Libs.Phoenix.add_scope(igniter, "/", scope_code, router: router_module(name))
@@ -207,6 +207,9 @@ if Code.ensure_loaded?(Igniter) do
           mix phx.server
 
       Then open http://localhost:4000/gust.
+
+      To change the dashboard mount path, update :dashboard_path in
+      config.exs and the gust_dashboard call in your router to match.
 
       For prod, set DATABASE_URL and B64_SECRETS_CLOAK_KEY env vars.
       """)

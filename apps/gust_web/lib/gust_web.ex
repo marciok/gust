@@ -45,6 +45,8 @@ defmodule GustWeb do
       import Plug.Conn
 
       unquote(verified_routes())
+
+      import GustWeb.DashboardPath, only: [sigil_g: 2]
     end
   end
 
@@ -96,6 +98,9 @@ defmodule GustWeb do
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())
+
+      # Dashboard path sigil ~g for configurable mount path
+      import GustWeb.DashboardPath, only: [sigil_g: 2]
     end
   end
 

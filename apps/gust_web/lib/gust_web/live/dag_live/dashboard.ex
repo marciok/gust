@@ -57,7 +57,7 @@ defmodule GustWeb.DagLive.Dashboard do
     {:ok,
      socket
      |> put_flash(:warning, "Syntax error! on #{dag.name}")
-     |> push_navigate(to: ~p"/dags")}
+     |> push_navigate(to: ~g"/dags")}
   end
 
   defp handle_page(page, :next), do: String.to_integer(page) + 1

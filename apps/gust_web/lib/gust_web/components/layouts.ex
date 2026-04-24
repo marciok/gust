@@ -54,12 +54,12 @@ defmodule GustWeb.Layouts do
             <h1 class="gust-wordmark">Gust</h1>
           </div>
           <nav class="sidebar__links">
-            <.link navigate={~p"/dags"} class="sidebar__link">
+            <.link navigate={~g"/dags"} class="sidebar__link">
               <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
               <span>DAGs</span>
             </.link>
 
-            <.link navigate={~p"/secrets"} class="sidebar__link">
+            <.link navigate={~g"/secrets"} class="sidebar__link">
               <.icon name="hero-lock-closed" class="h-5 w-5 text-sky-600" />
               <span>Secrets</span>
             </.link>

@@ -29,7 +29,7 @@ defmodule GustWeb.Router do
   scope "/" do
     pipe_through if auth_enabled?, do: [:browser, :basic_auth], else: :browser
 
-    gust_dashboard "/"
+    gust_dashboard()
   end
 
   if Application.compile_env(:gust_web, :mcp_enabled) do
