@@ -1,13 +1,20 @@
 if Code.ensure_loaded?(Igniter) do
   defmodule Mix.Tasks.Gust.Install do
+    @moduledoc false
     @shortdoc "Installs \"gust\" into your project"
 
     @dags_dir "dags"
 
     use Igniter.Mix.Task
 
-    alias Igniter.Project.Deps
+    alias Igniter.Code.Common
+    alias Igniter.Code.Function
+    alias Igniter.Code.List, as: CodeList
+    alias Igniter.Libs.Phoenix, as: PhoenixLib
+    alias Igniter.Project.Application
     alias Igniter.Project.Config
+    alias Igniter.Project.Deps
+    alias Igniter.Project.Module
 
     @impl Igniter.Mix.Task
     def info(_argv, _composing_task) do
@@ -23,7 +30,7 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     defp setup_gust(igniter) do
-      name = igniter |> Igniter.Project.Application.app_name()
+      name = igniter |> Application.app_name()
 
       igniter
       |> install_deps()
@@ -55,7 +62,7 @@ if Code.ensure_loaded?(Igniter) do
         [:ecto_repos],
         [Gust.Repo],
         updater: fn zipper ->
-          Igniter.Code.List.append_new_to_list(
+          CodeList.append_new_to_list(
             zipper,
             Sourceror.parse_string!("Gust.Repo")
           )
@@ -164,37 +171,34 @@ if Code.ensure_loaded?(Igniter) do
         gust_dashboard()
       """
 
-      Igniter.Libs.Phoenix.add_scope(igniter, "/", scope_code, router: router_module(name))
+      PhoenixLib.add_scope(igniter, "/", scope_code, router: router_module(name))
     end
 
     defp add_import(igniter, name) do
-      Igniter.Project.Module.find_and_update_module!(igniter, router_module(name), fn zipper ->
+      Module.find_and_update_module!(igniter, router_module(name), fn zipper ->
         if import_present?(zipper, GustWeb.DashboardRouter) do
           {:ok, zipper}
         else
-          {:ok,
-           Igniter.Code.Common.add_code(zipper, "import GustWeb.DashboardRouter",
-             placement: :before
-           )}
+          {:ok, Common.add_code(zipper, "import GustWeb.DashboardRouter", placement: :before)}
         end
       end)
     end
 
     defp import_present?(zipper, module) do
-      case Igniter.Code.Common.move_to(zipper, &import?(&1, module)) do
+      case Common.move_to(zipper, &import?(&1, module)) do
         {:ok, _} -> true
         :error -> false
       end
     end
 
     defp import?(zipper, module) do
-      Igniter.Code.Function.function_call?(zipper, :import, 1) &&
-        Igniter.Code.Function.argument_equals?(zipper, 0, module)
+      Function.function_call?(zipper, :import, 1) &&
+        Function.argument_equals?(zipper, 0, module)
     end
 
     defp router_module(name) do
       app_mod = name |> to_string() |> Macro.camelize()
-      Module.concat([app_mod <> "Web", "Router"])
+      Elixir.Module.concat([app_mod <> "Web", "Router"])
     end
 
     defp final_notice(igniter) do

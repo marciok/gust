@@ -5,15 +5,13 @@ defmodule GustWeb.Layouts do
   """
   use GustWeb, :html
 
-  # Embed all files in layouts/* within this module.
-  # The default root.html.heex file contains the HTML
-  # skeleton of your application, namely HTML headers
-  # and other static content.
+  alias GustWeb.Dashboard.Assets
+
   embed_templates "layouts/*"
 
   @doc false
   def asset_path(conn, asset) when asset in [:css, :js] do
-    hash = GustWeb.Dashboard.Assets.current_hash(asset)
+    hash = Assets.current_hash(asset)
 
     Phoenix.VerifiedRoutes.unverified_path(
       conn,

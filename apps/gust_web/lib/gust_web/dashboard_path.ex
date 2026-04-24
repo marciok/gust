@@ -1,4 +1,5 @@
 defmodule GustWeb.DashboardPath do
+  @moduledoc false
   @base Application.compile_env(:gust_web, :dashboard_path, "")
 
   defmacro sigil_g({:<<>>, _, pieces}, []) do

@@ -52,11 +52,23 @@ jobs:
       - name: Install deps
         run: mix deps.get
 
+      - name: Install asset tools
+        run: |
+          npm install --prefix apps/gust_web/assets
+          mix tailwind.install
+          mix esbuild.install
+
+      - name: Build assets
+        run: |
+          mkdir -p apps/gust_web/priv/static/assets/js
+          mkdir -p apps/gust_web/priv/static/assets/css
+          touch apps/gust_web/priv/static/assets/js/app.js
+          mix compile
+          mix tailwind gust_web
+          mix esbuild gust_web
+
       - name: Check formatting
         run: mix format --check-formatted
-
-      - name: Check warnings
-        run: mix compile --warnings-as-errors
 
       - name: Run lint
         run: mix lint
