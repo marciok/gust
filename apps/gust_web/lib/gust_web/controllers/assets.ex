@@ -11,19 +11,39 @@ defmodule GustWeb.Dashboard.Assets do
 
   css_path = Path.join(__DIR__, "../../../priv/static/assets/css/app.css")
   @external_resource css_path
-  @css File.read!(css_path)
+
+  @css (case File.read(css_path) do
+          {:ok, contents} ->
+            contents
+
+          {:error, _} ->
+            IO.warn("CSS asset not found at #{css_path}, run mix assets.build")
+            ""
+        end)
 
   js_path = Path.join(__DIR__, "../../../priv/static/assets/js/app.js")
   @external_resource js_path
 
-  @js """
-  #{for path <- phoenix_js_paths, do: path |> File.read!() |> String.replace("//# sourceMappingURL=", "// ")}
-  #{File.read!(js_path)}
-  """
+  js_value =
+    case File.read(js_path) do
+      {:ok, contents} ->
+        phoenix_js =
+          for path <- phoenix_js_paths do
+            path |> File.read!() |> String.replace("//# sourceMappingURL=", "// ")
+          end
+
+        Enum.join(phoenix_js, "\n") <> "\n" <> contents
+
+      {:error, _} ->
+        IO.warn("JS asset not found at #{js_path}, run mix assets.build")
+        ""
+    end
+
+  @js js_value
 
   @hashes %{
-    :css => Base.encode16(:crypto.hash(:md5, @css), case: :lower),
-    :js => Base.encode16(:crypto.hash(:md5, @js), case: :lower)
+    css: Base.encode16(:crypto.hash(:md5, @css), case: :lower),
+    js: Base.encode16(:crypto.hash(:md5, @js), case: :lower)
   }
 
   def init(asset) when asset in [:css, :js], do: asset

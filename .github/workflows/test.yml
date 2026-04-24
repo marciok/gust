@@ -60,12 +60,11 @@ jobs:
 
       - name: Build assets
         run: |
-          mkdir -p apps/gust_web/priv/static/assets/js
-          mkdir -p apps/gust_web/priv/static/assets/css
-          touch apps/gust_web/priv/static/assets/js/app.js
-          mix compile
-          mix tailwind gust_web
-          mix esbuild gust_web
+          mix assets.build
+
+      - name: Compile without errors
+        run: |
+          mix compile --warnings-as-errors
 
       - name: Check formatting
         run: mix format --check-formatted
