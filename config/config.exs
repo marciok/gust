@@ -69,6 +69,8 @@ config :logger, backends: [:console, Gust.DAG.Logger.Database]
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+config :gust, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
