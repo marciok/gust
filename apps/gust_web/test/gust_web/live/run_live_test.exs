@@ -20,11 +20,15 @@ defmodule GustWeb.RunLiveTest do
       {:ok, _index_live, html} =
         live(conn, ~p"/dags/#{dag.name}/runs?page_size=30&page=1")
 
+      formats = Application.get_env(:gust_web, :display_date_format)
+      run_inserted_at = Calendar.strftime(run.inserted_at, formats[:long])
+      run_updated_at = Calendar.strftime(run.updated_at, formats[:long])
+
       assert html =~ "Listing Runs"
       assert html =~ dag.name
       assert html =~ to_string(run.status)
-      assert html =~ to_string(run.inserted_at)
-      assert html =~ to_string(run.updated_at)
+      assert html =~ run_inserted_at
+      assert html =~ run_updated_at
       assert html =~ to_string(run.id)
     end
 

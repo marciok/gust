@@ -174,14 +174,14 @@
       <div class="dag-card__meta-item">
         <div class="dag-card__meta-label">Started</div>
         <div class="dag-card__meta-value" id="inserted-at">
-          {current.inserted_at}
+          {strftime(current.inserted_at)}
         </div>
       </div>
 
       <div class="dag-card__meta-item">
         <div class="dag-card__meta-label">Updated</div>
         <div class="dag-card__meta-value" id="updated-at">
-          {current.updated_at}
+          {strftime(current.updated_at)}
         </div>
       </div>
     </section>
