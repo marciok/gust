@@ -26,8 +26,6 @@ config :gust_web,
   ecto_repos: [Gust.Repo],
   generators: [context_app: :gust]
 
-config :gust_web, :display_date_format, long: "%H:%M:%S %Y-%m-%d", short: "%H:%M:%S %m/%d"
-
 # Configures the endpoint
 config :gust_web, GustWeb.Endpoint,
   url: [host: "localhost"],
