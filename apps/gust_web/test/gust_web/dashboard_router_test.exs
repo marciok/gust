@@ -73,12 +73,6 @@ defmodule GustWeb.DashboardRouterTest do
 
       assert session_opts[:on_mount] == nil
     end
-
-    # test "defaults on_mount to nil" do
-    #   {_name, session_opts, _route_opts} = DashboardRouter.__options__(nil)
-    #
-    #   assert session_opts[:on_mount] == nil
-    # end
   end
 
   describe "__session__/2" do
