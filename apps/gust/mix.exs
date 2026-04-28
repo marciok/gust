@@ -54,8 +54,7 @@ defmodule Gust.MixProject do
       {:req, "~> 0.5"},
       {:quantum, "~> 3.0"},
       {:cloak_ecto, "~> 1.2.0"},
-      {:file_system, "~> 1.1", only: [:dev, :test]},
-      {:igniter, "~> 0.6", optional: true}
+      {:file_system, "~> 1.1", only: [:dev, :test]}
     ]
   end
 

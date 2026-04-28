@@ -54,4 +54,14 @@ defmodule GustWeb.Dashboard.AssetsTest do
       assert String.match?(hash, ~r/^[0-9a-f]{32}$/)
     end
   end
+
+  describe "dashboard images" do
+    test "serves images from gust_web under the dashboard path", %{conn: conn} do
+      conn = get(conn, ~g"/images/gust-logo.png")
+
+      assert conn.status == 200
+      assert get_resp_header(conn, "content-type") == ["image/png"]
+      assert conn.resp_body != ""
+    end
+  end
 end
