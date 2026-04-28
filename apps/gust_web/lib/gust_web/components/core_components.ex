@@ -479,4 +479,14 @@ defmodule GustWeb.CoreComponents do
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
   end
+
+  def strftime(date_time, type \\ :short) do
+    formats =
+      Application.get_env(:gust_web, :display_date_format,
+        long: "%H:%M:%S %Y-%m-%d",
+        short: "%H:%M:%S %m/%d"
+      )
+
+    Calendar.strftime(date_time, formats[type])
+  end
 end

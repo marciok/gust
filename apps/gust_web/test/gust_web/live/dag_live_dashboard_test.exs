@@ -279,15 +279,16 @@ defmodule GustWeb.DagLiveDashboardTest do
       other_task_same_run = task_fixture(%{run_id: run.id, name: @other_task})
       other_run = run_fixture(%{dag_id: dag.id})
       other_task_other_run = task_fixture(%{run_id: other_run.id, name: @other_task})
+      short_format = Application.get_env(:gust_web, :display_date_format)[:short]
 
       {:ok, dashboard_live, _html} =
         live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       assert dashboard_live |> element("#inserted-at") |> render() =~
-               DateTime.to_iso8601(task.inserted_at)
+               Calendar.strftime(task.inserted_at, short_format)
 
       assert dashboard_live |> element("#updated-at") |> render() =~
-               DateTime.to_iso8601(task.updated_at)
+               Calendar.strftime(task.updated_at, short_format)
 
       assert dashboard_live
              |> element("##{task.name}-at-run-#{run.id}.selected")
@@ -456,7 +457,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert code_html =~ error_msg
 
       reload_time_html = render(element(dashboard_live, "#reload-time"))
-      assert reload_time_html =~ ~r/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z/
+      assert reload_time_html =~ ~r/\d{2}:\d{2}:\d{2} \d{2}\/\d{2}/
     end
 
     test "dag file is updated sucessfully", %{
@@ -496,7 +497,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert has_element?(dashboard_live, "#reload-time")
 
       reload_time_html = render(element(dashboard_live, "#reload-time"))
-      assert reload_time_html =~ ~r/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z/
+      assert reload_time_html =~ ~r/\d{2}:\d{2}:\d{2} \d{2}\/\d{2}/
     end
 
     test "click on cancel on running", %{

@@ -16,5 +16,10 @@ Application.put_env(:gust, :dag_terminator, GustWeb.DAGTerminatorMock)
 Application.put_env(:gust_web, :mcp_tools, GustWeb.MCPToolsMock)
 Application.put_env(:gust_web, :mcp_resources, GustWeb.MCPResourcesMock)
 
+Application.put_env(:gust_web, :display_date_format,
+  long: "%H:%M:%S %Y-%m-%d",
+  short: "%H:%M:%S %m/%d"
+)
+
 ExUnit.start()
 Ecto.Adapters.SQL.Sandbox.mode(Gust.Repo, :manual)
