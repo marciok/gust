@@ -39,7 +39,7 @@
           <:col :let={{_id, run}} label="Status">
             <.status_badge status={run.status} data-testid="status-badge" />
           </:col>
-          
+
           <:col :let={{_id, run}} label="Inserted At">
             {strftime(run.inserted_at, :long)}
           </:col>
@@ -66,3 +66,4 @@
     </div>
   </div>
 </Layouts.app>
+
