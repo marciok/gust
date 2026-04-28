@@ -482,8 +482,10 @@ defmodule GustWeb.CoreComponents do
 
   def strftime(date_time, type \\ :short) do
     formats =
-      Application.get_env(:gust_web, :display_date_format) ||
-        [long: "%H:%M:%S %Y-%m-%d", short: "%H:%M:%S %m/%d"]
+      Application.get_env(:gust_web, :display_date_format,
+        long: "%H:%M:%S %Y-%m-%d",
+        short: "%H:%M:%S %m/%d"
+      )
 
     Calendar.strftime(date_time, formats[type])
   end
