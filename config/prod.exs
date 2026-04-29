@@ -22,6 +22,8 @@ config :gust_web, basic_auth: true
 
 config :gust, dags_folder: "/dags"
 
+config :gust, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+
 config :gust, dag_runner_supervisor: Gust.DAG.RunnerSupervisor.DynamicSupervisor
 config :gust, dag_task_runner_supervisor: Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor
 config :gust, dag_stage_runner_supervisor: Gust.DAG.StageRunnerSupervisor.DynamicSupervisor
