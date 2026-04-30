@@ -2,8 +2,8 @@ defmodule GustWeb.DashboardRouter do
   @moduledoc """
   Router macro that mounts the Gust dashboard at a chosen path.
 
-  Import this module into your Phoenix router and call `gust_dashboard/2`
-  inside a `scope` block:
+  Import this module into your Phoenix router and call `gust_dashboard/1`
+  (or `gust_dashboard/0` using the default options) inside a `scope` block:
 
       import GustWeb.DashboardRouter
 
