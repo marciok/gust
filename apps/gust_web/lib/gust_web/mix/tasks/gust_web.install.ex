@@ -76,16 +76,20 @@ if Code.ensure_loaded?(Igniter) do
 
       igniter
       |> configure_each("dev.exs", [
-        {:gust, [Gust.Repo, :username],
-         code(~s[raise("Configure here your Postgres credentials")])},
-        {:gust, [Gust.Repo, :password], "postgres"},
-        {:gust, [Gust.Repo, :hostname], "localhost"},
-        {:gust, [Gust.Repo, :database], database},
+        {:gust, [Gust.Repo, :username], code(~s[System.get_env("PG_USER", "postgres")])},
+        {:gust, [Gust.Repo, :password], code(~s[System.get_env("PG_PASSWORD", "postgres")])},
+        {:gust, [Gust.Repo, :hostname], code(~s[System.get_env("PG_HOST", "localhost")])},
+        {:gust, [Gust.Repo, :database], code(~s[System.get_env("PG_DATABASE", "#{database}")])},
         {:gust, [Gust.Repo, :pool_size], 10},
         {:gust, [Gust.Repo, :show_sensitive_data_on_connection_error], true},
         {:gust, [:b64_secrets_cloak_key], cloak_key},
         {:gust_web, [:basic_auth], true}
       ])
+      |> Igniter.add_notice("""
+      Postgres credentials default to postgres/postgres@localhost in dev.
+      Override at runtime with PG_USER, PG_PASSWORD, PG_HOST, PG_DATABASE,
+      or edit config/dev.exs directly.
+      """)
     end
 
     defp runtime_config(igniter) do
