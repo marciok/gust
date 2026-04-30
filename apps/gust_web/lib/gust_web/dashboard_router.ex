@@ -13,10 +13,8 @@ defmodule GustWeb.DashboardRouter do
       end
   """
 
-  @dashboard_path Application.compile_env(:gust_web, :dashboard_path, "/")
-
   defmacro gust_dashboard(opts \\ []) do
-    path = @dashboard_path
+    path = GustWeb.DashboardPath.base()
 
     opts =
       if Macro.quoted_literal?(opts) do
@@ -30,7 +28,7 @@ defmodule GustWeb.DashboardRouter do
         import Phoenix.Router, only: [forward: 2, forward: 3, get: 3, get: 4]
         import Phoenix.LiveView.Router, only: [live: 3, live: 4, live_session: 3]
 
-        {session_name, session_opts, route_opts} = GustWeb.DashboardRouter.__options__(opts)
+        {session_name, session_opts} = GustWeb.DashboardRouter.__options__(opts)
 
         forward "/images", Plug.Static,
           at: "/",
@@ -57,7 +55,6 @@ defmodule GustWeb.DashboardRouter do
   defp expand_alias(other, _env), do: other
 
   def __options__(options) do
-    live_socket_path = Keyword.get(options, :live_socket_path, "/live")
     repo = Keyword.get(options, :repo)
 
     {
@@ -66,10 +63,6 @@ defmodule GustWeb.DashboardRouter do
         session: {__MODULE__, :__session__, [repo]},
         root_layout: {GustWeb.Layouts, :root},
         on_mount: options[:on_mount] || nil
-      ],
-      [
-        private: %{live_socket_path: live_socket_path},
-        as: :gust_dashboard
       ]
     }
   end
