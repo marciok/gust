@@ -27,10 +27,14 @@ defmodule GustWeb.DashboardRouter do
 
     quote bind_quoted: binding() do
       scope path, alias: false, as: false do
-        import Phoenix.Router, only: [get: 3, get: 4]
+        import Phoenix.Router, only: [forward: 2, forward: 3, get: 3, get: 4]
         import Phoenix.LiveView.Router, only: [live: 3, live: 4, live_session: 3]
 
         {session_name, session_opts, route_opts} = GustWeb.DashboardRouter.__options__(opts)
+
+        forward "/images", Plug.Static,
+          at: "/",
+          from: {:gust_web, "priv/static/images"}
 
         live_session session_name, session_opts do
           get "/css-:md5", GustWeb.Dashboard.Assets, :css, as: :gust_dashboard_asset

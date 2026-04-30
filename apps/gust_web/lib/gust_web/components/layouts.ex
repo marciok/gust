@@ -48,7 +48,7 @@ defmodule GustWeb.Layouts do
       <div class="app-shell__body">
         <aside class="sidebar">
           <div class="sidebar__brand">
-            <img src={~p"/images/gust-logo.png"} alt="Logo" />
+            <img src={~g"/images/gust-logo.png"} alt="Gust Logo" />
             <h1 class="gust-wordmark">Gust</h1>
           </div>
           <nav class="sidebar__links">

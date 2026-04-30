@@ -67,7 +67,8 @@ defmodule GustWeb.MixProject do
       {:gettext, "~> 0.26"},
       gust_dep(),
       {:jason, "~> 1.2"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:igniter, "~> 0.6", optional: true}
     ]
     |> maybe_add_heroicons()
   end
