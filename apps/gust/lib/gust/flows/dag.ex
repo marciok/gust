@@ -3,7 +3,7 @@ defmodule Gust.Flows.Dag do
   use Ecto.Schema
   import Ecto.Changeset
 
-  schema "dags" do
+  schema "gust_dags" do
     field :name, :string
     field :enabled, :boolean, default: true
     has_many :runs, Gust.Flows.Run

@@ -38,7 +38,7 @@ defmodule GustWeb.RunLive.Index do
     page_size = socket.assigns.page_size
 
     {:noreply,
-     socket |> push_patch(to: ~p"/dags/#{dag.name}/runs?page_size=#{page_size}&page=#{num}")}
+     socket |> push_patch(to: ~g"/dags/#{dag.name}/runs?page_size=#{page_size}&page=#{num}")}
   end
 
   @impl true

@@ -18,19 +18,19 @@ defmodule GustWeb.SecretLiveTest do
     setup [:create_secret]
 
     test "lists all secrets", %{conn: conn, secret: secret} do
-      {:ok, _index_live, html} = live(conn, ~p"/secrets")
+      {:ok, _index_live, html} = live(conn, ~g"/secrets")
 
       assert html =~ "Listing Secrets"
       assert html =~ secret.name
     end
 
     test "saves new secret", %{conn: conn} do
-      {:ok, index_live, _html} = live(conn, ~p"/secrets")
+      {:ok, index_live, _html} = live(conn, ~g"/secrets")
 
       assert index_live |> element("a", "New Secret") |> render_click() =~
                "New Secret"
 
-      assert_patch(index_live, ~p"/secrets/new")
+      assert_patch(index_live, ~g"/secrets/new")
 
       assert index_live
              |> form("#secret-form", secret: @invalid_attrs)
@@ -44,7 +44,7 @@ defmodule GustWeb.SecretLiveTest do
              |> form("#secret-form", secret: @create_attrs)
              |> render_submit()
 
-      assert_patch(index_live, ~p"/secrets")
+      assert_patch(index_live, ~g"/secrets")
 
       html = render(index_live)
       assert html =~ "Secret created successfully"
@@ -52,12 +52,12 @@ defmodule GustWeb.SecretLiveTest do
     end
 
     test "updates secret in listing", %{conn: conn, secret: secret} do
-      {:ok, index_live, _html} = live(conn, ~p"/secrets")
+      {:ok, index_live, _html} = live(conn, ~g"/secrets")
 
       assert index_live |> element("#secrets-#{secret.id} a", "Edit") |> render_click() =~
                "Edit"
 
-      assert_patch(index_live, ~p"/secrets/#{secret}/edit")
+      assert_patch(index_live, ~g"/secrets/#{secret}/edit")
 
       secret_value_html = index_live |> element("#secret-form_value") |> render()
 
@@ -73,14 +73,14 @@ defmodule GustWeb.SecretLiveTest do
              |> form("#secret-form", secret: @update_attrs)
              |> render_submit()
 
-      assert_patch(index_live, ~p"/secrets")
+      assert_patch(index_live, ~g"/secrets")
 
       html = render(index_live)
       assert html =~ "Secret updated successfully"
     end
 
     test "deletes secret in listing", %{conn: conn, secret: secret} do
-      {:ok, index_live, _html} = live(conn, ~p"/secrets")
+      {:ok, index_live, _html} = live(conn, ~g"/secrets")
 
       assert index_live |> element("#secrets-#{secret.id} a", "Delete") |> render_click()
       refute has_element?(index_live, "#secrets-#{secret.id}")

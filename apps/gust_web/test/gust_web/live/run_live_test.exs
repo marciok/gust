@@ -18,7 +18,7 @@ defmodule GustWeb.RunLiveTest do
 
     test "list runs", %{conn: conn, dag: dag, run: run} do
       {:ok, _index_live, html} =
-        live(conn, ~p"/dags/#{dag.name}/runs?page_size=30&page=1")
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
       formats = Application.get_env(:gust_web, :display_date_format)
       run_inserted_at = Calendar.strftime(run.inserted_at, formats[:long])
@@ -41,7 +41,7 @@ defmodule GustWeb.RunLiveTest do
       current_page_run = run_fixture(%{dag_id: dag.id})
 
       {:ok, index_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/runs?page_size=#{page_size}&page=2")
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=#{page_size}&page=2")
 
       assert index_live |> has_element?("#runs-#{current_page_run.id}")
       refute index_live |> has_element?("#runs-#{prev_page_run.id}")
@@ -53,11 +53,11 @@ defmodule GustWeb.RunLiveTest do
       |> element("#page-select")
       |> render_change(%{"_target" => "page", "page" => "1"})
 
-      assert_patch index_live, ~p"/dags/#{dag.name}/runs?page_size=3&page=1"
+      assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=3&page=1"
     end
 
     test "deletes run in listing", %{conn: conn, dag: dag, run: run} do
-      {:ok, index_live, _html} = live(conn, ~p"/dags/#{dag.name}/runs?page_size=30&page=1")
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
       assert index_live |> element("#runs-#{run.id} a", "Delete") |> render_click()
       refute has_element?(index_live, "#runs-#{run.id}")
@@ -65,7 +65,7 @@ defmodule GustWeb.RunLiveTest do
 
     test "new dag run was created", %{conn: conn, dag: dag} do
       {:ok, index_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/runs?page_size=30&page=1")
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
       new_run = run_fixture(%{dag_id: dag.id})
 
@@ -76,7 +76,7 @@ defmodule GustWeb.RunLiveTest do
 
     test "run is updated", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/runs?page_size=30&page=1")
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
       Flows.update_run_status(run, :succeeded)
 

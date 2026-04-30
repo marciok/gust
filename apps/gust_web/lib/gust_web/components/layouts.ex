@@ -5,11 +5,21 @@ defmodule GustWeb.Layouts do
   """
   use GustWeb, :html
 
-  # Embed all files in layouts/* within this module.
-  # The default root.html.heex file contains the HTML
-  # skeleton of your application, namely HTML headers
-  # and other static content.
+  alias GustWeb.Dashboard.Assets
+
   embed_templates "layouts/*"
+
+  @doc false
+  def asset_path(conn, asset) when asset in [:css, :js] do
+    hash = Assets.current_hash(asset)
+    prefix = String.trim_trailing(GustWeb.DashboardPath.base(), "/")
+
+    Phoenix.VerifiedRoutes.unverified_path(
+      conn,
+      conn.private.phoenix_router,
+      "#{prefix}/#{asset}-#{hash}"
+    )
+  end
 
   @doc """
   Renders your app layout.
@@ -39,16 +49,16 @@ defmodule GustWeb.Layouts do
       <div class="app-shell__body">
         <aside class="sidebar">
           <div class="sidebar__brand">
-            <img src={~p"/images/gust-logo.png"} alt="Logo" />
+            <img src={~g"/images/gust-logo.png"} alt="Gust Logo" />
             <h1 class="gust-wordmark">Gust</h1>
           </div>
           <nav class="sidebar__links">
-            <.link navigate={~p"/dags"} class="sidebar__link">
+            <.link navigate={~g"/dags"} class="sidebar__link">
               <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
               <span>DAGs</span>
             </.link>
 
-            <.link navigate={~p"/secrets"} class="sidebar__link">
+            <.link navigate={~g"/secrets"} class="sidebar__link">
               <.icon name="hero-lock-closed" class="h-5 w-5 text-sky-600" />
               <span>Secrets</span>
             </.link>

@@ -233,6 +233,27 @@ GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/
 5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG 🎉
 
 
+### Adding Gust to an existing Phoenix app
+
+If you already have a Phoenix project, install Gust with [Igniter](https://hexdocs.pm/igniter):
+
+```sh
+mix igniter.install gust_web
+```
+
+Igniter patches your project in place. It adds `gust_web` and `file_system` to `mix.exs`, wires `Gust.Repo` into your configs, mounts the dashboard at `/gust` in your router, and creates a `dags/` folder.
+
+Dev Postgres credentials default to `postgres@localhost`. Override at runtime with `PG_USER`, `PG_PASSWORD`, `PG_HOST`, `PG_DATABASE`, or edit `config/dev.exs` directly. For prod, `runtime.exs` reads `DATABASE_URL` and `B64_SECRETS_CLOAK_KEY` (generate with `openssl rand -base64 32`).
+
+Then:
+
+```sh
+mix ecto.create && mix ecto.migrate && mix phx.server
+```
+
+Open http://localhost:4000/gust.
+
+
 ### Multi-node 
 
 You can run Gust on multiple nodes by passing a role:

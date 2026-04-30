@@ -1,5 +1,6 @@
 defmodule GustWeb.Router do
   use GustWeb, :router
+  import GustWeb.DashboardRouter
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -25,16 +26,10 @@ defmodule GustWeb.Router do
     end
   end
 
-  scope "/", GustWeb do
+  scope "/" do
     pipe_through if auth_enabled?, do: [:browser, :basic_auth], else: :browser
 
-    get "/", PageController, :home
-    live "/dags", DagLive.Index, :index
-    live "/dags/:name/dashboard", DagLive.Dashboard, :dashboard
-    live "/dags/:name/runs", RunLive.Index, :index
-    live "/secrets", SecretLive.Index, :index
-    live "/secrets/new", SecretLive.Index, :new
-    live "/secrets/:id/edit", SecretLive.Index, :edit
+    gust_dashboard()
   end
 
   if Application.compile_env(:gust_web, :mcp_enabled) do
