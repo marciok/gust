@@ -43,7 +43,7 @@ if Code.ensure_loaded?(Igniter) do
     defp install_deps(igniter) do
       igniter
       |> Deps.add_dep({:file_system, "~> 1.1", only: :dev})
-      |> Deps.add_dep({:gust_web, "0.1.29"})
+      |> Deps.add_dep({:gust_web, "0.1.30"})
     end
 
     defp config_setup(igniter, name) do
