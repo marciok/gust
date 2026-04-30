@@ -12,11 +12,12 @@ defmodule GustWeb.Layouts do
   @doc false
   def asset_path(conn, asset) when asset in [:css, :js] do
     hash = Assets.current_hash(asset)
+    prefix = Application.get_env(:gust_web, :dashboard_path, "/") |> String.trim_trailing("/")
 
     Phoenix.VerifiedRoutes.unverified_path(
       conn,
       conn.private.phoenix_router,
-      "#{asset}-#{hash}"
+      "#{prefix}/#{asset}-#{hash}"
     )
   end
 
