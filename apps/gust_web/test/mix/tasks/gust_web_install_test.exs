@@ -183,6 +183,9 @@ defmodule Mix.Tasks.GustWebInstallTest do
     + | config :my_app, ecto_repos: [Gust.Repo]
     """)
     |> assert_has_patch("config/config.exs", """
+    + | config :gust, Gust.Repo, migration_source: "gust_schema_migrations"
+    """)
+    |> assert_has_patch("config/config.exs", """
     + | config :logger,
     """)
     |> assert_has_patch("config/config.exs", """
