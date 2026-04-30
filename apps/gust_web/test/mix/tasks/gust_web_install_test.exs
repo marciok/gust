@@ -146,8 +146,18 @@ defmodule Mix.Tasks.GustWebInstallTest do
     + | config :gust, Gust.Repo,
     """)
     |> assert_has_patch("config/dev.exs", """
-    + |  username: raise("Configure here your Postgres credentials"),
+    + |  username: System.get_env("PG_USER", "postgres"),
     """)
+    |> assert_has_patch("config/dev.exs", """
+    + |  password: System.get_env("PG_PASSWORD", "postgres"),
+    """)
+    |> assert_has_patch("config/dev.exs", """
+    + |  hostname: System.get_env("PG_HOST", "localhost"),
+    """)
+    |> assert_has_patch("config/dev.exs", """
+    + |  database: System.get_env("PG_DATABASE", "my_app_dev"),
+    """)
+    |> assert_has_notice(&String.contains?(&1, "PG_USER"))
   end
 
   test "configures test mocks", %{igniter: igniter} do
