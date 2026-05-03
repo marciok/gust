@@ -26,6 +26,7 @@ defmodule GustWeb.MixProject do
         files: [
           "lib",
           "priv/static/assets",
+          "priv/static/images",
           "mix.exs",
           "README.md"
         ]
