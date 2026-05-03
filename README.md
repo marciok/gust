@@ -235,20 +235,33 @@ GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/
 
 ### Adding Gust to an existing Phoenix app
 
-If you already have a Phoenix project, install Gust with [Igniter](https://hexdocs.pm/igniter):
+If you already have a Phoenix project and want to add Gust in place, install `gust_web` with [Igniter](https://hexdocs.pm/igniter).
+
+1. If you do not have Igniter installed yet, bootstrap it first:
+
+```sh
+mix local.hex --force
+mix archive.install hex igniter_new --force
+```
+
+2. From the root of your existing Phoenix project, install `gust_web`:
 
 ```sh
 mix igniter.install gust_web
 ```
 
-Igniter patches your project in place. It adds `gust_web` and `file_system` to `mix.exs`, wires `Gust.Repo` into your configs, mounts the dashboard at `/gust` in your router, and creates a `dags/` folder.
+`mix igniter.install gust_web` fetches `gust_web` from Hex and patches your project in place. It adds `gust_web` and `file_system` to `mix.exs`, wires `Gust.Repo` into your configs, mounts the dashboard at `/gust` in your router, and creates a `dags/` folder.
+
+3. Review your database config.
 
 Dev Postgres credentials default to `postgres@localhost`. Override at runtime with `PG_USER`, `PG_PASSWORD`, `PG_HOST`, `PG_DATABASE`, or edit `config/dev.exs` directly. For prod, `runtime.exs` reads `DATABASE_URL` and `B64_SECRETS_CLOAK_KEY` (generate with `openssl rand -base64 32`).
 
-Then:
+4. Run setup and start the app:
 
 ```sh
-mix ecto.create && mix ecto.migrate && mix phx.server
+mix ecto.create
+mix ecto.migrate
+mix phx.server
 ```
 
 Open http://localhost:4000/gust.
