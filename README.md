@@ -37,9 +37,10 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 - [Motivation](#motivation)
 - [Overview](#overview)
-- [Features](#features)
 - [Getting Started](#getting-started)
+- [Adding to an existing app](#adding-gust-to-an-existing-phoenix-app)
 - [Getting Started with Docker](#getting-started-with-docker)
+- [Features](#features)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
 
 
@@ -106,42 +107,39 @@ end
 
 --- 
 
-### MCP Server
+## Getting started
 
-GustWeb includes a built-in MCP server that gives your LLM access to Gust’s core features, including listing DAGs, triggering runs, exploring DAG definitions, and debugging executions.
+### Prerequisites
 
-To enable it, add the following to your config file:
+- [x] macOS/Ubuntu
+- [x] Elixir must be at least [this version](https://github.com/marciok/gust/blob/main/.tool-versions)
+- [x] Postgres
 
-```elixir
-# dev.exs
-config :gust_web, mcp_enabled: true
+
+### Creating a new Gust app
+
+1. Replace `my_app` for your app name and run:
+
 ```
+GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh)"
 
-### Connect to an MCP client
+```
+	 
+2. Configure Postgres credentials on `my_app/config/dev.exs`
 
-- claude: `claude mcp add --transport http gust-mcp http://localhost:4000/mcp/server`
-- codex: `codex mcp add gust-mcp --url http://localhost:4000/mcp/server`
-
-### Skills
-
-- [Available Skills](https://github.com/marciok/gust/tree/main/skills)
-
-
----
-
-## Features
-
-  - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
-  - Support multiple nodes.
-  - [Support for Python DAGs](https://github.com/marciok/gust/tree/main/apps/gust_py)
-  - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
-  - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
-  - Retry logic with backoff, plus state clearing for clean restarts.
-  - Hook for finished dag run.
-  - Web UI for live monitoring, runs and secrets editing.
----
+3. Run database setup:
+	 - `mix ecto.create`
+	 - `mix ecto.migrate`
+	 
+4. Run Gust start:
+	 `mix phx.server`
 
 
+5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG
+
+5. Open  "http://localhost:4000/gust" to visualize your app
+
+--- 
 
 ## Getting started with Docker
 
@@ -204,36 +202,49 @@ docker compose up
 ```
 
 
-## Getting started
-
-### Prerequisites
-
-- [x] macOS/Ubuntu
-- [x] Elixir must be at least [this version](https://github.com/marciok/gust/blob/main/.tool-versions)
-- [x] Postgres
 
 
-### Creating a new Gust app
+---
+### MCP Server
 
-1. Replace `my_app` for your app name and run:
+GustWeb includes a built-in MCP server that gives your LLM access to Gust’s core features, including listing DAGs, triggering runs, exploring DAG definitions, and debugging executions.
 
+To enable it, add the following to your config file:
+
+```elixir
+# dev.exs
+config :gust_web, mcp_enabled: true
 ```
-GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh)"
 
-```
-	 
-2. Configure Postgres credentials on `my_app/config/dev.exs`
+### Connect to an MCP client
 
-3. Run database setup:
-	 `mix ecto.create --repo Gust.Repo && mix ecto.migrate --repo Gust.Repo`
-	 
-4. Run Gust start:
-	 `mix phx.server`
+- claude: `claude mcp add --transport http gust-mcp http://localhost:4000/mcp/server`
+- codex: `codex mcp add gust-mcp --url http://localhost:4000/mcp/server`
 
-5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG 🎉
+### Skills
+
+- [Available Skills](https://github.com/marciok/gust/tree/main/skills)
 
 
-### Adding Gust to an existing Phoenix app
+---
+
+## Features
+
+  - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
+  - Support multiple nodes.
+  - [Support for Python DAGs](https://github.com/marciok/gust/tree/main/apps/gust_py)
+  - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
+  - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
+  - Retry logic with backoff, plus state clearing for clean restarts.
+  - Hook for finished dag run.
+  - Web UI for live monitoring, runs and secrets editing.
+---
+
+
+
+
+
+## Adding Gust to an existing Phoenix app
 
 If you already have a Phoenix project and want to add Gust in place, install `gust_web` with [Igniter](https://hexdocs.pm/igniter).
 
