@@ -1,5 +1,5 @@
 x-gust-common: &gust-common
-  image: marcioklepacz/gust-web:0.1.29
+  image: marcioklepacz/gust-web:0.1.30
   environment:
     PHX_SERVER: "true"
     PHX_HOST: "localhost"
