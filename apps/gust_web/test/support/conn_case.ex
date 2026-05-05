@@ -23,6 +23,7 @@ defmodule GustWeb.ConnCase do
       @endpoint GustWeb.Endpoint
 
       use GustWeb, :verified_routes
+      import GustWeb.DashboardPath, only: [sigil_g: 2]
 
       # Import conveniences for testing with connections
       import Plug.Conn

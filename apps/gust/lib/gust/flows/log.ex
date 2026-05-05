@@ -4,7 +4,7 @@ defmodule Gust.Flows.Log do
   use Ecto.Schema
   import Ecto.Changeset
 
-  schema "logs" do
+  schema "gust_logs" do
     field :level, :string
     field :attempt, :integer
     field :content, :string

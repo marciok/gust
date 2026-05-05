@@ -57,7 +57,7 @@ defmodule GustWeb.DagLive.Dashboard do
     {:ok,
      socket
      |> put_flash(:warning, "Syntax error! on #{dag.name}")
-     |> push_navigate(to: ~p"/dags")}
+     |> push_navigate(to: ~g"/dags")}
   end
 
   defp handle_page(page, :next), do: String.to_integer(page) + 1
@@ -79,7 +79,7 @@ defmodule GustWeb.DagLive.Dashboard do
     PubSub.subscribe_file(dag.name)
   end
 
-  def time, do: DateTime.utc_now() |> DateTime.to_iso8601()
+  def time, do: DateTime.utc_now() |> strftime()
 
   defp mermaid_chart(tasks), do: Mermaid.chart(tasks)
 

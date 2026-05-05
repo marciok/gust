@@ -3,7 +3,7 @@
     <.header>
       Listing Secrets
       <:actions>
-        <.link patch={~p"/secrets/new"}>
+        <.link patch={~g"/secrets/new"}>
           <.button>New Secret</.button>
         </.link>
       </:actions>
@@ -22,7 +22,7 @@
         </:col>
 
         <:action :let={{_id, secret}}>
-          <.link patch={~p"/secrets/#{secret}/edit"} class="btn btn-sm btn-soft btn-primary">
+          <.link patch={~g"/secrets/#{secret}/edit"} class="btn btn-sm btn-soft btn-primary">
             Edit
           </.link>
         </:action>

@@ -4,7 +4,7 @@ defmodule Gust.Flows.Task do
   use Ecto.Schema
   import Ecto.Changeset
 
-  schema "tasks" do
+  schema "gust_tasks" do
     field :name, :string
 
     field :status, Ecto.Enum,

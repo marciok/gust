@@ -4,7 +4,7 @@
       <li>
         <.link
           class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
-          navigate={~p"/dags/#{@dag.name}/dashboard"}
+          navigate={~g"/dags/#{@dag.name}/dashboard"}
         >
           <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Back
         </.link>
@@ -39,14 +39,13 @@
           <:col :let={{_id, run}} label="Status">
             <.status_badge status={run.status} data-testid="status-badge" />
           </:col>
-          
-<!-- TODO: forcing to_string, later add default time format --> --%>
+
           <:col :let={{_id, run}} label="Inserted At">
-            {to_string(run.inserted_at)}
+            {strftime(run.inserted_at, :long)}
           </:col>
 
           <:col :let={{_id, run}} label="Updated At">
-            {to_string(run.updated_at)}
+            {strftime(run.updated_at, :long)}
           </:col>
 
           <:col :let={{_id, run}} label="ID">

@@ -1,7 +1,7 @@
 defmodule GustWeb.MixProject do
   use Mix.Project
 
-  @version "0.1.29"
+  @version "0.1.30"
 
   def project do
     [
@@ -25,6 +25,8 @@ defmodule GustWeb.MixProject do
         links: %{"GitHub" => "https://github.com/marciok/gust"},
         files: [
           "lib",
+          "priv/static/assets",
+          "priv/static/images",
           "mix.exs",
           "README.md"
         ]
@@ -66,7 +68,8 @@ defmodule GustWeb.MixProject do
       {:gettext, "~> 0.26"},
       gust_dep(),
       {:jason, "~> 1.2"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:igniter, "~> 0.6", optional: true}
     ]
     |> maybe_add_heroicons()
   end

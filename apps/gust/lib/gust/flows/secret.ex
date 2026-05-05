@@ -5,7 +5,7 @@ defmodule Gust.Flows.Secret do
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @derive {Jason.Encoder, only: [:id, :name, :value_type, :inserted_at, :updated_at]}
-  schema "secrets" do
+  schema "gust_secrets" do
     field :name, :string
     field :value, Gust.Encrypted.Binary, redact: true
     field :value_type, Ecto.Enum, values: [:string, :json]

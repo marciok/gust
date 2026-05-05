@@ -37,10 +37,12 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 - [Motivation](#motivation)
 - [Overview](#overview)
-- [Features](#features)
 - [Getting Started](#getting-started)
+- [Adding to an existing app](#adding-gust-to-an-existing-phoenix-app)
 - [Getting Started with Docker](#getting-started-with-docker)
+- [Features](#features)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
+- [Upgrading from 0.1.29](#upgrading-from-0.1.29)
 
 
 ---
@@ -106,42 +108,39 @@ end
 
 --- 
 
-### MCP Server
+## Getting started
 
-GustWeb includes a built-in MCP server that gives your LLM access to Gust’s core features, including listing DAGs, triggering runs, exploring DAG definitions, and debugging executions.
+### Prerequisites
 
-To enable it, add the following to your config file:
+- [x] macOS/Ubuntu
+- [x] Elixir must be at least [this version](https://github.com/marciok/gust/blob/main/.tool-versions)
+- [x] Postgres
 
-```elixir
-# dev.exs
-config :gust_web, mcp_enabled: true
+
+### Creating a new Gust app
+
+1. Replace `my_app` for your app name and run:
+
 ```
+GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh)"
 
-### Connect to an MCP client
+```
+	 
+2. Configure Postgres credentials on `my_app/config/dev.exs`
 
-- claude: `claude mcp add --transport http gust-mcp http://localhost:4000/mcp/server`
-- codex: `codex mcp add gust-mcp --url http://localhost:4000/mcp/server`
-
-### Skills
-
-- [Available Skills](https://github.com/marciok/gust/tree/main/skills)
-
-
----
-
-## Features
-
-  - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
-  - Support multiple nodes.
-  - [Support for Python DAGs](https://github.com/marciok/gust/tree/main/apps/gust_py)
-  - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
-  - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
-  - Retry logic with backoff, plus state clearing for clean restarts.
-  - Hook for finished dag run.
-  - Web UI for live monitoring, runs and secrets editing.
----
+3. Run database setup:
+	 - `mix ecto.create`
+	 - `mix ecto.migrate`
+	 
+4. Run Gust start:
+	 `mix phx.server`
 
 
+5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG
+
+6. Open  "http://localhost:4000/gust" to visualize your app
+
+--- 
 
 ## Getting started with Docker
 
@@ -204,34 +203,112 @@ docker compose up
 ```
 
 
-## Getting started
+---
 
-### Prerequisites
+## Features
 
-- [x] macOS/Ubuntu
-- [x] Elixir must be at least [this version](https://github.com/marciok/gust/blob/main/.tool-versions)
-- [x] Postgres
+  - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
+  - Support multiple nodes.
+  - [Support for Python DAGs](https://github.com/marciok/gust/tree/main/apps/gust_py)
+  - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
+  - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
+  - Retry logic with backoff, plus state clearing for clean restarts.
+  - Hook for finished dag run.
+  - Web UI for live monitoring, runs and secrets editing.
 
 
-### Creating a new Gust app
+---
+### MCP Server
 
-1. Replace `my_app` for your app name and run:
+GustWeb includes a built-in MCP server that gives your LLM access to Gust’s core features, including listing DAGs, triggering runs, exploring DAG definitions, and debugging executions.
+
+To enable it, add the following to your config file:
+
+```elixir
+# dev.exs
+config :gust_web, mcp_enabled: true
+```
+
+### Connect to an MCP client
+
+- claude: `claude mcp add --transport http gust-mcp http://localhost:4000/mcp/server`
+- codex: `codex mcp add gust-mcp --url http://localhost:4000/mcp/server`
+
+### Skills
+
+- [Available Skills](https://github.com/marciok/gust/tree/main/skills)
+
+---
+
+## Upgrading from 0.1.29
+
+This note applies only to projects upgrading from Gust `0.1.29` to `0.1.30`
+or later.
+
+The project migrated form a simple dependency to an extension of your Phoenix App that is installed via [Igniter](https://hexdocs.pm/igniter/readme.html).  
+
+### Key changes:
+
+Starting with Gust `0.1.30`, `Gust.Repo` stores its migration history in
+`gust_schema_migrations` instead of the default `schema_migrations` table.
+
+*Fresh installs do not need any special handling*.
+
+If your project already ran Gust migrations on `0.1.29`, you must bootstrap
+the new migration-tracking table before running `mix ecto.migrate`. Otherwise
+Ecto will treat all Gust migrations as pending and attempt to run them again.
+
+Run this SQL once against your database before migrating:
+
+```sql
+CREATE TABLE IF NOT EXISTS gust_schema_migrations (
+  version bigint PRIMARY KEY,
+  inserted_at timestamp(0) without time zone
+);
 
 ```
-GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh)"
 
+After that, continue with `mix ecto.migrate` as usual.
+
+
+---
+
+
+## Adding Gust to an existing Phoenix app
+
+If you already have a Phoenix project and want to add Gust in place, install `gust_web` with [Igniter](https://hexdocs.pm/igniter).
+
+
+1. If you do not have Igniter installed yet, bootstrap it first:
+
+```sh
+mix local.hex --force
+mix archive.install hex igniter_new --force
 ```
-	 
-2. Configure Postgres credentials on `my_app/config/dev.exs`
 
-3. Run database setup:
-	 `mix ecto.create --repo Gust.Repo && mix ecto.migrate --repo Gust.Repo`
-	 
-4. Run Gust start:
-	 `mix phx.server`
+2. From the root of your existing Phoenix project, install `gust_web`:
 
-5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG 🎉
+```sh
+mix igniter.install gust_web
+```
 
+It will mount the dashboard at `/gust` in your router, and create a `dags/` folder.
+
+3. Review your database config.
+
+Open `dev.exs` and set `Gust.Repo`s credentials
+
+4. Run setup and start the app:
+
+```sh
+mix ecto.create
+mix ecto.migrate
+mix phx.server
+```
+
+Open "http://localhost:4000/gust".
+
+---
 
 ### Multi-node 
 

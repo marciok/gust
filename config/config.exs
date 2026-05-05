@@ -13,6 +13,8 @@ import Config
 config :gust,
   ecto_repos: [Gust.Repo]
 
+config :gust, Gust.Repo, migration_source: "gust_schema_migrations"
+
 # Configures the mailer
 #
 # By default it uses the "Local" adapter which stores the emails

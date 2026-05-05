@@ -54,12 +54,14 @@ defmodule Gust.Application do
       File.dir?(folder) || raise "DAG folder does not exist!: #{folder}"
     end
 
+    query = Gust.DNSCluster.parse_query(Application.get_env(:gust, :dns_cluster_query))
+
     base_children =
       [
         Gust.Vault,
         Gust.Repo,
         {Registry, keys: :unique, name: Gust.Registry},
-        {DNSCluster, query: Application.get_env(:gust, :dns_cluster_query) || :ignore},
+        {DNSCluster, query: query},
         {Phoenix.PubSub, name: Gust.PubSub}
       ]
 

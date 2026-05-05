@@ -90,7 +90,7 @@ defmodule GustWeb.DagLiveDashboardTest do
         end)
         |> Enum.reverse()
 
-      {:ok, dashboard_live, html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       assert html =~ dag.name
 
@@ -109,7 +109,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       Flows.update_task_status(task, status)
 
       {:ok, live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       badge_html =
         live
@@ -153,7 +153,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       result = %{"less_than_jake" => "Sleep It Off"}
       Flows.update_task_result(task, result)
 
-      live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+      live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       GustWeb.DAGLoaderMock
       |> expect(:get_definition, fn _dag_id ->
@@ -163,7 +163,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert {:error,
               {:live_redirect,
                %{to: "/dags", flash: %{"warning" => "Syntax error! on my_valid_dag"}}}} =
-               live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+               live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
     end
 
     test "clicking run-status-cell navigates to run details", %{
@@ -171,7 +171,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       dag: dag,
       run: run
     } do
-      {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       run_id = run.id
 
@@ -179,7 +179,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       |> element("#runs-#{run_id} a[href='/dags/#{dag.name}/dashboard?run_id=#{run_id}&page=1']")
       |> render_click()
 
-      assert_redirect dashboard_live, ~p"/dags/#{dag.name}/dashboard?run_id=#{run_id}&page=1", 30
+      assert_redirect dashboard_live, ~g"/dags/#{dag.name}/dashboard?run_id=#{run_id}&page=1", 30
     end
 
     test "run details", %{
@@ -188,7 +188,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       run: run
     } do
       run_id = run.id
-      {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run_id}")
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run_id}")
 
       assert has_element?(dashboard_live, ".breadcrumbs")
     end
@@ -211,7 +211,7 @@ defmodule GustWeb.DagLiveDashboardTest do
         log_fixture(%{task_id: task.id, content: log_content, level: "error", attempt: 1})
 
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       log_html = dashboard_live |> element("#log-list") |> render()
       info_log_level = dashboard_live |> element("#logs-#{log.id}") |> render()
@@ -246,7 +246,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       empty_task_name = @other_task
 
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard")
+        live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       assert dashboard_live
              |> element("[data-testid='#{task.name}-at-run-#{run.id}-link']")
@@ -263,7 +263,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       run: run
     } do
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
 
       assert dashboard_live
              |> element("#runs-#{run.id}.selected-run")
@@ -279,15 +279,16 @@ defmodule GustWeb.DagLiveDashboardTest do
       other_task_same_run = task_fixture(%{run_id: run.id, name: @other_task})
       other_run = run_fixture(%{dag_id: dag.id})
       other_task_other_run = task_fixture(%{run_id: other_run.id, name: @other_task})
+      short_format = Application.get_env(:gust_web, :display_date_format)[:short]
 
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       assert dashboard_live |> element("#inserted-at") |> render() =~
-               DateTime.to_iso8601(task.inserted_at)
+               Calendar.strftime(task.inserted_at, short_format)
 
       assert dashboard_live |> element("#updated-at") |> render() =~
-               DateTime.to_iso8601(task.updated_at)
+               Calendar.strftime(task.updated_at, short_format)
 
       assert dashboard_live
              |> element("##{task.name}-at-run-#{run.id}.selected")
@@ -312,7 +313,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       Flows.update_task_result(task, result)
 
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       task_result_html = render(element(dashboard_live, "#task-result"))
       refute dashboard_live |> element("#task-error") |> has_element?()
@@ -337,7 +338,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       Flows.update_task_error(task, error)
 
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       task_error_html = element(dashboard_live, "#task-error") |> render()
 
@@ -353,7 +354,7 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, _run} = Gust.Flows.update_run_status(run, :running)
       {:ok, _task} = Gust.Flows.update_task_status(task, :running)
-      {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       mermaid_html = render(element(dashboard_live, "#mermaid-chart"))
       assert mermaid_html =~ GustWeb.Mermaid.chart(@tasks) |> String.replace("-->", "--&gt;")
@@ -367,7 +368,7 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, _run} = Gust.Flows.update_run_status(run, :running)
       {:ok, _task} = Gust.Flows.update_task_status(task, :running)
-      {:ok, dashboard_live, html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       assert has_element?(dashboard_live, "#code-highlight")
       assert html =~ @code
@@ -381,7 +382,7 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, _run} = Gust.Flows.update_run_status(run, :running)
       {:ok, _task} = Gust.Flows.update_task_status(task, :running)
-      {:ok, _dashboard_live, html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, _dashboard_live, html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       assert html =~ @schedule_option
     end
@@ -394,7 +395,7 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, run} = Gust.Flows.update_run_status(run, :running)
       {:ok, _task} = Gust.Flows.update_task_status(task, :running)
-      {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       Flows.update_run_status(run, :succeeded)
 
@@ -412,7 +413,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       log_content = "hello from log"
 
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       log = log_fixture(%{task_id: task.id, content: log_content, level: "info", attempt: 1})
 
@@ -430,7 +431,7 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, _run} = Gust.Flows.update_run_status(run, :running)
       {:ok, _task} = Gust.Flows.update_task_status(task, :running)
-      {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       new_run = run_fixture(%{dag_id: dag.id})
       Gust.PubSub.broadcast_run_started(dag.id, new_run.id)
@@ -446,7 +447,7 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, _run} = Gust.Flows.update_run_status(run, :running)
       {:ok, _task} = Gust.Flows.update_task_status(task, :running)
-      {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       error_msg = "Syntax erro!"
       error = {[], error_msg, ""}
@@ -456,7 +457,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert code_html =~ error_msg
 
       reload_time_html = render(element(dashboard_live, "#reload-time"))
-      assert reload_time_html =~ ~r/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z/
+      assert reload_time_html =~ ~r/\d{2}:\d{2}:\d{2} \d{2}\/\d{2}/
     end
 
     test "dag file is updated sucessfully", %{
@@ -468,7 +469,7 @@ defmodule GustWeb.DagLiveDashboardTest do
     } do
       {:ok, _run} = Gust.Flows.update_run_status(run, :running)
       {:ok, _task} = Gust.Flows.update_task_status(task, :running)
-      {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       updated_code = "Goodbye!"
 
@@ -496,7 +497,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert has_element?(dashboard_live, "#reload-time")
 
       reload_time_html = render(element(dashboard_live, "#reload-time"))
-      assert reload_time_html =~ ~r/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z/
+      assert reload_time_html =~ ~r/\d{2}:\d{2}:\d{2} \d{2}\/\d{2}/
     end
 
     test "click on cancel on running", %{
@@ -510,7 +511,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(
           conn,
-          ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{running_task.name}"
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{running_task.name}"
         )
 
       previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
@@ -534,11 +535,11 @@ defmodule GustWeb.DagLiveDashboardTest do
       dag: dag
     } do
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard")
+        live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       dashboard_live |> element("#all-runs") |> render_click()
 
-      assert_redirect dashboard_live, ~p"/dags/#{dag.name}/runs?page_size=30&page=1"
+      assert_redirect dashboard_live, ~g"/dags/#{dag.name}/runs?page_size=30&page=1"
     end
 
     test "click on next page", %{
@@ -546,11 +547,11 @@ defmodule GustWeb.DagLiveDashboardTest do
       dag: dag
     } do
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard")
+        live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       dashboard_live |> element("#next-page") |> render_click()
 
-      assert_redirect dashboard_live, ~p"/dags/#{dag.name}/dashboard?page=2"
+      assert_redirect dashboard_live, ~g"/dags/#{dag.name}/dashboard?page=2"
     end
 
     test "click on prev page when page is 1", %{
@@ -558,11 +559,11 @@ defmodule GustWeb.DagLiveDashboardTest do
       dag: dag
     } do
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard")
+        live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       dashboard_live |> element("#prev-page") |> render_click()
 
-      assert_redirect dashboard_live, ~p"/dags/#{dag.name}/dashboard?page=1"
+      assert_redirect dashboard_live, ~g"/dags/#{dag.name}/dashboard?page=1"
     end
 
     test "click on prev page when page is pargen than 1", %{
@@ -570,11 +571,11 @@ defmodule GustWeb.DagLiveDashboardTest do
       dag: dag
     } do
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?page=2")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?page=2")
 
       dashboard_live |> element("#prev-page") |> render_click()
 
-      assert_redirect dashboard_live, ~p"/dags/#{dag.name}/dashboard?page=1"
+      assert_redirect dashboard_live, ~g"/dags/#{dag.name}/dashboard?page=1"
     end
 
     test "click on cancel on retrying", %{
@@ -588,7 +589,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(
           conn,
-          ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{running_task.name}"
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{running_task.name}"
         )
 
       GustWeb.DAGTerminatorMock
@@ -608,7 +609,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       GustWeb.DAGRunTriggerMock |> expect(:reset_run, fn ^failed_run -> run end)
 
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{failed_run.id}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{failed_run.id}")
 
       assert dashboard_live |> element("#restart-run") |> render_click() =~
                "Run: #{failed_run.id} was restarted"
@@ -628,7 +629,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(
           conn,
-          ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{succeeded_task.name}"
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{succeeded_task.name}"
         )
 
       assert dashboard_live |> element("#restart-task") |> render_click() =~
@@ -642,7 +643,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       task: task
     } do
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       refute dashboard_live |> has_element?("#restart-task")
     end
@@ -653,7 +654,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       run: run
     } do
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
 
       refute dashboard_live |> has_element?("#restart-run")
     end
@@ -665,7 +666,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       task: task
     } do
       {:ok, dashboard_live, _html} =
-        live(conn, ~p"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       refute dashboard_live |> has_element?("#cancel-task")
     end
@@ -674,7 +675,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       conn: conn,
       dag: dag
     } do
-      {:ok, dashboard_live, _html} = live(conn, ~p"/dags/#{dag.name}/dashboard")
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
       dag_id = dag.id
 
       GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
