@@ -36,6 +36,7 @@ if Code.ensure_loaded?(Igniter) do
       |> test_config()
       |> Igniter.create_new_file("dags/.keep", ".gitkeep", onexists: :skip)
       |> add_import(name)
+      |> ensure_browser_pipeline(name)
       |> add_scope(name)
       |> final_notice()
     end
@@ -128,6 +129,21 @@ if Code.ensure_loaded?(Igniter) do
       """
 
       PhoenixLib.add_scope(igniter, "/", scope_code, router: router_module(name))
+    end
+
+    defp ensure_browser_pipeline(igniter, name) do
+      browser_pipeline = """
+        plug :accepts, ["html"]
+        plug :fetch_session
+        plug :fetch_flash
+        plug :protect_from_forgery
+        plug :put_secure_browser_headers
+      """
+
+      PhoenixLib.add_pipeline(igniter, :browser, browser_pipeline,
+        router: router_module(name),
+        warn_on_present?: false
+      )
     end
 
     defp add_import(igniter, name) do

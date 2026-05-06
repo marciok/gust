@@ -33,8 +33,9 @@ if [ -z "$GUST_APP" ]; then
   exit 1
 fi
 
-echo "==> Creating new Igniter Phoenix app: $GUST_APP"
-mix igniter.new "$GUST_APP" --install gust_web --with phx.new
+echo "==> Creating new minimal Igniter Phoenix app: $GUST_APP"
+mix igniter.new "$GUST_APP" --install gust_web --with phx.new \
+  --with-args="--no-html --no-assets --no-gettext --no-live --no-mailer"
 
 cd "$GUST_APP"
 
