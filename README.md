@@ -141,7 +141,7 @@ GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/
 
 5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG
 
-6. Open  "http://localhost:4000/gust" to visualize your app
+6. Open  "http://localhost:4000/gust/dags" to visualize your app
 
 
 ---
@@ -264,7 +264,7 @@ mix ecto.migrate
 mix phx.server
 ```
 
-Open "http://localhost:4000/gust".
+Open "http://localhost:4000/gust/dags".
 
 ---
 
