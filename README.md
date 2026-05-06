@@ -126,9 +126,9 @@ end
 
 ```
 GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh)"
-
 ```
-	 
+*You can check what install script will perform [here](https://github.com/marciok/gust/blob/main/setup_gust_app.sh)*
+
 2. Configure Postgres credentials on `my_app/config/dev.exs`
 
 3. Run database setup:
