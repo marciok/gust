@@ -174,7 +174,18 @@ scope "/mcp", MyAppWeb do
 end
 ```
 
-Keep auth and any host-specific policy outside the macro, at the router scope or pipeline level.
+The prefix comes from your `MyAppWeb` router scope, so you can also mount it
+under a project-specific path to avoid clashes:
+
+```elixir
+scope "/gust/mcp", MyAppWeb do
+  pipe_through :api
+  gust_mcp_server()
+end
+```
+
+That would expose `POST /gust/mcp/server`. Keep auth and any app-specific
+policy outside the macro, at the router scope or pipeline level.
 
 ### Connect to an MCP client
 
