@@ -33,15 +33,16 @@ defmodule GustWeb.Router do
   end
 
   if Application.compile_env(:gust_web, :mcp_enabled) do
+    import GustWeb.MCPRouter
+
     scope "/", GustWeb do
       match :*, "/.well-known/*path", WellKnownController, :not_found
     end
 
-    scope "/mcp", GustWeb do
+    scope "/mcp" do
       pipe_through :api
 
-      post "/server", MCPController, :message
-      get "/server/.well-known/oauth-authorization-server", WellKnownController, :not_found
+      gust_mcp_server()
     end
   end
 
