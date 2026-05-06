@@ -1,7 +1,6 @@
 defmodule GustWeb.Router do
   use GustWeb, :router
   import GustWeb.DashboardRouter
-  import GustWeb.MCPRouter
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -34,6 +33,8 @@ defmodule GustWeb.Router do
   end
 
   if Application.compile_env(:gust_web, :mcp_enabled) do
+    import GustWeb.MCPRouter
+
     scope "/", GustWeb do
       match :*, "/.well-known/*path", WellKnownController, :not_found
     end
