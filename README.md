@@ -53,6 +53,12 @@ As a CTO and founder, I was tired of spending buckets of money to set up and man
 Gust is the perfect fit for our needs, and I encourage you to try it and push it even further. There’s still plenty of room for improvements and new features. If you spot something or want to contribute an idea, don’t be shy! Drop an Issue or submit a PR.
 
 ---
+## In Action
+
+
+https://github.com/user-attachments/assets/a5ad13ca-0a5f-47e5-9344-1f57c7c2ecb5
+
+---
 ## Overview
 
 ### DAG Code Example
