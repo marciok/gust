@@ -3,4 +3,5 @@ set -eu
 
 cd -P -- "$(dirname -- "$0")"
 
-exec GUST_ROLE=console ./gust eval "Gust.CLI.exec(System.argv())" "$@"
+export GUST_ROLE=console
+exec ./gust eval "Gust.CLI.exec(System.argv())" "$@"
