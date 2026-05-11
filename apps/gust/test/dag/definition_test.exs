@@ -30,4 +30,40 @@ defmodule DAG.DefinitionTest do
                :tasks
              ]
   end
+
+  test "to_json/1 normalizes nested mapsets and keyword options" do
+    dag_def = %Definition{
+      name: "marcio",
+      options: [schedule: "@daily"],
+      stages: [MapSet.new(["second_task", "first_task"])],
+      tasks: %{
+        "first_task" => %{
+          upstream: MapSet.new(),
+          downstream: MapSet.new(["say_bye"])
+        },
+        "say_bye" => %{
+          upstream: MapSet.new(["first_task"]),
+          downstream: MapSet.new()
+        }
+      }
+    }
+
+    assert {:ok, json} = Definition.to_json(dag_def)
+
+    assert %{
+             "name" => "marcio",
+             "options" => %{"schedule" => "@daily"},
+             "stages" => [["first_task", "second_task"]],
+             "tasks" => %{
+               "first_task" => %{
+                 "upstream" => [],
+                 "downstream" => ["say_bye"]
+               },
+               "say_bye" => %{
+                 "upstream" => ["first_task"],
+                 "downstream" => []
+               }
+             }
+           } = Jason.decode!(json)
+  end
 end
