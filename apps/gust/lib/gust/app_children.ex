@@ -31,19 +31,22 @@ defmodule Gust.AppChildren do
     dag_loader_worker(mix_env, dags_folder)
   end
 
-  def for_role(role, mix_env, dags_folder) do
+  def for_role("console", mix_env, dags_folder) do
+    dag_loader_worker(mix_env, dags_folder)
+  end
+
+  def for_role(_role, mix_env, dags_folder) do
     []
-    |> Kernel.++(dag_run_pooler(role, mix_env))
+    |> Kernel.++(dag_run_pooler(mix_env))
     |> Kernel.++(dag_loader_worker(mix_env, dags_folder))
     |> Kernel.++(dag_watcher(mix_env, dags_folder))
     |> Kernel.++(leader(mix_env))
     |> Kernel.++(runners())
   end
 
-  defp dag_run_pooler(_role, "test"), do: []
-  defp dag_run_pooler("console", _env), do: []
+  defp dag_run_pooler("test"), do: []
 
-  defp dag_run_pooler(_role, _env) do
+  defp dag_run_pooler(_env) do
     [Gust.Run.Pooler, Gust.DAG.Terminator.Worker]
   end
 

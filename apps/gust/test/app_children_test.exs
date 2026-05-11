@@ -39,29 +39,11 @@ defmodule AppChildrenTest do
 
     test "skips pooler and terminator for console role outside test" do
       dev_children = [
-        {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}},
-        {Gust.FileMonitor.Worker,
-         %{dags_folder: @dags_folder, loader: Application.get_env(:gust, :dag_loader)}},
-        Gust.Leader,
-        {DynamicSupervisor, [strategy: :one_for_one, name: Gust.LeaderOnlySupervisor]},
-        {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_runner_supervisor)},
-        {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_stage_runner_supervisor)},
-        {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_task_runner_supervisor)}
+        {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}}
       ]
 
       prod_children = [
-        {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}},
-        Gust.Leader,
-        {DynamicSupervisor, [strategy: :one_for_one, name: Gust.LeaderOnlySupervisor]},
-        {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_runner_supervisor)},
-        {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_stage_runner_supervisor)},
-        {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_task_runner_supervisor)}
+        {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}}
       ]
 
       assert dev_children == AppChildren.for_role("console", "dev", @dags_folder)
@@ -82,7 +64,7 @@ defmodule AppChildrenTest do
 
       assert children == AppChildren.for_role("core", mix_env, @dags_folder)
       assert children == AppChildren.for_role("single", mix_env, @dags_folder)
-      assert children == AppChildren.for_role("console", mix_env, @dags_folder)
+      assert [] == AppChildren.for_role("console", mix_env, @dags_folder)
       assert [] = AppChildren.for_role("web", mix_env, @dags_folder)
     end
 
