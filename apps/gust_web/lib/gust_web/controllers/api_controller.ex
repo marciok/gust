@@ -13,17 +13,11 @@ defmodule GustWeb.APIController do
         |> json(%{error: "dag_not_found"})
 
       dag ->
-        case Flows.create_run(%{dag_id: dag.id, status: :enqueued}) do
-          {:ok, run} ->
-            conn
-            |> put_status(:created)
-            |> json(%{id: to_string(run.id)})
+        {:ok, run} = Flows.create_run(%{dag_id: dag.id, status: :enqueued})
 
-          {:error, _changeset} ->
-            conn
-            |> put_status(:unprocessable_entity)
-            |> json(%{error: "run_not_created"})
-        end
+        conn
+        |> put_status(:created)
+        |> json(%{id: to_string(run.id)})
     end
   end
 end
