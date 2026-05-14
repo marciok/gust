@@ -1,6 +1,7 @@
 defmodule GustWeb.APIController do
   use GustWeb, :controller
 
+  alias Gust.DAG.Run.Trigger
   alias Gust.Flows
 
   plug(GustWeb.Plugs.APIAuth)
@@ -13,7 +14,8 @@ defmodule GustWeb.APIController do
         |> json(%{error: "dag_not_found"})
 
       dag ->
-        {:ok, run} = Flows.create_run(%{dag_id: dag.id, status: :enqueued})
+        {:ok, run} = Flows.create_run(%{dag_id: dag.id})
+        run = Trigger.dispatch_run(run)
 
         conn
         |> put_status(:created)

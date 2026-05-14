@@ -1,11 +1,15 @@
 defmodule GustWeb.APITest do
   use GustWeb.ConnCase
 
+  import Mox
   import Gust.FlowsFixtures
 
   alias Gust.Flows
 
   @token "gust-test-token"
+
+  setup :verify_on_exit!
+  setup :set_mox_from_context
 
   setup do
     previous_token = Application.get_env(:gust_web, :api_token)
@@ -36,6 +40,12 @@ defmodule GustWeb.APITest do
     test "creates an enqueued run and returns its id", %{conn: conn} do
       dag = dag_fixture(%{name: "daily_import"})
 
+      GustWeb.DAGRunTriggerMock
+      |> expect(:dispatch_run, fn run ->
+        {:ok, run} = Flows.update_run_status(run, :enqueued)
+        run
+      end)
+
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{@token}")
@@ -46,6 +56,31 @@ defmodule GustWeb.APITest do
 
       assert run.dag_id == dag.id
       assert run.status == :enqueued
+    end
+
+    test "leaves run created when DAG is disabled", %{conn: conn} do
+      dag = dag_fixture(%{name: "disabled_import", enabled: false})
+      previous_trigger = Application.get_env(:gust, :dag_run_trigger)
+      Application.put_env(:gust, :dag_run_trigger, Gust.DAG.Run.Trigger.Requeue)
+
+      on_exit(fn ->
+        if previous_trigger do
+          Application.put_env(:gust, :dag_run_trigger, previous_trigger)
+        else
+          Application.delete_env(:gust, :dag_run_trigger)
+        end
+      end)
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{@token}")
+        |> post("/api/dags/#{dag.name}/run")
+
+      %{"id" => id} = json_response(conn, 201)
+      run = Flows.get_run!(id)
+
+      assert run.dag_id == dag.id
+      assert run.status == :created
     end
 
     test "returns unauthorized without a valid bearer token", %{conn: conn} do
