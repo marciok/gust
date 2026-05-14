@@ -8,7 +8,7 @@ defmodule GustWeb.API do
 
       import GustWeb.API
 
-      scope "/gust/api", MyAppWeb do
+      scope "/gust/api" do
         pipe_through [:api]
 
         gust_api()
@@ -17,7 +17,7 @@ defmodule GustWeb.API do
 
   defmacro gust_api do
     quote do
-      post "/dags/:dag_name/run", GustWeb.APIController, :create_run
+      post("/dags/:dag_name/run", GustWeb.APIController, :create_run)
     end
   end
 end
