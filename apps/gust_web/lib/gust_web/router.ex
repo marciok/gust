@@ -1,5 +1,6 @@
 defmodule GustWeb.Router do
   use GustWeb, :router
+  import GustWeb.API
   import GustWeb.DashboardRouter
 
   pipeline :browser do
@@ -30,6 +31,12 @@ defmodule GustWeb.Router do
     pipe_through if auth_enabled?, do: [:browser, :basic_auth], else: :browser
 
     gust_dashboard()
+  end
+
+  scope "/api" do
+    pipe_through :api
+
+    gust_api()
   end
 
   if Application.compile_env(:gust_web, :mcp_enabled) do
