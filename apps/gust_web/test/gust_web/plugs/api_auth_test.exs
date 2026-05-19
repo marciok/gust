@@ -83,4 +83,16 @@ defmodule GustWeb.Plugs.APIAuthTest do
 
     assert log =~ "Gust API token is not configured"
   end
+
+  test "halts requests when API token is empty", %{conn: conn} do
+    Application.put_env(:gust_web, :api_token, "")
+
+    conn =
+      conn
+      |> put_req_header("authorization", "Bearer #{@token}")
+      |> APIAuth.call([])
+
+    assert conn.halted
+    assert json_response(conn, 401) == %{"error" => "unauthorized"}
+  end
 end
