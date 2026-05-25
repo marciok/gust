@@ -10,7 +10,8 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
         %{task: task, dag_def: dag_def, stage_pid: stage_pid, opts: opts} = state
       ) do
     fun_name = String.to_atom(task.name)
-    args = [%{run_id: task.run_id}]
+    run = Gust.Flows.get_run!(task.run_id)
+    args = [%{run_id: task.run_id, params: run.params}]
 
     Logger.set_task(task.id, task.attempt)
 

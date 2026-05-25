@@ -29,6 +29,7 @@ dags/
 
 .envrc
 .env
+docker-compose.yml
 .env.test
 .env.dev
 
