@@ -83,8 +83,12 @@ defmodule HelloWorld do
   end
 
   # Declaring "first_task" task; setting a downstream task and telling Gust to store its result.
-  task :first_task, downstream: [:second_task], save: true do
-    greetings = "Hi from first_task"
+  task :first_task, downstream: [:second_task], save: true, ctx: %{run_id: run_id} do
+    # You can read parameters passed to this run
+    run = Flows.get_run!(run_id)
+    name = Map.get(run.params, "name", "stranger")
+
+    greetings = "Hi #{name} from first_task"
     Logger.info(greetings)
 
     # You can get secrets created on the Web UI

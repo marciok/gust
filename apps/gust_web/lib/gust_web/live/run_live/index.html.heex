@@ -52,6 +52,11 @@
             {run.id}
           </:col>
 
+          <:col :let={{_id, run}} label="Params">
+            <pre :if={run.params && map_size(run.params) > 0} class="text-xs bg-slate-50 p-1 rounded max-w-xs overflow-x-auto"><%= pretty_json!(run.params) %></pre>
+            <span :if={!run.params || map_size(run.params) == 0} class="text-xs text-gray-400">-</span>
+          </:col>
+
           <:action :let={{id, run}}>
             <.link
               phx-click={JS.push("delete", value: %{id: run.id}) |> hide("##{id}")}

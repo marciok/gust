@@ -29,6 +29,7 @@ dags/
 
 .envrc
 .env
+docker-compose.yml
 .env.test
 .env.dev
 
@@ -44,3 +45,7 @@ robots-*.txt
 favicon-*.ico
 robots-*.txt
 gust-logo-*.png
+
+# Playwright MCP files
+/.playwright-mcp/
+

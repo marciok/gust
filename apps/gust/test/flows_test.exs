@@ -163,6 +163,24 @@ defmodule FlowsTest do
       assert Ecto.assoc_loaded?(run.tasks)
       assert is_list(run.tasks)
     end
+
+    test "create_run/1 defaults params to empty map" do
+      dag = dag_fixture(%{name: "default_params"})
+
+      assert {:ok, %Run{} = run} = Flows.create_run(%{dag_id: dag.id})
+      assert run.params == %{}
+    end
+
+    test "create_run/1 with params persists them" do
+      dag = dag_fixture(%{name: "with_params"})
+      params = %{"brand" => "ford", "year" => 2024}
+
+      assert {:ok, %Run{} = run} = Flows.create_run(%{dag_id: dag.id, params: params})
+      assert run.params == params
+
+      fetched = Flows.get_run!(run.id)
+      assert fetched.params == params
+    end
   end
 
   describe "log" do
