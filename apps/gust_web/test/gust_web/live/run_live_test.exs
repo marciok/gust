@@ -31,6 +31,16 @@ defmodule GustWeb.RunLiveTest do
       assert html =~ run_updated_at
       assert html =~ to_string(run.id)
     end
+    test "list runs with params", %{conn: conn, dag: dag} do
+      _run = run_fixture(%{dag_id: dag.id, params: %{"my_key" => "my_value"}})
+
+      {:ok, _index_live, html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      assert html =~ "Params"
+      assert html =~ "my_key"
+      assert html =~ "my_value"
+    end
 
     test "list runs paged", %{conn: conn, dag: dag, run: _first_run} do
       page_size = 3

@@ -75,4 +75,8 @@ defmodule GustWeb.RunLive.Index do
 
     Flows.get_dag_by_name_with_runs!(name, limit: size, offset: offset)
   end
+
+  defp pretty_json!(value) do
+    Jason.encode_to_iodata!(value, pretty: true, escape_html: true)
+  end
 end

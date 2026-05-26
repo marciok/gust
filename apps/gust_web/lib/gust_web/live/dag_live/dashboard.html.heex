@@ -186,6 +186,19 @@
       </div>
     </section>
 
+    <section :if={map_size(@selected_run.params || %{}) > 0} class="dag-card__body">
+      <h4 class="text-sm font-semibold text-slate-700">Params</h4>
+      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
+        <pre
+          id="run-params"
+          data-testid="run-params"
+          class="language-json rounded-md overflow-x-auto"
+        >
+<%= pretty_json!(@selected_run.params) %>
+        </pre>
+      </div>
+    </section>
+
     <section :if={@selected_task && map_size(@selected_task.error) > 0} class="dag-card__body">
       <h4 class="text-sm font-semibold text-rose-600">Error</h4>
       <div class="alert overflow-auto mt-2">

@@ -685,5 +685,34 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert triggered_flash =~ "Run #{last_run.id} triggered"
     end
+
+    test "display run params when present", %{
+      conn: conn,
+      dag: dag
+    } do
+      params = %{"brand" => "ford", "model" => "ranger"}
+
+      run_with_params =
+        run_fixture(%{dag_id: dag.id, params: params})
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run_with_params.id}")
+
+      assert has_element?(dashboard_live, "#run-params")
+      params_html = dashboard_live |> element("#run-params") |> render()
+      assert params_html =~ "ford"
+      assert params_html =~ "ranger"
+    end
+
+    test "hide run params section when params are empty", %{
+      conn: conn,
+      dag: dag,
+      run: run
+    } do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
+
+      refute has_element?(dashboard_live, "#run-params")
+    end
   end
 end

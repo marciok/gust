@@ -11,6 +11,7 @@ defmodule Gust.Flows.Run do
       values: [:created, :running, :succeeded, :failed, :enqueued],
       default: :created
 
+    field :params, :map, default: %{}
     field :claimed_by, :string
     field :claim_expires_at, :utc_datetime_usec
     field :claim_token, Ecto.UUID
@@ -24,6 +25,7 @@ defmodule Gust.Flows.Run do
           id: integer() | nil,
           dag_id: integer() | nil,
           status: :created | :running | :succeeded | :failed | :enqueued,
+          params: map(),
           tasks: [Gust.Flows.Task.t()] | Ecto.Association.NotLoaded.t(),
           dag: Gust.Flows.Dag.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
@@ -33,14 +35,22 @@ defmodule Gust.Flows.Run do
   @doc false
   def changeset(run, attrs) do
     run
-    |> cast(attrs, [:dag_id, :status, :claim_expires_at, :claim_token])
+    |> cast(attrs, [:dag_id, :status, :params, :claim_expires_at, :claim_token])
     |> validate_required([:dag_id, :status])
   end
 
   @doc false
   def test_changeset(run, attrs) do
     run
-    |> cast(attrs, [:dag_id, :status, :inserted_at, :claim_token, :claim_expires_at, :claimed_by])
+    |> cast(attrs, [
+      :dag_id,
+      :status,
+      :params,
+      :inserted_at,
+      :claim_token,
+      :claim_expires_at,
+      :claimed_by
+    ])
     |> validate_required([:dag_id, :status])
   end
 end
