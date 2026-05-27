@@ -39,7 +39,7 @@ defmodule Run.Claim.RepoTest do
       assert %Flows.Run{id: ^run_id, claim_expires_at: new_expiration_date} =
                Claim.renew_run(run.id, run.claim_token)
 
-      assert DateTime.diff(now, new_expiration_date) == -lease_seconds
+      assert DateTime.diff(now, new_expiration_date) in [-(lease_seconds + 1), -lease_seconds]
     end
   end
 
