@@ -83,5 +83,5 @@ end
 
 For example, if the file is `dags/hello_world.ex`, confirm that the `hello_world` DAG is valid.
 
-Run command: `GUST_ROLE=web mix run -e "IO.inspect(Gust.Flows.get_dag_by_name(\"hello_world\").id |> Gust.DAG.Loader.get_definition())"`
+Run command: `mix gust.cli dag_definition hello_world`
 

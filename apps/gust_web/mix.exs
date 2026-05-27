@@ -1,7 +1,7 @@
 defmodule GustWeb.MixProject do
   use Mix.Project
 
-  @version "0.1.31"
+  @version "0.1.32"
 
   def project do
     [

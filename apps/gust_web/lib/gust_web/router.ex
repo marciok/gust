@@ -3,16 +3,16 @@ defmodule GustWeb.Router do
   import GustWeb.DashboardRouter
 
   pipeline :browser do
-    plug :accepts, ["html"]
-    plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout, html: {GustWeb.Layouts, :root}
-    plug :protect_from_forgery
-    plug :put_secure_browser_headers
+    plug(:accepts, ["html"])
+    plug(:fetch_session)
+    plug(:fetch_live_flash)
+    plug(:put_root_layout, html: {GustWeb.Layouts, :root})
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
   end
 
   pipeline :api do
-    plug :accepts, ["json"]
+    plug(:accepts, ["json"])
   end
 
   auth_enabled? = Application.compile_env(:gust_web, :basic_auth)
@@ -27,7 +27,7 @@ defmodule GustWeb.Router do
   end
 
   scope "/" do
-    pipe_through if auth_enabled?, do: [:browser, :basic_auth], else: :browser
+    pipe_through(if auth_enabled?, do: [:browser, :basic_auth], else: :browser)
 
     gust_dashboard()
   end
@@ -36,11 +36,11 @@ defmodule GustWeb.Router do
     import GustWeb.MCPRouter
 
     scope "/", GustWeb do
-      match :*, "/.well-known/*path", WellKnownController, :not_found
+      match(:*, "/.well-known/*path", WellKnownController, :not_found)
     end
 
     scope "/mcp" do
-      pipe_through :api
+      pipe_through(:api)
 
       gust_mcp_server()
     end
@@ -56,9 +56,9 @@ defmodule GustWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      live_dashboard "/dashboard", metrics: GustWeb.Telemetry
+      live_dashboard("/dashboard", metrics: GustWeb.Telemetry)
       # forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end

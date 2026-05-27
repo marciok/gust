@@ -4,7 +4,7 @@ if Code.ensure_loaded?(Igniter) do
     @shortdoc "Installs \"gust_web\" into your project"
 
     @dags_dir "dags"
-    @gust_web_version "0.1.31"
+    @gust_web_version "0.1.32"
 
     use Igniter.Mix.Task
 

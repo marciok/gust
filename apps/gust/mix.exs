@@ -1,7 +1,7 @@
 defmodule Gust.MixProject do
   use Mix.Project
 
-  @version "0.1.31"
+  @version "0.1.32"
 
   def project do
     [
@@ -14,6 +14,7 @@ defmodule Gust.MixProject do
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      cli: cli(),
       aliases: aliases(),
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
@@ -38,6 +39,12 @@ defmodule Gust.MixProject do
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  def cli do
+    [
+      preferred_envs: ["gust.cli": :dev]
+    ]
+  end
 
   # Specifies your project dependencies.
   #
