@@ -10,6 +10,11 @@ defmodule Gust.CLI do
   * `trigger_run <dag_name>`: starts the application, looks up the DAG by name,
     creates a run for it, and dispatches that run through the configured
     `Gust.DAG.Run.Trigger` implementation.
+
+    Accepts an optional `--run_params` flag with a JSON string payload:
+
+        gust-cli trigger_run my_dag --run_params '{"name": "foo"}'
+
   * `dag_definition <dag_name>`: returns the DAG definition payload as JSON,
     including the definition load status.
 
@@ -29,14 +34,20 @@ defmodule Gust.CLI do
 
   Currently supported commands:
 
-  * `["trigger_run", dag_name]`
+  * `["trigger_run", dag_name]` — optionally with `--run_params '<json>'`
   * `["dag_definition", dag_name]`
   """
   def exec(["trigger_run", dag_name]) do
+    exec(["trigger_run", dag_name, "--run_params", "{}"])
+  end
+
+  def exec(["trigger_run", dag_name, "--run_params", json_string]) do
     load_app()
 
+    run_params = Jason.decode!(json_string)
+
     dag = Flows.get_dag_by_name(dag_name)
-    {:ok, run} = Flows.create_run(%{dag_id: dag.id})
+    {:ok, run} = Flows.create_run(%{dag_id: dag.id, params: run_params})
     run = Trigger.dispatch_run(run)
 
     Logger.warning("Triggered DAG #{dag.name}; Run: #{run.id}")

@@ -36,32 +36,43 @@ defmodule GustWeb.APITest do
   describe "POST /api/dags/:dag_name/run" do
     test "creates an enqueued run and returns its id", %{conn: conn} do
       dag = dag_fixture(%{name: "daily_import"})
+      dag_id = dag.id
 
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{@token}")
         |> post_api("/api/dags/#{dag.name}/run")
 
-      %{"id" => id, "status" => "enqueued"} = json_response(conn, 201)
-      run = Flows.get_run!(id)
+      assert %{"id" => id, "status" => "enqueued"} = json_response(conn, 201)
+      assert %Flows.Run{dag_id: ^dag_id, status: :enqueued, params: %{}} = Flows.get_run!(id)
+    end
 
-      assert run.dag_id == dag.id
-      assert run.status == :enqueued
+    test "creates an enqueued run with params", %{conn: conn} do
+      dag = dag_fixture(%{name: "daily_import_params"})
+      dag_id = dag.id
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{@token}")
+        |> post_api("/api/dags/#{dag.name}/run", %{"params" => %{"name" => "foo"}})
+
+      assert %{"id" => id, "status" => "enqueued"} = json_response(conn, 201)
+
+      assert %Flows.Run{dag_id: ^dag_id, status: :enqueued, params: %{"name" => "foo"}} =
+               Flows.get_run!(id)
     end
 
     test "creates an enqueued run when DAG is disabled", %{conn: conn} do
       dag = dag_fixture(%{name: "disabled_import", enabled: false})
+      dag_id = dag.id
 
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{@token}")
         |> post_api("/api/dags/#{dag.name}/run")
 
-      %{"id" => id, "status" => "enqueued"} = json_response(conn, 201)
-      run = Flows.get_run!(id)
-
-      assert run.dag_id == dag.id
-      assert run.status == :enqueued
+      assert %{"id" => id, "status" => "enqueued"} = json_response(conn, 201)
+      assert %Flows.Run{dag_id: ^dag_id, status: :enqueued} = Flows.get_run!(id)
     end
 
     test "returns unauthorized without a valid bearer token", %{conn: conn} do
@@ -105,5 +116,9 @@ defmodule GustWeb.APITest do
 
   defp post_api(conn, path) do
     Phoenix.ConnTest.dispatch(conn, build_router("/api"), :post, path, nil)
+  end
+
+  defp post_api(conn, path, body) do
+    Phoenix.ConnTest.dispatch(conn, build_router("/api"), :post, path, body)
   end
 end

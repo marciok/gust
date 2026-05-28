@@ -32,6 +32,24 @@ defmodule Gust.CLITest do
     [last_run] = Flows.get_dag_with_runs!(dag_id).runs
 
     assert log =~ "Triggered DAG cli_test_dag; Run: #{last_run.id}"
+    assert %Flows.Run{params: %{}} = last_run
+  end
+
+  test "exec/1 triggers a run with --run_params", %{
+    dag_name: dag_name,
+    dag_id: dag_id
+  } do
+    Gust.DAGRunTriggerMock
+    |> expect(:dispatch_run, fn %Flows.Run{dag_id: ^dag_id} = run ->
+      run
+    end)
+
+    with_log(fn ->
+      CLI.exec(["trigger_run", dag_name, "--run_params", ~s({"name": "foo"})])
+    end)
+
+    [last_run] = Flows.get_dag_with_runs!(dag_id).runs
+    assert %Flows.Run{params: %{"name" => "foo"}} = last_run
   end
 
   test "exec/1 get dag definition for a name that is not a dag", %{
