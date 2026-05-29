@@ -95,6 +95,41 @@ defmodule Run.Claim.RepoTest do
       assert DateTime.diff(expiration_date, expire_at) == 0
     end
 
+    test "does not claim enqueued runs for disabled dags", %{
+      node: node,
+      dag: dag
+    } do
+      disabled_dag = dag_fixture(%{name: "disabled_for_claim", enabled: false})
+      _disabled_run = run_fixture(%{dag_id: disabled_dag.id, status: :enqueued})
+      enabled_run = run_fixture(%{dag_id: dag.id, status: :enqueued})
+      enabled_run_id = enabled_run.id
+
+      assert %Flows.Run{
+               id: ^enabled_run_id,
+               status: :running,
+               claimed_by: ^node
+             } = Claim.next_run()
+    end
+
+    test "does not reclaim expired running runs for disabled dags", %{dag: dag} do
+      now = DateTime.utc_now()
+      expired = DateTime.add(now, -10)
+
+      disabled_dag = dag_fixture(%{name: "disabled_expired_running", enabled: false})
+
+      _disabled_run =
+        run_fixture(%{
+          dag_id: disabled_dag.id,
+          status: :running,
+          claim_expires_at: expired
+        })
+
+      enabled_run = run_fixture(%{dag_id: dag.id, status: :enqueued})
+      enabled_run_id = enabled_run.id
+
+      assert %Flows.Run{id: ^enabled_run_id} = Claim.next_run()
+    end
+
     test "nothing to claim" do
       assert is_nil(Claim.next_run())
     end

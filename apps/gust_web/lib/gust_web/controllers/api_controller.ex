@@ -1,6 +1,7 @@
 defmodule GustWeb.APIController do
   use GustWeb, :controller
 
+  alias Gust.DAG.Run.Trigger
   alias Gust.Flows
 
   plug(GustWeb.Plugs.APIAuth)
@@ -11,7 +12,8 @@ defmodule GustWeb.APIController do
 
     {status, payload} =
       if dag do
-        {:ok, run} = Flows.create_run(%{dag_id: dag.id, status: :enqueued, params: run_params})
+        {:ok, run} = Flows.create_run(%{dag_id: dag.id, params: run_params})
+        run = Trigger.dispatch_run(run)
 
         {:created, %{id: to_string(run.id), status: to_string(run.status)}}
       else

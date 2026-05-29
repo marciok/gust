@@ -30,6 +30,8 @@ defmodule Gust.Run.Claim.Repo do
     {:ok, run} =
       Repo.transaction(fn ->
         from(r in Run,
+          join: d in assoc(r, :dag),
+          where: d.enabled == true,
           where: r.status == :enqueued or (r.status == :running and r.claim_expires_at < ^now),
           order_by: [asc: r.inserted_at],
           limit: 1,
