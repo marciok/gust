@@ -129,15 +129,15 @@ defmodule GustWeb.MCP.Tools.Call do
     {false, [content(text)]}
   end
 
-  def handle(%Tool{name: :trigger_dag_run}, %{"dag_id" => dag_id}) do
-    dag_id |> trigger_dag_run_reply()
+  def handle(%Tool{name: :trigger_dag_run}, %{"dag_id" => dag_id} = args) do
+    trigger_dag_run_reply(dag_id, Map.get(args, "params", %{}))
   end
 
-  def handle(%Tool{name: :trigger_dag_run}, %{"dag_name" => dag_name}) do
+  def handle(%Tool{name: :trigger_dag_run}, %{"dag_name" => dag_name} = args) do
     dag = Flows.get_dag_by_name(dag_name)
 
     if dag do
-      dag.id |> trigger_dag_run_reply()
+      trigger_dag_run_reply(dag.id, Map.get(args, "params", %{}))
     else
       dag_not_found(dag_name)
     end
@@ -195,8 +195,8 @@ defmodule GustWeb.MCP.Tools.Call do
     """
   end
 
-  defp trigger_dag_run_reply(dag_id) do
-    {:ok, run} = Flows.create_run(%{dag_id: dag_id})
+  defp trigger_dag_run_reply(dag_id, params) do
+    {:ok, run} = Flows.create_run(%{dag_id: dag_id, params: params})
 
     run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
 

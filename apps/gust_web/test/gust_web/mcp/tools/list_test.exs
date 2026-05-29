@@ -69,6 +69,28 @@ defmodule GustWeb.MCP.Tools.ListTest do
            } = tool
   end
 
+  test "all/0 defines trigger_dag_run with optional params" do
+    tool = Enum.find(List.all(), &(&1.name == :trigger_dag_run))
+
+    assert %Tool{
+             description: "Trigger a dag run with a given dag name",
+             props: [
+               {"dag_name", true,
+                %{
+                  "description" =>
+                    "Its a single string, lower cases, if its a composed name use underline ex: my_dag",
+                  "type" => "string"
+                }},
+               {"params", false,
+                %{
+                  "description" =>
+                    "Optional run params payload, matching the API request body params object",
+                  "type" => "object"
+                }}
+             ]
+           } = tool
+  end
+
   test "find/1 returns a tool by its string name" do
     assert %Tool{
              name: :restart_task,

@@ -381,6 +381,28 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert message =~ " triggered"
   end
 
+  test "handle/2 creates and dispatches a run with params for the requested dag" do
+    dag = dag_fixture(%{name: "triggerable_dag_with_params"})
+    dag_id = dag.id
+    params = %{"name" => "foo", "attempt" => 2}
+
+    GustWeb.DAGRunTriggerMock
+    |> expect(:dispatch_run, fn %Gust.Flows.Run{params: ^params, dag_id: ^dag_id} = run ->
+      assert Ecto.assoc_loaded?(run.tasks)
+      run
+    end)
+
+    assert {false, contents} =
+             Call.handle(%Tool{name: :trigger_dag_run}, %{
+               "dag_name" => dag.name,
+               "params" => params
+             })
+
+    [message] = text_list(contents)
+    assert String.starts_with?(message, "Run ")
+    assert message =~ " triggered"
+  end
+
   test "handle/2 creates and dispatches a run for the requested dag id" do
     dag = dag_fixture(%{name: "triggerable_dag_by_id"})
 

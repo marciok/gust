@@ -91,6 +91,11 @@ defmodule GustWeb.MCP.Tools.List do
             "string",
             "Its a single string, lower cases, if its a composed name use underline ex: my_dag",
             required: true
+          ),
+          Tool.prop(
+            "params",
+            "object",
+            "Optional run params payload, matching the API request body params object"
           )
         ]
       )
