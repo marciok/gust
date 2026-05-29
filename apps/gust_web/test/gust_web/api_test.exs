@@ -2,6 +2,7 @@ defmodule GustWeb.APITest do
   use GustWeb.ConnCase
 
   import Gust.FlowsFixtures
+  import Mox
 
   alias Gust.Flows
 
@@ -23,6 +24,9 @@ defmodule GustWeb.APITest do
     :ok
   end
 
+  setup :verify_on_exit!
+  setup :set_mox_from_context
+
   describe "gust_api/0" do
     test "defines DAG run creation route inside a scope" do
       paths =
@@ -37,6 +41,7 @@ defmodule GustWeb.APITest do
     test "creates an enqueued run and returns its id", %{conn: conn} do
       dag = dag_fixture(%{name: "daily_import"})
       dag_id = dag.id
+      expect_dispatch_run(dag_id, %{}, :enqueued)
 
       conn =
         conn
@@ -50,11 +55,13 @@ defmodule GustWeb.APITest do
     test "creates an enqueued run with params", %{conn: conn} do
       dag = dag_fixture(%{name: "daily_import_params"})
       dag_id = dag.id
+      run_params = %{"name" => "foo"}
+      expect_dispatch_run(dag_id, run_params, :enqueued)
 
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{@token}")
-        |> post_api("/api/dags/#{dag.name}/run", %{"params" => %{"name" => "foo"}})
+        |> post_api("/api/dags/#{dag.name}/run", %{"params" => run_params})
 
       assert %{"id" => id, "status" => "enqueued"} = json_response(conn, 201)
 
@@ -62,17 +69,18 @@ defmodule GustWeb.APITest do
                Flows.get_run!(id)
     end
 
-    test "creates an enqueued run when DAG is disabled", %{conn: conn} do
+    test "creates a run without enqueueing when DAG is disabled", %{conn: conn} do
       dag = dag_fixture(%{name: "disabled_import", enabled: false})
       dag_id = dag.id
+      expect_dispatch_run(dag_id, %{}, :created)
 
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{@token}")
         |> post_api("/api/dags/#{dag.name}/run")
 
-      assert %{"id" => id, "status" => "enqueued"} = json_response(conn, 201)
-      assert %Flows.Run{dag_id: ^dag_id, status: :enqueued} = Flows.get_run!(id)
+      assert %{"id" => id, "status" => "created"} = json_response(conn, 201)
+      assert %Flows.Run{dag_id: ^dag_id, status: :created} = Flows.get_run!(id)
     end
 
     test "returns unauthorized without a valid bearer token", %{conn: conn} do
@@ -120,5 +128,13 @@ defmodule GustWeb.APITest do
 
   defp post_api(conn, path, body) do
     Phoenix.ConnTest.dispatch(conn, build_router("/api"), :post, path, body)
+  end
+
+  defp expect_dispatch_run(dag_id, params, status) do
+    GustWeb.DAGRunTriggerMock
+    |> expect(:dispatch_run, fn %Flows.Run{dag_id: ^dag_id, params: ^params} = run ->
+      {:ok, run} = Flows.update_run_status(run, status)
+      run
+    end)
   end
 end
