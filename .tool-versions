@@ -1,3 +1,1 @@
-elixir 1.19.5-otp-28
-erlang 28.5
-postgres 18.3
+elixir 1.18.4

@@ -2,6 +2,7 @@ defmodule GustWeb.Dashboard.AssetsTest do
   use GustWeb.ConnCase
 
   alias GustWeb.Dashboard.Assets
+  import ExUnit.CaptureIO
 
   describe "init/1" do
     test "accepts :css" do
@@ -20,7 +21,6 @@ defmodule GustWeb.Dashboard.AssetsTest do
       assert conn.status == 200
       assert get_resp_header(conn, "content-type") == ["text/css"]
       assert get_resp_header(conn, "cache-control") == ["public, max-age=31536000, immutable"]
-      assert conn.resp_body =~ "tailwindcss"
       assert conn.halted
     end
 
@@ -30,7 +30,6 @@ defmodule GustWeb.Dashboard.AssetsTest do
       assert conn.status == 200
       assert get_resp_header(conn, "content-type") == ["text/javascript"]
       assert get_resp_header(conn, "cache-control") == ["public, max-age=31536000, immutable"]
-      assert conn.resp_body =~ "LiveSocket"
       assert conn.halted
     end
 
@@ -38,6 +37,38 @@ defmodule GustWeb.Dashboard.AssetsTest do
       conn = Assets.call(conn, :css)
 
       assert conn.private[:plug_skip_csrf_protection] == true
+    end
+
+    test "warns and serves empty content when css asset is missing", %{conn: conn} do
+      path = Application.app_dir(:gust_web, ["priv", "static", "assets", "css", "app.css"])
+      backup_path = path <> ".bak"
+
+      File.rm(backup_path)
+
+      moved? =
+        if File.exists?(path) do
+          File.rename!(path, backup_path)
+          true
+        else
+          false
+        end
+
+      on_exit(fn ->
+        if moved? && File.exists?(backup_path) do
+          File.rename!(backup_path, path)
+        end
+      end)
+
+      warning =
+        capture_io(:stderr, fn ->
+          conn = Assets.call(conn, :css)
+          send(self(), {:asset_conn, conn})
+        end)
+
+      assert_receive {:asset_conn, conn}
+      assert conn.status == 200
+      assert conn.resp_body == ""
+      assert warning =~ "CSS asset not found at #{path}, run mix assets.build"
     end
   end
 

@@ -100,6 +100,28 @@ defmodule GustWeb.RunLiveTest do
       assert index_live |> has_element?("#runs-#{failed_run.id}")
     end
 
+    test "treats empty status params as all statuses", %{conn: conn, dag: dag, run: created_run} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=")
+
+      assert index_live |> has_element?("#run-status-filter option[value='']:checked")
+      assert index_live |> has_element?("#runs-#{created_run.id}")
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
+    end
+
+    test "treats unknown status params as all statuses", %{conn: conn, dag: dag, run: created_run} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=not_a_status")
+
+      assert index_live |> has_element?("#run-status-filter option[value='']:checked")
+      assert index_live |> has_element?("#runs-#{created_run.id}")
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
+    end
+
     test "keeps status filter when selecting page", %{conn: conn, dag: dag, run: _first_run} do
       page_size = 1
       now = DateTime.utc_now() |> DateTime.truncate(:second)
@@ -166,6 +188,17 @@ defmodule GustWeb.RunLiveTest do
         index_live |> element("#runs-#{run.id} [data-testid='status-badge']") |> render()
 
       assert badge_html =~ "succeeded"
+    end
+
+    test "updates runs that still match the selected status", %{conn: conn, dag: dag} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed")
+
+      Gust.PubSub.broadcast_run_status(failed_run.id, :failed)
+
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
     end
 
     test "removes updated runs that no longer match the selected status", %{conn: conn, dag: dag} do
