@@ -77,10 +77,7 @@ defmodule GustWeb.Layouts do
       <footer class="app-footer w-full">
         <div class="app-footer__content">
           <div class="app-footer__meta">
-            <select class="select">
-              <option disabled selected>Nodes Connected</option>
-              <option :for={node <- Node.list()}>{node}</option>
-            </select>
+            <.node_selector />
             <span class="app-footer__value">{System.get_env("MIX_ENV")}</span>
           </div>
         </div>
@@ -88,6 +85,19 @@ defmodule GustWeb.Layouts do
 
       <.flash_group flash={@flash} />
     </div>
+    """
+  end
+
+  attr :nodes, :list, default: nil
+
+  def node_selector(assigns) do
+    assigns = assign(assigns, :nodes, assigns.nodes || Node.list())
+
+    ~H"""
+    <select id="node-selector" class="select">
+      <option disabled selected>Nodes Connected</option>
+      <option :for={node <- @nodes}>{node}</option>
+    </select>
     """
   end
 
