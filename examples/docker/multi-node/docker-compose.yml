@@ -41,7 +41,7 @@ services:
       retries: 20
 
   gust-init:
-    image: marcioklepacz/gust-web:0.1.32
+    image: marcioklepacz/gust-web:0.1.33
     <<: *gust-depends-on-db
     command: ["/app/bin/migrate"]
     restart: "no"
@@ -51,7 +51,7 @@ services:
       GUST_ROLE: core
 
   gust:
-    image: marcioklepacz/gust:0.1.32
+    image: marcioklepacz/gust:0.1.33
     <<: [*gust-depends-on-db, *gust-volumes]
     command: ["/app/bin/start-core"]
     environment:
@@ -60,7 +60,7 @@ services:
       PHX_SERVER: "false"
 
   gust-web:
-    image: marcioklepacz/gust-web:0.1.32
+    image: marcioklepacz/gust-web:0.1.33
     <<: [*gust-depends-on-db, *gust-volumes]
     ports:
       - "4000:4000"

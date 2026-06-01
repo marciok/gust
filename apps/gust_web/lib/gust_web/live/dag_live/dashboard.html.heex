@@ -58,9 +58,10 @@
           <%= if @selected_task && (@selected_task.status in [:running, :retrying]) do %>
             <button
               id="cancel-task"
+              disabled={@cancelling_run}
               phx-click="cancel_task"
               phx-value-id={@selected_task.id}
-              class="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
+              class="btn px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
             >
               Cancel
             </button>
@@ -163,8 +164,8 @@
     <section class="dag-card__header">
       <div class="dag-card__title-row">
         <div class="flex flex-col gap-1">
-          <h3 class="dag-card__title text-base">Selected Run</h3>
-          <span class="text-sm text-slate-600">Run {@selected_run.id}</span>
+          <h3 class="dag-card__title text-base">Selected {current}</h3>
+          <span class="text-sm text-slate-600">ID {current.id}</span>
         </div>
         <.status_badge status={current.status} data-testid="status-badge" />
       </div>

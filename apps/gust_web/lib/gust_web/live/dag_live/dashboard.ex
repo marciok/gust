@@ -47,6 +47,7 @@ defmodule GustWeb.DagLive.Dashboard do
      |> assign(:error, {})
      |> assign(:dag, dag)
      |> assign(:selected_task, selected_task)
+     |> assign(:cancelling_run, false)
      |> assign(:selected_run, selected_run)
      |> assign(:reload_dag_file, {dag_def.file_path, time()})
      |> stream(:logs, logs)
@@ -103,7 +104,7 @@ defmodule GustWeb.DagLive.Dashboard do
           "Task: #{task.name} retrying cancelled"
       end
 
-    {:noreply, socket |> put_flash(:info, flash)}
+    {:noreply, socket |> assign(:cancelling_run, true) |> put_flash(:info, flash)}
   end
 
   @impl true
@@ -191,7 +192,17 @@ defmodule GustWeb.DagLive.Dashboard do
       ) do
     run = Flows.get_run_with_tasks!(run_id)
 
-    {:noreply, stream_insert(socket, :runs, run)}
+    if socket.assigns.cancelling_run do
+      task = Flows.get_task!(socket.assigns.selected_task.id)
+
+      {:noreply,
+       socket
+       |> assign(:cancelling_run, false)
+       |> assign(:selected_task, task)
+       |> stream_insert(:runs, run)}
+    else
+      {:noreply, stream_insert(socket, :runs, run)}
+    end
   end
 
   defp pretty_json!(value) do
