@@ -6,6 +6,6 @@ end
 
 defimpl Phoenix.HTML.Safe, for: Gust.Flows.Run do
   def to_iodata(run) do
-    Phoenix.HTML.Safe.to_iodata(["Run ", run.id])
+    Phoenix.HTML.Safe.to_iodata(["Run ", to_string(run.id)])
   end
 end
