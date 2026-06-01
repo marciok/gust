@@ -195,6 +195,8 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run_id}")
 
       assert has_element?(dashboard_live, ".breadcrumbs")
+      assert render(element(dashboard_live, "#selected-run")) =~ "Selected Run #{run.id}"
+      assert render(element(dashboard_live, "#selected-run")) =~ "ID #{run.id}"
     end
 
     test "display task logs", %{
@@ -293,6 +295,9 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert dashboard_live |> element("#updated-at") |> render() =~
                Calendar.strftime(task.updated_at, short_format)
+
+      assert render(element(dashboard_live, "#selected-run")) =~ "Selected Task #{task.name}"
+      assert render(element(dashboard_live, "#selected-run")) =~ "ID #{task.id}"
 
       assert dashboard_live
              |> element("##{task.name}-at-run-#{run.id}.selected")
@@ -532,6 +537,20 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert dashboard_live |> element("#cancel-task") |> render_click() =~
                "Task: #{running_task.name} was cancelled"
+
+      assert has_element?(dashboard_live, "#cancel-task[disabled]")
+
+      {:ok, _failed_task} = Gust.Flows.update_task_status(running_task, :failed)
+      Gust.PubSub.broadcast_run_status(run.id, :failed)
+
+      refute has_element?(dashboard_live, "#cancel-task")
+
+      assert has_element?(
+               dashboard_live,
+               "##{running_task.name}-at-run-#{run.id}.status-failed"
+             )
+
+      assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "failed"
     end
 
     test "click on all runs", %{
@@ -601,6 +620,8 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert dashboard_live |> element("#cancel-task") |> render_click() =~
                "Task: #{running_task.name} retrying cancelled"
+
+      assert has_element?(dashboard_live, "#cancel-task[disabled]")
     end
 
     test "click restart run on succeeded run", %{
