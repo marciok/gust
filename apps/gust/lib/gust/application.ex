@@ -50,9 +50,7 @@ defmodule Gust.Application do
     env = System.get_env("MIX_ENV") || Mix.env() |> to_string()
     folder = Application.get_env(:gust, :dags_folder)
 
-    if env != "test" do
-      File.dir?(folder) || raise "DAG folder does not exist!: #{folder}"
-    end
+    Gust.DAG.Folder.verify!(env, folder)
 
     query = Gust.DNSCluster.parse_query(Application.get_env(:gust, :dns_cluster_query))
 
