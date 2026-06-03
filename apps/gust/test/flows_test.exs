@@ -115,6 +115,31 @@ defmodule FlowsTest do
       assert [run_oldest.id] == Enum.map(next_page.runs, & &1.id)
     end
 
+    test "get_dag_by_name_with_runs!/1 filters runs by status" do
+      dag = dag_fixture(%{name: "status_filtered"})
+
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+      _succeeded_run = run_fixture(%{dag_id: dag.id, status: :succeeded})
+      _created_run = run_fixture(%{dag_id: dag.id, status: :created})
+
+      filtered_dag =
+        Flows.get_dag_by_name_with_runs!(dag.name, limit: 30, offset: 0, status: :failed)
+
+      assert [failed_run.id] == Enum.map(filtered_dag.runs, & &1.id)
+    end
+
+    test "get_dag_by_name_with_runs!/1 raises when required pagination options are missing" do
+      dag = dag_fixture(%{name: "missing_required_opts"})
+
+      assert_raise KeyError, fn ->
+        Flows.get_dag_by_name_with_runs!(dag.name, offset: 0)
+      end
+
+      assert_raise KeyError, fn ->
+        Flows.get_dag_by_name_with_runs!(dag.name, limit: 30)
+      end
+    end
+
     test "count_runs_on_dag/1 returns number of runs for given dag" do
       dag = dag_fixture(%{name: "count_me"})
       other_dag = dag_fixture(%{name: "do_not_count"})
@@ -125,6 +150,18 @@ defmodule FlowsTest do
 
       assert Flows.count_runs_on_dag(dag.id) == 2
       assert Flows.count_runs_on_dag(other_dag.id) == 1
+    end
+
+    test "count_runs_on_dag/2 counts only runs matching the given status" do
+      dag = dag_fixture(%{name: "count_status"})
+
+      run_fixture(%{dag_id: dag.id, status: :failed})
+      run_fixture(%{dag_id: dag.id, status: :failed})
+      run_fixture(%{dag_id: dag.id, status: :succeeded})
+
+      assert Flows.count_runs_on_dag(dag.id, :failed) == 2
+      assert Flows.count_runs_on_dag(dag.id, :succeeded) == 1
+      assert Flows.count_runs_on_dag(dag.id, :created) == 0
     end
   end
 

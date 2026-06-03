@@ -9,42 +9,13 @@ defmodule GustWeb.Dashboard.Assets do
       path
     end
 
-  css_path = Path.join(__DIR__, "../../../priv/static/assets/css/app.css")
-  @external_resource css_path
+  @phoenix_js_paths phoenix_js_paths
 
-  @css (case File.read(css_path) do
-          {:ok, contents} ->
-            contents
+  @css_path Application.app_dir(:gust_web, ["priv", "static", "assets", "css", "app.css"])
+  @external_resource @css_path
 
-          {:error, _} ->
-            IO.warn("CSS asset not found at #{css_path}, run mix assets.build")
-            ""
-        end)
-
-  js_path = Path.join(__DIR__, "../../../priv/static/assets/js/app.js")
-  @external_resource js_path
-
-  js_value =
-    case File.read(js_path) do
-      {:ok, contents} ->
-        phoenix_js =
-          for path <- phoenix_js_paths do
-            path |> File.read!() |> String.replace("//# sourceMappingURL=", "// ")
-          end
-
-        Enum.join(phoenix_js, "\n") <> "\n" <> contents
-
-      {:error, _} ->
-        IO.warn("JS asset not found at #{js_path}, run mix assets.build")
-        ""
-    end
-
-  @js js_value
-
-  @hashes %{
-    css: Base.encode16(:crypto.hash(:md5, @css), case: :lower),
-    js: Base.encode16(:crypto.hash(:md5, @js), case: :lower)
-  }
+  @js_path Application.app_dir(:gust_web, ["priv", "static", "assets", "js", "app.js"])
+  @external_resource @js_path
 
   def init(asset) when asset in [:css, :js], do: asset
 
@@ -59,12 +30,40 @@ defmodule GustWeb.Dashboard.Assets do
     |> halt()
   end
 
-  defp contents_and_type(:css), do: {@css, "text/css"}
-  defp contents_and_type(:js), do: {@js, "text/javascript"}
+  defp contents_and_type(:css), do: {contents(:css), "text/css"}
+  defp contents_and_type(:js), do: {contents(:js), "text/javascript"}
 
   @doc """
   Returns the current hash for the given `asset`.
   """
-  def current_hash(:css), do: @hashes.css
-  def current_hash(:js), do: @hashes.js
+  def current_hash(asset) when asset in [:css, :js] do
+    asset
+    |> contents()
+    |> then(&:crypto.hash(:md5, &1))
+    |> Base.encode16(case: :lower)
+  end
+
+  defp contents(:css) do
+    read_asset(@css_path, "CSS")
+  end
+
+  defp contents(:js) do
+    phoenix_js =
+      for path <- @phoenix_js_paths do
+        path |> File.read!() |> String.replace("//# sourceMappingURL=", "// ")
+      end
+
+    Enum.join(phoenix_js, "\n") <> "\n" <> read_asset(@js_path, "JS")
+  end
+
+  defp read_asset(path, label) do
+    case File.read(path) do
+      {:ok, contents} ->
+        contents
+
+      {:error, _} ->
+        IO.warn("#{label} asset not found at #{path}, run mix assets.build")
+        ""
+    end
+  end
 end

@@ -321,27 +321,38 @@ defmodule Gust.Flows do
   Gets a DAG by name with its runs preloaded, with pagination for runs.
 
   The DAG is looked up by its `name`. The associated runs are ordered by
-  descending `inserted_at` and paginated using the provided `limit` and
-  `offset` keyword arguments.
+  descending `inserted_at` and paginated using the required `:limit` and
+  `:offset` keyword options.
 
   ## Parameters
 
     * `name` - The name of the DAG to retrieve.
-    * `limit` - The maximum number of runs to preload.
-    * `offset` - The number of runs to skip before starting to preload.
+
+  ## Options
+
+    * `:limit` - Required. The maximum number of runs to preload.
+    * `:offset` - Required. The number of runs to skip before starting to preload.
+    * `:status` - Optional. Filters preloaded runs by status when present.
 
   ## Returns
 
   Returns the `%Dag{}` struct with its `:runs` association preloaded according
   to the given pagination options. Raises `Ecto.NoResultsError` if no DAG
-  with the given name exists.
+  with the given name exists. Raises `KeyError` if `:limit` or `:offset` is
+  missing from `opts`.
   """
-  def get_dag_by_name_with_runs!(name, limit: limit, offset: offset) do
+  def get_dag_by_name_with_runs!(name, opts) do
+    limit = Keyword.fetch!(opts, :limit)
+    offset = Keyword.fetch!(opts, :offset)
+    status = Keyword.get(opts, :status)
+
     runs_q =
       from r in Run,
         order_by: [desc: r.inserted_at],
         limit: ^limit,
         offset: ^offset
+
+    runs_q = maybe_filter_run_status(runs_q, status)
 
     Repo.one!(
       from d in Dag,
@@ -361,8 +372,17 @@ defmodule Gust.Flows do
 
     * The integer count of runs associated with the specified DAG.
   """
-  def count_runs_on_dag(dag_id) do
-    Repo.aggregate(from(r in Run, where: r.dag_id == ^dag_id), :count)
+  def count_runs_on_dag(dag_id, status \\ nil) do
+    Run
+    |> where([r], r.dag_id == ^dag_id)
+    |> maybe_filter_run_status(status)
+    |> Repo.aggregate(:count)
+  end
+
+  defp maybe_filter_run_status(query, nil), do: query
+
+  defp maybe_filter_run_status(query, status) do
+    where(query, [r], r.status == ^status)
   end
 
   @doc """
