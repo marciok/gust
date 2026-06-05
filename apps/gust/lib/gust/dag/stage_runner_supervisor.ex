@@ -1,7 +1,7 @@
 defmodule Gust.DAG.StageRunnerSupervisor do
   @moduledoc false
 
-  @callback start_child(Gust.DAG.Definition.t(), [term()], term()) ::
+  @callback start_child(Gust.DAG.Definition.t(), [{term(), term()}], term()) ::
               Supervisor.on_start_child()
 
   def start_child(dag_def, stage, run_id),

@@ -9,6 +9,15 @@ defmodule Dag.Runner.StageWorkerTest do
   setup :verify_on_exit!
   setup :set_mox_from_context
 
+  defp stage_entry(status, task, params \\ nil), do: {status, {task, params}}
+
+  defp expect_coord_new(task) do
+    task_id = task.id
+
+    Gust.DAGStageCoordinatorMock
+    |> expect(:new, fn [^task_id] -> %{} end)
+  end
+
   setup do
     dag = dag_fixture()
     run = run_fixture(%{dag_id: dag.id})
@@ -35,31 +44,19 @@ defmodule Dag.Runner.StageWorkerTest do
       {:ok, spawn(fn -> Process.sleep(10) end)}
     end)
 
-    task_id = task.id
-
-    Gust.DAGStageCoordinatorMock
-    |> expect(:new, fn [^task_id] -> %{} end)
-    |> expect(:process_task, fn %Flows.Task{id: ^task_id}, _tasks -> :ok end)
+    expect_coord_new(task)
 
     :ok
   end
 
   def upstream_failed(%{task: task}) do
-    task_id = task.id
-
-    Gust.DAGStageCoordinatorMock
-    |> expect(:new, fn [^task_id] -> %{} end)
-    |> expect(:process_task, fn %Flows.Task{id: ^task_id}, _tasks -> :upstream_failed end)
+    expect_coord_new(task)
 
     :ok
   end
 
   def upstream_skipped(%{task: task}) do
-    task_id = task.id
-
-    Gust.DAGStageCoordinatorMock
-    |> expect(:new, fn [^task_id] -> %{} end)
-    |> expect(:process_task, fn %Flows.Task{id: ^task_id}, _tasks -> :skipped end)
+    expect_coord_new(task)
 
     :ok
   end
@@ -70,14 +67,10 @@ defmodule Dag.Runner.StageWorkerTest do
       dag_def: dag_def,
       task: task
     } do
-      task_id = task.id
-
       prev_result = %{"prev_result" => true}
       {:ok, task} = Flows.update_task_result(task, prev_result)
 
-      Gust.DAGStageCoordinatorMock
-      |> expect(:new, fn [^task_id] -> %{} end)
-      |> expect(:process_task, fn %Flows.Task{id: ^task_id}, _tasks -> :already_processed end)
+      expect_coord_new(task)
 
       Gust.PubSub.subscribe_run(run.id)
       task_id = task.id
@@ -90,7 +83,8 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker,
+           %{stage: [stage_entry(:already_processed, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -122,7 +116,8 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker,
+           %{stage: [stage_entry(:upstream_failed, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -152,7 +147,8 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker,
+           %{stage: [stage_entry(:upstream_failed, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -186,7 +182,7 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker, %{stage: [stage_entry(:skipped, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -214,7 +210,7 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker, %{stage: [stage_entry(:skipped, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -225,6 +221,159 @@ defmodule Dag.Runner.StageWorkerTest do
       refute_receive {:stage_completed, :skipped}, 400
       refute_receive {:DOWN, ^ref, :process, _pid, :normal}, 400
     end
+  end
+
+  test "starts mapped task entries with params", %{run: run, dag_def: dag_def} do
+    task = task_fixture(%{run_id: run.id, name: "insert_models", map_index: 0})
+    mapped_task = task_fixture(%{run_id: run.id, name: "insert_models", map_index: 1})
+    task_id = task.id
+    mapped_task_id = mapped_task.id
+    first_params = %{"model" => "a"}
+    second_params = %{"model" => "b"}
+
+    dag_def = %{
+      dag_def
+      | tasks: %{
+          "insert_models" => %{
+            upstream: MapSet.new(["say_by"]),
+            store_result: false,
+            map_over: :say_by
+          }
+        }
+    }
+
+    Gust.DAGStageCoordinatorMock
+    |> expect(:new, fn [^task_id, ^mapped_task_id] -> %{} end)
+
+    Gust.DAGTaskRunnerSupervisorMock
+    |> expect(:start_child, fn %Flows.Task{id: ^task_id}, _dag_def, _pid, opts ->
+      assert opts[:params] == first_params
+      {:ok, spawn(fn -> Process.sleep(10) end)}
+    end)
+    |> expect(:start_child, fn %Flows.Task{
+                                 id: ^mapped_task_id,
+                                 name: "insert_models",
+                                 map_index: 1
+                               },
+                               _dag_def,
+                               _pid,
+                               opts ->
+      assert opts[:params] == second_params
+      {:ok, spawn(fn -> Process.sleep(10) end)}
+    end)
+
+    Gust.PubSub.subscribe_run(run.id)
+
+    start_link_supervised!(
+      {Gust.DAG.Runner.StageWorker,
+       %{
+         stage: [
+           stage_entry(:ok, task, first_params),
+           stage_entry(:ok, mapped_task, second_params)
+         ],
+         dag_def: dag_def,
+         run_id: run.id
+       }}
+    )
+
+    assert_receive {:dag, :run_status, %{run_id: _, status: :running}}, 400
+    assert_receive {:dag, :run_status, %{run_id: _, status: :running}}, 400
+  end
+
+  test "uses existing mapped task instances when mapped task is already expanded", %{
+    run: run,
+    dag_def: dag_def
+  } do
+    task = task_fixture(%{run_id: run.id, name: "insert_models", map_index: 0})
+    mapped_task = task_fixture(%{run_id: run.id, name: "insert_models", map_index: 1})
+    task_id = task.id
+    mapped_task_id = mapped_task.id
+
+    dag_def = %{
+      dag_def
+      | tasks: %{
+          "insert_models" => %{
+            upstream: MapSet.new(["say_by"]),
+            store_result: false,
+            map_over: :say_by
+          }
+        }
+    }
+
+    Gust.DAGStageCoordinatorMock
+    |> expect(:new, fn [^task_id, ^mapped_task_id] -> %{} end)
+
+    Gust.DAGTaskRunnerSupervisorMock
+    |> expect(:start_child, fn %Flows.Task{id: ^task_id, map_index: 0}, _dag_def, _pid, opts ->
+      refute Map.has_key?(opts, :params)
+      {:ok, spawn(fn -> Process.sleep(10) end)}
+    end)
+    |> expect(:start_child, fn %Flows.Task{id: ^mapped_task_id, map_index: 1},
+                               _dag_def,
+                               _pid,
+                               opts ->
+      refute Map.has_key?(opts, :params)
+      {:ok, spawn(fn -> Process.sleep(10) end)}
+    end)
+
+    Gust.PubSub.subscribe_run(run.id)
+
+    start_link_supervised!(
+      {Gust.DAG.Runner.StageWorker,
+       %{
+         stage: [stage_entry(:ok, task), stage_entry(:ok, mapped_task)],
+         dag_def: dag_def,
+         run_id: run.id
+       }}
+    )
+
+    assert_receive {:dag, :run_status, %{run_id: _, status: :running}}, 400
+    assert_receive {:dag, :run_status, %{run_id: _, status: :running}}, 400
+  end
+
+  test "does not start task when upstream failed", %{run: run, dag_def: dag_def} do
+    task_fixture(%{run_id: run.id, name: "say_by", status: :failed})
+    task = task_fixture(%{run_id: run.id, name: "insert_models"})
+    task_id = task.id
+    run_id = run.id
+
+    dag_def = %{
+      dag_def
+      | tasks: %{
+          "insert_models" => %{
+            upstream: MapSet.new(["say_by"]),
+            store_result: false,
+            map_over: :say_by
+          }
+        }
+    }
+
+    expect_coord_new(task)
+
+    Gust.DAGStageCoordinatorMock
+    |> expect(:apply_task_result, fn _coord, _task, :upstream_failed ->
+      {:finished, %{running: %{}}}
+    end)
+
+    Gust.PubSub.subscribe_run(run.id)
+
+    runner_pid =
+      start_link_supervised!(
+        {Gust.DAG.Runner.StageWorker,
+         %{stage: [stage_entry(:upstream_failed, task)], dag_def: dag_def, run_id: run.id}}
+      )
+
+    ref = Process.monitor(runner_pid)
+
+    assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :upstream_failed}}, 400
+    assert Flows.get_task!(task_id).status == :upstream_failed
+
+    assert Flows.get_task_instances_by_name_run("insert_models", run.id) == [
+             Flows.get_task!(task_id)
+           ]
+
+    assert_receive {:stage_completed, :upstream_failed}, 400
+    assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 400
   end
 
   describe "handle_continue/2 when upstream did not fail" do
@@ -251,7 +400,7 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker, %{stage: [stage_entry(:ok, task)], dag_def: dag_def}}
         )
 
       assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :running}}, 300
@@ -318,7 +467,7 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker, %{stage: [stage_entry(:ok, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -350,7 +499,7 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker, %{stage: [stage_entry(:ok, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -389,7 +538,7 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker, %{stage: [stage_entry(:ok, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -423,7 +572,7 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker, %{stage: [stage_entry(:ok, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
@@ -459,7 +608,7 @@ defmodule Dag.Runner.StageWorkerTest do
 
       runner_pid =
         start_link_supervised!(
-          {Gust.DAG.Runner.StageWorker, %{stage: [task_id], dag_def: dag_def}}
+          {Gust.DAG.Runner.StageWorker, %{stage: [stage_entry(:ok, task)], dag_def: dag_def}}
         )
 
       ref = Process.monitor(runner_pid)
