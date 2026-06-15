@@ -5,7 +5,6 @@
   "skip_files": [
     "test/support",
     "lib/gust.ex",
-    "lib/gust/mailer.ex",
     "lib/gust/release.ex",
     "lib/gust/repo.ex"
   ]
