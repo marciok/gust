@@ -13,8 +13,7 @@
   <.live_component
     module={GustWeb.BreadcrumbsComponent}
     dag_def={@dag}
-    run={@selected_run}
-    task={@selected_task}
+    selected_item={@selected_item}
     id="breadcrumbs"
   />
 
@@ -32,40 +31,27 @@
           <span>Run History</span>
         </h2>
 
-        <div class="dag-card__actions run-history__actions">
-          <%= if @selected_task && (@selected_task.status in [:failed, :succeeded]) do %>
-            <button
-              id="restart-task"
-              phx-click="restart_task"
-              phx-value-id={@selected_task.id}
-              class="btn btn-warning"
-            >
-              Restart task: {@selected_task.name}
-            </button>
-          <% end %>
+        <div :if={@selected_item} class="dag-card__actions run-history__actions">
+          <button
+            :if={restartable?(@selected_item, @item_status)}
+            id="restart"
+            phx-click="restart"
+            class="btn btn-warning"
+          >
+            Restart {@item_name}
+          </button>
 
-          <%= if @selected_run && (@selected_run.status in [:failed, :succeeded]) do %>
+          <div :if={show_cancel?(@selected_item)}>
             <button
-              id="restart-run"
-              phx-click="restart_run"
-              phx-value-id={@selected_run.id}
-              class="btn btn-warning"
-            >
-              Restart run: {@selected_run.id}
-            </button>
-          <% end %>
-
-          <%= if @selected_task && (@selected_task.status in [:running, :retrying]) do %>
-            <button
+              :if={@item_status in [:running, :retrying]}
               id="cancel-task"
-              disabled={@cancelling_run}
               phx-click="cancel_task"
-              phx-value-id={@selected_task.id}
+              phx-value-id={@item_id}
               class="btn px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
             >
-              Cancel
+              Cancel {@item_name}
             </button>
-          <% end %>
+          </div>
         </div>
       </div>
     </section>
@@ -80,8 +66,13 @@
               <span class="text-xs font-medium text-gray-800 ">Run</span>
             </div>
 
-            <div :for={name <- @dag_def.task_list} class="flex items-center h-6 mb-2">
-              <span class="text-xs font-medium text-gray-800">{name}</span>
+            <div :for={name <- @dag_def.task_list} class="flex items-center gap-1 h-6 mb-2">
+              <span class="text-xs font-medium text-gray-800">
+                {name}
+                <strong :if={mapped_task?(@dag_def, name)} id={"#{name}-map-badge"}>
+                  []
+                </strong>
+              </span>
             </div>
           </div>
           
@@ -92,7 +83,7 @@
             id="run_history"
           >
             <%= for {id, %Run{status: status, id: run_id, tasks: tasks} = run} <- @streams.runs do %>
-              <div class={"px-1 rounded #{selected_run_class(run_id, @selected_run)}"} id={id}>
+              <div class={"px-1 rounded #{selected_run_class(run_id, @selected_item)}"} id={id}>
                 <.link navigate={
                   ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&page=#{@page}"
                 }>
@@ -106,7 +97,7 @@
                     name={name}
                     ran_tasks={tasks}
                     run_id={run_id}
-                    selected_task={@selected_task}
+                    selected_task={selected_task(@selected_item)}
                     navigate={
                       ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&task_name=#{name}&page=#{@page}"
                     }
@@ -159,35 +150,34 @@
     </div>
   </div>
 
-  <% current = @selected_task || @selected_run %>
-  <div :if={@selected_run} id="selected-run" class="dag-card mb-4">
+  <div :if={@selected_item} id="selected-item" class="dag-card mb-4">
     <section class="dag-card__header">
       <div class="dag-card__title-row">
         <div class="flex flex-col gap-1">
-          <h3 class="dag-card__title text-base">Selected {current}</h3>
-          <span class="text-sm text-slate-600">ID {current.id}</span>
+          <h3 class="dag-card__title text-base">Selected {@item_name}</h3>
+          <span :if={@item_id} class="text-sm text-slate-600">ID {@item_id}</span>
         </div>
-        <.status_badge status={current.status} data-testid="status-badge" />
+        <.status_badge :if={@item_status} status={@item_status} data-testid="status-badge" />
       </div>
     </section>
 
-    <section :if={current} class="dag-card__meta">
-      <div class="dag-card__meta-item">
+    <section class="dag-card__meta">
+      <div :if={@item_inserted_at} class="dag-card__meta-item">
         <div class="dag-card__meta-label">Started</div>
         <div class="dag-card__meta-value" id="inserted-at">
-          {strftime(current.inserted_at)}
+          {strftime(@item_inserted_at)}
         </div>
       </div>
 
-      <div class="dag-card__meta-item">
+      <div :if={@item_updated_at} class="dag-card__meta-item">
         <div class="dag-card__meta-label">Updated</div>
         <div class="dag-card__meta-value" id="updated-at">
-          {strftime(current.updated_at)}
+          {strftime(@item_updated_at)}
         </div>
       </div>
     </section>
 
-    <section :if={map_size(@selected_run.params || %{}) > 0} class="dag-card__body">
+    <section :if={@item_params && map_size(@item_params) > 0} class="dag-card__body">
       <h4 class="text-sm font-semibold text-slate-700">Params</h4>
       <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
         <pre
@@ -195,24 +185,24 @@
           data-testid="run-params"
           class="language-json rounded-md overflow-x-auto"
         >
-<%= pretty_json!(@selected_run.params) %>
+<%= pretty_json!(@item_params) %>
         </pre>
       </div>
     </section>
 
-    <section :if={@selected_task && map_size(@selected_task.error) > 0} class="dag-card__body">
+    <section :if={@item_error && map_size(@item_error) > 0} class="dag-card__body">
       <h4 class="text-sm font-semibold text-rose-600">Error</h4>
       <div class="alert overflow-auto mt-2">
         <pre
           id="task-error"
           class="mt-1 whitespace-pre-wrap text-sm"
         >
-<%= pretty_json!(@selected_task.error) %>
+<%= pretty_json!(@item_error) %>
         </pre>
       </div>
     </section>
 
-    <section :if={@selected_task && map_size(@selected_task.result) > 0} class="dag-card__body">
+    <section :if={@item_result && map_size(@item_result) > 0} class="dag-card__body">
       <h4 class="text-sm font-semibold text-slate-700">Result</h4>
 
       <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
@@ -221,12 +211,75 @@
           data-testid="task-result"
           class="language-json rounded-md overflow-x-auto"
         >
-<%= pretty_json!(@selected_task.result) %>
+     <%= pretty_json!(@item_result) %> 
       </pre>
       </div>
     </section>
 
-    <section :if={@selected_task} class="dag-card__body">
+    <section :if={@expanded_item_ids != []} class="dag-card__body">
+      <div class="border-t border-slate-200/70 -mx-4 mb-3" />
+      <h4 class="text-sm font-semibold text-slate-700">Task runs</h4>
+
+      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
+        <table id="mapped-task-runs" class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Index
+              </th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Status
+              </th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Task ID
+              </th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Updated
+              </th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody
+            id="mapped-task-run-list"
+            class="bg-white divide-y divide-gray-200"
+            phx-update="stream"
+          >
+            <tr
+              :for={{id, task} <- @streams.expanded_items}
+              id={id}
+            >
+              <td class="px-3 py-2 whitespace-nowrap">
+                <span class="badge badge-xs">{task.map_index}</span>
+              </td>
+              <td class="px-3 py-2 whitespace-nowrap">
+                <.status_badge status={task.status} />
+              </td>
+              <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-800 font-mono">
+                {task.id}
+              </td>
+              <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-800">
+                {strftime(task.updated_at)}
+              </td>
+              <td class="px-3 py-2 whitespace-nowrap">
+                <.link
+                  class="btn btn-xs btn-soft"
+                  navigate={
+                    ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{task.run_id}&task_name=#{task.name}&task_index=#{task.map_index}&page=#{@page}"
+                  }
+                  id={"show-mapped-task-#{task.id}"}
+                >
+                  Show
+                </.link>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section :if={@expanded_item_ids == []} class="dag-card__body">
       <div class="border-t border-slate-200/70 -mx-4 mb-3" />
       <div class="overflow-x-auto overflow-y-auto max-h-96">
         <div class="flex flex-wrap items-center justify-between pb-3 gap-3">
@@ -241,7 +294,7 @@
                 {"All", ""},
                 {"info", "info"},
                 {"debug", "debug"},
-                {"warning", "warning"},
+                {"warn", "warn"},
                 {"error", "error"}
               ]}
               class="select select-bordered select-sm w-28"

@@ -53,6 +53,41 @@ defmodule DAG.Terminator.WorkerTest do
     assert_receive {:task_result, nil, ^task_id, ^status}, 200
   end
 
+  test "kill_task/3 with a map index", %{task: task} do
+    mapped_task = %{task | map_index: 1}
+    task_id = mapped_task.id
+    task_pid_key = "task_#{mapped_task.id}_#{mapped_task.map_index}"
+
+    runtime_mock =
+      Gust.RuntimeAdapterMock
+      |> expect(:kill, fn task_pid ->
+        assert [{^task_pid, _val}] = Registry.lookup(Gust.Registry, task_pid_key)
+        :ok
+      end)
+
+    {:ok, _} = Registry.register(Gust.Registry, "stage_run_#{mapped_task.run_id}", nil)
+
+    parent = self()
+
+    spawn(fn ->
+      {:ok, _} = Registry.register(Gust.Registry, task_pid_key, nil)
+      send(parent, :registered)
+      Process.sleep(3_000)
+    end)
+
+    receive do
+      :registered -> :ok
+    after
+      100 -> flunk("Registry did not register in time")
+    end
+
+    status = :cancelled
+
+    Terminator.kill_task(mapped_task, status, runtime_mock)
+
+    assert_receive {:task_result, nil, ^task_id, ^status}, 200
+  end
+
   test "cancel_timer/2", %{task: task} do
     task_id = task.id
 

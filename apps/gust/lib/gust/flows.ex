@@ -137,6 +137,28 @@ defmodule Gust.Flows do
   def get_log!(id), do: Repo.get!(Log, id)
 
   @doc """
+  Gets logs for a task, optionally filtered by level.
+
+  Logs are ordered by their insertion timestamp in ascending order.
+
+  """
+  def get_logs(task_id, level \\ nil) do
+    query =
+      Log
+      |> where(task_id: ^task_id)
+      |> order_by([log], asc: log.inserted_at)
+
+    query =
+      if level in [nil, ""] do
+        query
+      else
+        where(query, [log], log.level == ^level)
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
   Creates a log.
   """
   def create_log(attrs \\ %{}) do
@@ -208,6 +230,14 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Updates a task map index and its persisted parameters.
+  """
+  def update_task_mapping(task, map_index, params) do
+    Task.changeset(task, %{map_index: map_index, params: params})
+    |> Repo.update()
+  end
+
+  @doc """
   Updates a task error.
   """
   def update_task_error(task, error) do
@@ -267,6 +297,34 @@ defmodule Gust.Flows do
   """
   def get_task_by_name_run(name, run_id) do
     Task |> where(run_id: ^run_id, name: ^name) |> Repo.one()
+  end
+
+  @doc """
+  Gets a task by name, run ID, and map index.
+  """
+  def get_task_by_name(name, run_id, map_index) do
+    query =
+      Task
+      |> where(run_id: ^run_id, name: ^name)
+
+    query =
+      if is_nil(map_index) do
+        where(query, [task], is_nil(task.map_index))
+      else
+        where(query, [task], task.map_index == ^map_index)
+      end
+
+    Repo.one(query)
+  end
+
+  @doc """
+  Gets all task instances by name and run ID.
+  """
+  def get_tasks_by_name(name, run_id) do
+    Task
+    |> where(run_id: ^run_id, name: ^name)
+    |> order_by([task], asc_nulls_first: task.map_index)
+    |> Repo.all()
   end
 
   @doc """
@@ -447,5 +505,112 @@ defmodule Gust.Flows do
   """
   def delete_run(%Run{} = run) do
     Repo.delete(run)
+  end
+
+  def delete_task!(%Task{} = task) do
+    Repo.delete!(task)
+  end
+
+  def reconcile_run_tasks(names, run_id) do
+    Repo.transaction(fn ->
+      Repo.query!("SELECT pg_advisory_xact_lock($1)", [run_id])
+
+      task_ids = ensure_task_ids(names, run_id)
+
+      tasks_by_id =
+        Task
+        |> where([task], task.id in ^task_ids)
+        |> Repo.all()
+        |> Map.new(&{&1.id, &1})
+
+      Enum.map(task_ids, &{:ok, Map.fetch!(tasks_by_id, &1)})
+    end)
+  end
+
+  defp ensure_task_ids(names, run_id) do
+    sql = """
+    WITH requested AS (
+      SELECT name, MIN(position) AS position
+      FROM unnest($1::text[]) WITH ORDINALITY AS input(name, position)
+      GROUP BY name
+    ),
+    inserted AS (
+      INSERT INTO gust_tasks (
+        name,
+        status,
+        result,
+        error,
+        params,
+        attempt,
+        run_id,
+        map_index,
+        inserted_at,
+        updated_at
+      )
+      SELECT
+        requested.name,
+        'created',
+        '{}'::jsonb,
+        '{}'::jsonb,
+        '{}'::jsonb,
+        1,
+        $2,
+        NULL,
+        NOW(),
+        NOW()
+      FROM requested
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM gust_tasks task
+        WHERE task.run_id = $2
+          AND task.name = requested.name
+      )
+      ON CONFLICT (run_id, name) WHERE map_index IS NULL
+      DO NOTHING
+      RETURNING id, name, map_index
+    ),
+    updated AS (
+      UPDATE gust_tasks AS task
+      SET status = 'created',
+          updated_at = NOW()
+      FROM requested
+      WHERE task.run_id = $2
+        AND task.name = requested.name
+        AND task.status = 'running'
+      RETURNING task.id, task.name, task.map_index
+    ),
+    existing AS (
+      SELECT task.id, task.name, task.map_index
+      FROM gust_tasks AS task
+      JOIN requested ON requested.name = task.name
+      WHERE task.run_id = $2
+        AND task.status <> 'running'
+    ),
+    ensured AS (
+      SELECT inserted.id, requested.position, inserted.map_index
+      FROM inserted
+      JOIN requested ON requested.name = inserted.name
+
+      UNION ALL
+
+      SELECT updated.id, requested.position, updated.map_index
+      FROM updated
+      JOIN requested ON requested.name = updated.name
+
+      UNION ALL
+
+      SELECT existing.id, requested.position, existing.map_index
+      FROM existing
+      JOIN requested ON requested.name = existing.name
+    )
+    SELECT id
+    FROM ensured
+    ORDER BY position, map_index NULLS FIRST
+    """
+
+    sql
+    |> Repo.query!([names, run_id])
+    |> Map.fetch!(:rows)
+    |> List.flatten()
   end
 end

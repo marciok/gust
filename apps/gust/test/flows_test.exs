@@ -230,6 +230,26 @@ defmodule FlowsTest do
 
       assert ^log = Flows.get_log!(log.id)
     end
+
+    test "get_logs/2 returns task logs and optionally filters by level" do
+      dag = dag_fixture(%{name: "some_name"})
+      run = run_fixture(%{dag_id: dag.id})
+      task = task_fixture(%{run_id: run.id, name: "my_task"})
+      other_task = task_fixture(%{run_id: run.id, name: "other_task"})
+
+      info_log =
+        log_fixture(%{task_id: task.id, content: "info", level: "info", attempt: 1})
+
+      warn_log =
+        log_fixture(%{task_id: task.id, content: "warn", level: "warn", attempt: 1})
+
+      _other_log =
+        log_fixture(%{task_id: other_task.id, content: "other", level: "info", attempt: 1})
+
+      assert Enum.map(Flows.get_logs(task.id), & &1.id) == [info_log.id, warn_log.id]
+      assert Enum.map(Flows.get_logs(task.id, "warn"), & &1.id) == [warn_log.id]
+      assert Enum.map(Flows.get_logs(task.id, ""), & &1.id) == [info_log.id, warn_log.id]
+    end
   end
 
   describe "task" do
@@ -296,6 +316,80 @@ defmodule FlowsTest do
 
       assert Enum.map(debug_fetched.logs, & &1.id) |> MapSet.new() ==
                MapSet.new([log_b.id])
+    end
+
+    test "get_task_by_name/3 returns task by name, run, and map index" do
+      dag = dag_fixture(%{name: "some_name"})
+      run = run_fixture(%{dag_id: dag.id})
+
+      base_task = task_fixture(%{run_id: run.id, name: "mapped_task"})
+      mapped_task = task_fixture(%{run_id: run.id, name: "mapped_task", map_index: 1})
+      _other_task = task_fixture(%{run_id: run.id, name: "mapped_task", map_index: 2})
+
+      assert %Task{id: id} = Flows.get_task_by_name("mapped_task", run.id, nil)
+      assert id == base_task.id
+
+      assert %Task{id: id} = Flows.get_task_by_name("mapped_task", run.id, 1)
+      assert id == mapped_task.id
+
+      assert is_nil(Flows.get_task_by_name("mapped_task", run.id, 99))
+    end
+
+    test "reconcile_run_tasks/2 does not create duplicate task identities" do
+      dag = dag_fixture(%{name: "reconcile_run_tasks_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+
+      assert {:ok, [{:ok, %Task{id: task_id, name: "first"}}]} =
+               Flows.reconcile_run_tasks(["first", "first"], run.id)
+
+      assert {:ok, [{:ok, %Task{id: ^task_id, name: "first"}}]} =
+               Flows.reconcile_run_tasks(["first"], run.id)
+
+      assert [%Task{id: ^task_id}] =
+               Flows.get_tasks_by_name("first", run.id)
+    end
+
+    test "reconcile_run_tasks/2 preserves requested and mapped-instance order" do
+      dag = dag_fixture(%{name: "ordered_reconcile_run_tasks_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+
+      second =
+        task_fixture(%{run_id: run.id, name: "second", status: :running})
+
+      first_0 =
+        task_fixture(%{run_id: run.id, name: "first", map_index: 0})
+
+      first_1 =
+        task_fixture(%{run_id: run.id, name: "first", map_index: 1})
+
+      assert {:ok,
+              [
+                {:ok, %Task{id: second_id, status: :created}},
+                {:ok, %Task{id: first_0_id, map_index: 0}},
+                {:ok, %Task{id: first_1_id, map_index: 1}}
+              ]} = Flows.reconcile_run_tasks(["second", "first", "second"], run.id)
+
+      assert second_id == second.id
+      assert first_0_id == first_0.id
+      assert first_1_id == first_1.id
+    end
+
+    test "task identity constraints reject duplicate unmapped and mapped tasks" do
+      dag = dag_fixture(%{name: "unique_task_instances_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+
+      task_fixture(%{run_id: run.id, name: "unmapped"})
+      task_fixture(%{run_id: run.id, name: "mapped", map_index: 1})
+
+      assert {:error, unmapped_changeset} =
+               Flows.create_test_task(%{run_id: run.id, name: "unmapped"})
+
+      assert "has already been taken" in errors_on(unmapped_changeset).run_id
+
+      assert {:error, mapped_changeset} =
+               Flows.create_test_task(%{run_id: run.id, name: "mapped", map_index: 1})
+
+      assert "has already been taken" in errors_on(mapped_changeset).run_id
     end
   end
 

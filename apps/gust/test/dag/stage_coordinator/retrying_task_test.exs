@@ -24,9 +24,8 @@ defmodule DAG.StageCoordinator.RetryingTaskTest do
 
   describe "new/1" do
     test "fill struct with pending runs" do
-      pending_task_ids = [1, 2, 3]
-      coord = RetryingTask.new(pending_task_ids)
-      assert coord.running == MapSet.new(pending_task_ids)
+      coord = RetryingTask.new([1, 2, 3])
+      assert coord.running == MapSet.new([1, 2, 3])
     end
   end
 
@@ -130,6 +129,26 @@ defmodule DAG.StageCoordinator.RetryingTaskTest do
       Flows.update_task_status(upstream_task2, :upstream_failed)
 
       assert RetryingTask.process_task(task, tasks) == :upstream_failed
+    end
+
+    test "returns expand task when task has map_over option and upstream results", %{run: run} do
+      source_task = task_fixture(%{run_id: run.id, name: "say_by", status: :succeeded})
+      task = task_fixture(%{run_id: run.id, name: "insert_models"})
+      results = [%{"model" => "a"}, %{"model" => "b"}]
+
+      tasks = %{
+        task.name => %{
+          upstream: [source_task.name],
+          map_over: :say_by
+        }
+      }
+
+      Gust.DAGTaskExpanderMock
+      |> expect(:get_params, fn "say_by", run_id, nil when run_id == run.id ->
+        {:expand_task, results}
+      end)
+
+      assert RetryingTask.process_task(task, tasks) == {:expand_task, results}
     end
   end
 

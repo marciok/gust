@@ -314,7 +314,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
     task: %Gust.Flows.Task{name: t_name} = task
   } do
     GustWeb.DAGRunTriggerMock
-    |> expect(:reset_task, fn ^tasks, ^task ->
+    |> expect(:reset_task, fn ^tasks, ^task, nil ->
       []
     end)
 

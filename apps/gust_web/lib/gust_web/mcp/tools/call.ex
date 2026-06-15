@@ -80,11 +80,11 @@ defmodule GustWeb.MCP.Tools.Call do
   end
 
   def handle(%Tool{name: :get_logs_on_task}, %{"task_id" => task_id}) do
-    task = Flows.get_task_with_logs!(task_id)
+    logs = Flows.get_logs(task_id)
 
     {false,
      for %Flows.Log{id: id, level: lvl, inserted_at: inserted_at, content: content} <-
-           task.logs do
+           logs do
        content(
          "ID: #{id}; level: #{lvl}, inserted_at: #{inspect(inserted_at)}; Content: #{content}"
        )

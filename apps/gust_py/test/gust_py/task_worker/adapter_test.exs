@@ -71,6 +71,31 @@ defmodule GustPy.TaskWorker.AdapterTest do
       assert {:noreply, next_state} = Adapter.handle_info(:run, state)
       assert next_state.port == port
     end
+
+    test "passes persisted params for mapped tasks", %{state: state} do
+      params = %{"model" => "mapped"}
+      task = %{state.task | map_index: 1, params: params}
+      state = %{state | task: task}
+      port = :task_port
+
+      GustPy.DAGLoggerMock |> expect(:set_task, fn _task_name, _attempt -> nil end)
+
+      GustPy.ExecutorMock
+      |> expect(:start_task_via_port, fn dag_def,
+                                         task_name,
+                                         %{
+                                           run_id: run_id,
+                                           params: ^params
+                                         } ->
+        assert dag_def == state.dag_def
+        assert task_name == task.name
+        assert run_id == task.run_id
+        port
+      end)
+
+      assert {:noreply, next_state} = Adapter.handle_info(:run, state)
+      assert next_state.port == port
+    end
   end
 
   describe "handle_info/2 when port is given" do

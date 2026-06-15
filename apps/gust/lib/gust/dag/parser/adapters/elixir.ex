@@ -82,6 +82,7 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
             Graph.link_tasks(all_tasks)
             |> put_option(all_tasks, :store_result)
             |> put_option(all_tasks, :skip_if)
+            |> put_option(all_tasks, :map_over)
 
           stages = build_stages(mod)
 

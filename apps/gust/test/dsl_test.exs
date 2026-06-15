@@ -110,6 +110,45 @@ defmodule DSLTest do
     :code.delete(mod)
   end
 
+  test "task macro with map_over option and mapped context" do
+    dag_code = """
+      defmodule MyMappedDag do
+        use Gust.DSL
+
+        task :insert_models, map_over: :say_by, ctx: %{params: %{"model" => model}} do
+          model
+        end
+      end
+    """
+
+    [{mod, _bin}] = Code.compile_string(dag_code)
+
+    assert mod.__dag_tasks__() == [{:insert_models, [map_over: :say_by]}]
+    assert mod.insert_models(%{params: %{"model" => "gpt-5"}}) == "gpt-5"
+
+    :code.purge(mod)
+    :code.delete(mod)
+  end
+
+  test "task macro supports the default scalar map_over item context" do
+    dag_code = """
+      defmodule MyScalarMappedDag do
+        use Gust.DSL
+
+        task :say_bye, map_over: :names, ctx: %{params: %{"item" => item}} do
+          item
+        end
+      end
+    """
+
+    [{mod, _bin}] = Code.compile_string(dag_code)
+
+    assert mod.say_bye(%{params: %{"item" => "MARCIO"}}) == "MARCIO"
+
+    :code.purge(mod)
+    :code.delete(mod)
+  end
+
   test "task macro with downstream opts" do
     dag_code = """
       defmodule MyValidDagEmpty do

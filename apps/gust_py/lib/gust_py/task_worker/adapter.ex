@@ -18,7 +18,7 @@ defmodule GustPy.TaskWorker.Adapter do
 
   @impl true
   def handle_info(:run, %{task: task, dag_def: dag_def} = state) do
-    task_context = %{run_id: task.run_id}
+    task_context = task_context(task)
 
     DagLogger.set_task(task.id, task.attempt)
     port = Executor.start_task_via_port(dag_def, task.name, task_context)
@@ -36,6 +36,11 @@ defmodule GustPy.TaskWorker.Adapter do
     DagLogger.unset()
     {:stop, :normal, state}
   end
+
+  defp task_context(%{map_index: nil} = task), do: %{run_id: task.run_id}
+
+  defp task_context(task),
+    do: %{run_id: task.run_id, params: task.params}
 
   defp handle_port_data(state, data) do
     case GustPy.TaskMessenger.decode(data) do
