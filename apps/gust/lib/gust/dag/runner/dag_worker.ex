@@ -2,7 +2,8 @@ defmodule Gust.DAG.Runner.DAGWorker do
   @moduledoc false
   use GenServer
 
-  alias Gust.DAG.{Adapter, Definition, StageRunnerSupervisor}
+  alias Gust.DAG.{Adapter, Definition, StageRunnerSupervisor, TaskExpander}
+  alias Gust.DAG.StageCoordinator, as: Coord
   alias Gust.Flows
   alias Gust.PubSub
   alias Gust.Run.Claim
@@ -21,6 +22,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
     upstream_failed: :failed,
     skipped: :succeeded,
     error: :failed,
+    non_recoverable_error: :failed,
     cancelled: :failed
   }
 
@@ -68,6 +70,15 @@ defmodule Gust.DAG.Runner.DAGWorker do
     {:via, Registry, {Gust.Registry, name}}
   end
 
+  defp expand_task(task, run_id, params_list) do
+    params_list
+    |> TaskExpander.expand_over(task, run_id, fn task_name, index ->
+      {:ok, task} = reconcile_mapped_task(task_name, run_id, index)
+      task
+    end)
+    |> Enum.map(fn {status, {task, _params}} -> {status, task} end)
+  end
+
   @impl true
   def handle_continue(
         :init_stage,
@@ -84,27 +95,33 @@ defmodule Gust.DAG.Runner.DAGWorker do
   end
 
   defp start_stage(stage, run_id, dag_def) do
-    task_ids =
-      for name <- stage do
-        {:ok, task} = ensure_task(name, run_id)
-        task.id
+    {:ok, tasks} = Flows.reconcile_run_tasks(stage, run_id)
+
+    stage =
+      for {:ok, task} <- tasks do
+        status = Coord.process_task(task, dag_def.tasks)
+
+        case status do
+          {:expand_task, []} ->
+            {:skipped, task}
+
+          {:expand_task, params_list} ->
+            expand_task(task, run_id, params_list)
+
+          {:expand_task_error, error} ->
+            {{:non_recoverable_error, error}, task}
+
+          {:already_expanded, params} ->
+            {:ok, task} = Flows.update_task_mapping(task, task.map_index, params)
+            {:ok, task}
+
+          status ->
+            {status, task}
+        end
       end
+      |> List.flatten()
 
-    {:ok, _stage_pid} =
-      StageRunnerSupervisor.start_child(dag_def, task_ids, run_id)
-  end
-
-  defp ensure_task(name, run_id) do
-    case Flows.get_task_by_name_run(name, run_id) do
-      nil ->
-        Flows.create_task(%{run_id: run_id, name: name})
-
-      %Flows.Task{status: :running} = task ->
-        Flows.update_task_status(task, :created)
-
-      %Flows.Task{} = task ->
-        {:ok, task}
-    end
+    {:ok, _pid} = StageRunnerSupervisor.start_child(dag_def, stage, run_id)
   end
 
   @impl true
@@ -172,5 +189,18 @@ defmodule Gust.DAG.Runner.DAGWorker do
     timestamp = :os.system_time(:microsecond)
     random = :crypto.strong_rand_bytes(4) |> Base.encode16()
     "#{timestamp}-#{random}"
+  end
+
+  defp reconcile_mapped_task(name, run_id, map_index) do
+    case Flows.get_task_by_name(name, run_id, map_index) do
+      nil ->
+        Flows.create_task(%{run_id: run_id, name: name, map_index: map_index})
+
+      %Flows.Task{status: :running} = task ->
+        Flows.update_task_status(task, :created)
+
+      %Flows.Task{} = task ->
+        {:ok, task}
+    end
   end
 end

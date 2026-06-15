@@ -2,6 +2,7 @@ defmodule GustWeb.Dashboard.AssetsTest do
   use GustWeb.ConnCase
 
   alias GustWeb.Dashboard.Assets
+  import ExUnit.CaptureIO
 
   describe "init/1" do
     test "accepts :css" do
@@ -37,6 +38,38 @@ defmodule GustWeb.Dashboard.AssetsTest do
 
       assert conn.private[:plug_skip_csrf_protection] == true
     end
+
+    test "warns and serves empty content when css asset is missing", %{conn: conn} do
+      path = Application.app_dir(:gust_web, ["priv", "static", "assets", "css", "app.css"])
+      backup_path = path <> ".bak"
+
+      File.rm(backup_path)
+
+      moved? =
+        if File.exists?(path) do
+          File.rename!(path, backup_path)
+          true
+        else
+          false
+        end
+
+      on_exit(fn ->
+        if moved? && File.exists?(backup_path) do
+          File.rename!(backup_path, path)
+        end
+      end)
+
+      warning =
+        capture_io(:stderr, fn ->
+          conn = Assets.call(conn, :css)
+          send(self(), {:asset_conn, conn})
+        end)
+
+      assert_receive {:asset_conn, conn}
+      assert conn.status == 200
+      assert conn.resp_body == ""
+      assert warning =~ "CSS asset not found at #{path}, run mix assets.build"
+    end
   end
 
   describe "current_hash/1" do
@@ -45,6 +78,9 @@ defmodule GustWeb.Dashboard.AssetsTest do
 
       assert is_binary(hash)
       assert String.match?(hash, ~r/^[0-9a-f]{32}$/)
+
+      conn = Assets.call(build_conn(), :css)
+      assert Base.encode16(:crypto.hash(:md5, conn.resp_body), case: :lower) == hash
     end
 
     test "returns md5 hex for js" do
@@ -52,6 +88,9 @@ defmodule GustWeb.Dashboard.AssetsTest do
 
       assert is_binary(hash)
       assert String.match?(hash, ~r/^[0-9a-f]{32}$/)
+
+      conn = Assets.call(build_conn(), :js)
+      assert Base.encode16(:crypto.hash(:md5, conn.resp_body), case: :lower) == hash
     end
   end
 

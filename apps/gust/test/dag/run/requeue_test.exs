@@ -1,12 +1,14 @@
 defmodule DAG.Run.RequeueTest do
-  alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.PubSub
   use Gust.DataCase, async: true
 
   import Gust.FlowsFixtures
+  import Mox
 
   alias Gust.DAG.Run.Trigger.Requeue, as: Trigger
+
+  setup :verify_on_exit!
 
   setup do
     dag = dag_fixture(%{name: "restart_me"})
@@ -62,6 +64,93 @@ defmodule DAG.Run.RequeueTest do
       assert %Flows.Run{status: :enqueued} = Flows.get_run!(run_id)
 
       assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued}}
+    end
+
+    test "collapses mapped task instances and resets the head task", %{run_id: run_id, run: run} do
+      PubSub.subscribe_run(run_id)
+
+      task =
+        task_fixture(%{run_id: run.id, name: "mapped", status: :failed, map_index: 0})
+
+      expanded_task =
+        task_fixture(%{run_id: run.id, name: "mapped", status: :failed, map_index: 1})
+
+      graph = %{
+        "mapped" => %{downstream: MapSet.new([]), upstream: MapSet.new([])}
+      }
+
+      Gust.DAGTaskExpanderMock
+      |> expect(:collapse_each, fn [^task, ^expanded_task] ->
+        task
+      end)
+
+      assert [%Flows.Task{id: restarted_task_id, status: :created}] =
+               Trigger.reset_task(graph, task)
+
+      assert restarted_task_id == task.id
+      assert %Flows.Task{status: :created} = Flows.get_task!(task.id)
+      assert %Flows.Run{status: :enqueued} = Flows.get_run!(run_id)
+
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued}}
+    end
+
+    test "resets a selected mapped task instance", %{run_id: run_id, run: run} do
+      PubSub.subscribe_run(run_id)
+
+      task =
+        task_fixture(%{run_id: run.id, name: "mapped", status: :failed, map_index: 0})
+
+      mapped_task =
+        task_fixture(%{run_id: run.id, name: "mapped", status: :succeeded, map_index: 1})
+
+      graph = %{
+        "mapped" => %{downstream: MapSet.new([]), upstream: MapSet.new([])}
+      }
+
+      assert [%Flows.Task{id: restarted_task_id, status: :created, map_index: 1}] =
+               Trigger.reset_task(graph, mapped_task, 1)
+
+      assert restarted_task_id == mapped_task.id
+      assert Flows.get_task!(task.id).status == :failed
+      assert Flows.get_task!(mapped_task.id).status == :created
+      assert %Flows.Run{status: :enqueued} = Flows.get_run!(run_id)
+
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued}}
+    end
+
+    test "resets a selected mapped task and a normal downstream task", %{
+      run_id: run_id,
+      run: run
+    } do
+      first_mapped_task =
+        task_fixture(%{run_id: run.id, name: "mapped", status: :failed, map_index: 0})
+
+      selected_mapped_task =
+        task_fixture(%{run_id: run.id, name: "mapped", status: :succeeded, map_index: 1})
+
+      downstream_task =
+        task_fixture(%{run_id: run.id, name: "normal", status: :succeeded})
+
+      graph = %{
+        "mapped" => %{
+          downstream: MapSet.new(["normal"]),
+          upstream: MapSet.new([])
+        },
+        "normal" => %{
+          downstream: MapSet.new([]),
+          upstream: MapSet.new(["mapped"])
+        }
+      }
+
+      restarted_tasks = Trigger.reset_task(graph, selected_mapped_task, 1)
+
+      assert MapSet.new(Enum.map(restarted_tasks, & &1.id)) ==
+               MapSet.new([selected_mapped_task.id, downstream_task.id])
+
+      assert Flows.get_task!(first_mapped_task.id).status == :failed
+      assert Flows.get_task!(selected_mapped_task.id).status == :created
+      assert Flows.get_task!(downstream_task.id).status == :created
+      assert %Flows.Run{status: :enqueued} = Flows.get_run!(run_id)
     end
   end
 

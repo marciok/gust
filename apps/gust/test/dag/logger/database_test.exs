@@ -30,7 +30,7 @@ defmodule DAG.Logger.DatabaseTest do
 
       refute log =~ ":gen_event handler Gust.DAG.Logger.Database installed in Logger terminating"
 
-      assert Flows.get_task_with_logs!(task_id).logs == []
+      assert Flows.get_logs(task_id) == []
     end
 
     test "log for nil messages", %{task: task} do
@@ -45,7 +45,7 @@ defmodule DAG.Logger.DatabaseTest do
           Process.sleep(20)
         end)
 
-      [task_log] = Flows.get_task_with_logs!(task_id).logs
+      [task_log] = Flows.get_logs(task_id)
       assert task_log.content == "nil or empty was logged!"
       assert task_log.level == "error"
     end
@@ -62,7 +62,7 @@ defmodule DAG.Logger.DatabaseTest do
           Process.sleep(20)
         end)
 
-      [task_log] = Flows.get_task_with_logs!(task_id).logs
+      [task_log] = Flows.get_logs(task_id)
       assert task_log.content == "hello; world"
     end
 
@@ -79,7 +79,7 @@ defmodule DAG.Logger.DatabaseTest do
           Process.sleep(20)
         end)
 
-      [task_log] = Flows.get_task_with_logs!(task_id).logs
+      [task_log] = Flows.get_logs(task_id)
       assert task_log.content == "[{\"hello\", \"world\"}]"
     end
 
@@ -98,8 +98,7 @@ defmodule DAG.Logger.DatabaseTest do
       Database.unset()
 
       assert [%Flows.Log{level: "warn", content: ^log_content, attempt: ^task_attempt}] =
-               logs =
-               Flows.get_task_with_logs!(task_id).logs
+               logs = Flows.get_logs(task_id)
 
       log_id = List.first(logs).id
       assert_receive {:task, :log, %{task_id: ^task_id, log_id: ^log_id}}

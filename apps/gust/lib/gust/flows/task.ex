@@ -22,7 +22,9 @@ defmodule Gust.Flows.Task do
 
     field :result, :map, default: %{}
     field :error, :map, default: %{}
+    field :params, :map, default: %{}
     field :attempt, :integer, default: 1
+    field :map_index, :integer
     belongs_to :run, Gust.Flows.Run
     has_many :logs, Gust.Flows.Log
 
@@ -43,7 +45,9 @@ defmodule Gust.Flows.Task do
             | :enqueued,
           result: map(),
           error: map(),
+          params: map(),
           attempt: integer(),
+          map_index: integer() | nil,
           run_id: integer() | nil,
           run: Gust.Flows.Run.t() | Ecto.Association.NotLoaded.t(),
           logs: [Gust.Flows.Log.t()] | Ecto.Association.NotLoaded.t(),
@@ -54,14 +58,37 @@ defmodule Gust.Flows.Task do
   @doc false
   def changeset(task, attrs) do
     task
-    |> cast(attrs, [:name, :status, :run_id, :result, :attempt, :error])
-    |> validate_required([:name, :status, :run_id, :result, :error])
+    |> cast(attrs, [:name, :status, :run_id, :result, :attempt, :error, :params, :map_index])
+    |> validate_required([:name, :status, :run_id, :result, :error, :params])
+    |> task_identity_constraints()
   end
 
   @doc false
   def test_changeset(run, attrs) do
     run
-    |> cast(attrs, [:inserted_at, :updated_at, :name, :status, :run_id, :result, :attempt, :error])
-    |> validate_required([:name, :status, :run_id, :result, :error])
+    |> cast(attrs, [
+      :inserted_at,
+      :updated_at,
+      :name,
+      :status,
+      :run_id,
+      :result,
+      :attempt,
+      :error,
+      :params,
+      :map_index
+    ])
+    |> validate_required([:name, :status, :run_id, :result, :error, :params])
+    |> task_identity_constraints()
+  end
+
+  defp task_identity_constraints(changeset) do
+    changeset
+    |> unique_constraint([:run_id, :name],
+      name: :gust_tasks_run_id_name_unmapped_index
+    )
+    |> unique_constraint([:run_id, :name, :map_index],
+      name: :gust_tasks_run_id_name_map_index_mapped_index
+    )
   end
 end

@@ -58,7 +58,7 @@ defmodule Gust.DSL do
     * `on_finished_callback` - The name of the function to be called.
   """
 
-  @task_opts [:downstream, :store_result, :ctx, :skip_if]
+  @task_opts [:downstream, :store_result, :ctx, :skip_if, :map_over]
 
   defmacro __using__(dag_options) do
     quote do
@@ -98,6 +98,10 @@ defmodule Gust.DSL do
       and returns a boolean. When it returns `true`, the task body is not executed and the
       task is marked as `:skipped`. If an upstream task is skipped, dependent tasks are also
       skipped.
+    * `:map_over` — The name of an upstream task whose saved list result will be used to
+      start one parallel task instance per item. Gust persists the list under the
+      `gust_task_items` key, and each item is passed as `ctx.params`. Map items are passed
+      unchanged. Other values are wrapped as `%{"item" => value}`.
 
   ## Example
 
@@ -111,6 +115,10 @@ defmodule Gust.DSL do
 
       task :persist_result, save: true do
         %{result: :ok}
+      end
+
+      task :process_item, map_over: :persist_items, ctx: %{params: %{"item" => item}} do
+        IO.inspect(item)
       end
 
       def skip_export?(%{run_id: run_id}) do

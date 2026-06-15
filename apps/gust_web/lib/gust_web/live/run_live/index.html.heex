@@ -20,16 +20,29 @@
           <span>Runs for {@dag.name}: </span>
           <span>{@runs_count}</span>
         </h2>
-        <.form for={%{}} id="page-select" phx-change="select_page" class="">
-          <.input
-            id="pages"
-            value={@page}
-            name="page"
-            type="select"
-            options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
-            class="select select-bordered select-sm w-28"
-          />
-        </.form>
+        <div class="dag-card__actions">
+          <.form for={%{}} id="status-filter" phx-change="filter_status">
+            <.input
+              id="run-status-filter"
+              value={@selected_status}
+              name="status"
+              type="select"
+              options={@run_status_options}
+              class="select select-bordered select-sm w-36"
+            />
+          </.form>
+
+          <.form for={%{}} id="page-select" phx-change="select_page">
+            <.input
+              id="pages"
+              value={@page}
+              name="page"
+              type="select"
+              options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
+              class="select select-bordered select-sm w-28"
+            />
+          </.form>
+        </div>
       </div>
     </section>
 

@@ -21,8 +21,7 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
   test "only dag is provided", %{conn: conn, dag_def: dag_def} do
     {:ok, breadcrumbs, _html} =
       live_component_isolated(conn, GustWeb.BreadcrumbsComponent, %{
-        run: nil,
-        task: nil,
+        selected_item: nil,
         dag_def: dag_def
       })
 
@@ -31,8 +30,7 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
 
     {:ok, breadcrumbs, _html} =
       live_component_isolated(conn, GustWeb.BreadcrumbsComponent, %{
-        run: nil,
-        task: nil,
+        selected_item: nil,
         dag_def: dag_def
       })
 
@@ -45,8 +43,7 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
 
     {:ok, breadcrumbs, _html} =
       live_component_isolated(conn, GustWeb.BreadcrumbsComponent, %{
-        run: run,
-        task: nil,
+        selected_item: run,
         dag_def: dag_def
       })
 
@@ -60,8 +57,7 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
 
     {:ok, breadcrumbs, _html} =
       live_component_isolated(conn, GustWeb.BreadcrumbsComponent, %{
-        run: run,
-        task: task,
+        selected_item: task,
         dag_def: dag_def
       })
 
@@ -69,5 +65,21 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
 
     assert_redirect breadcrumbs,
                     "/dags/#{dag_def.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}"
+  end
+
+  test "dag, run, task, and task index is provided", %{conn: conn, dag: dag, dag_def: dag_def} do
+    run = run_fixture(%{dag_id: dag.id})
+    task = task_fixture(%{run_id: run.id, name: "hello_breadcrumb", map_index: 2})
+
+    {:ok, breadcrumbs, _html} =
+      live_component_isolated(conn, GustWeb.BreadcrumbsComponent, %{
+        selected_item: task,
+        dag_def: dag_def
+      })
+
+    assert breadcrumbs |> element("#dag-run-task-index-link") |> render_click()
+
+    assert_redirect breadcrumbs,
+                    "/dags/#{dag_def.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}&task_index=2"
   end
 end

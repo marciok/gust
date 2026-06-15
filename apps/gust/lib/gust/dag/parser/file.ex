@@ -2,17 +2,17 @@ defmodule Gust.DAG.Parser.File do
   @moduledoc false
 
   @behaviour Gust.DAG.Parser
-  alias Gust.DAG.Adapter
+  alias Gust.DAG.{Adapter, Folder}
 
   @impl true
   def parse_folder(folder) do
     Enum.map(Adapter.parser_modules(), fn adapter ->
       ext = adapter.extension()
 
-      list_files(folder, ext)
-      |> Enum.map(&"#{Path.absname(folder)}/#{&1}")
+      Folder.list_files(folder, ext)
+      |> Enum.map(&Folder.absolute_path(folder, &1))
       |> Enum.map(fn path ->
-        name = Path.basename(path, adapter.extension())
+        name = Folder.dag_name(path)
         {name, parse(adapter, path)}
       end)
     end)
@@ -26,16 +26,5 @@ defmodule Gust.DAG.Parser.File do
     else
       {:error, :enoent}
     end
-  end
-
-  defp list_files(folder, ext) do
-    folder
-    |> File.ls!()
-    |> Enum.filter(&maybe_dag_file(&1, ext))
-    |> Enum.sort()
-  end
-
-  def maybe_dag_file(path, ext) do
-    if Path.extname(path) == ext, do: path, else: nil
   end
 end

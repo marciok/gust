@@ -41,11 +41,11 @@ defmodule Gust.PubSub do
     )
   end
 
-  def broadcast_run_status(run_id, status) do
+  def broadcast_run_status(run_id, status, task_id \\ nil) do
     Phoenix.PubSub.broadcast(
       __MODULE__,
       "#{@topic_run}:#{run_id}",
-      {:dag, @event_run_status, %{run_id: run_id, status: status}}
+      {:dag, @event_run_status, %{run_id: run_id, status: status, task_id: task_id}}
     )
   end
 

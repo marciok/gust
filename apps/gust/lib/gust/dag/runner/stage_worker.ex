@@ -9,10 +9,16 @@ defmodule Gust.DAG.Runner.StageWorker do
 
   @impl true
   def init(init_arg) do
-    coord = Coord.new(init_arg[:stage])
+    coord =
+      Coord.new(
+        for {_status, task} <- init_arg[:stage] do
+          task.id
+        end
+      )
+
     args = Map.put(init_arg, :coord, coord)
 
-    {:ok, args, {:continue, :init_run}}
+    {:ok, args, {:continue, :process_task}}
   end
 
   def start_link(args) do
@@ -33,22 +39,20 @@ defmodule Gust.DAG.Runner.StageWorker do
   end
 
   @impl true
-  def handle_continue(:init_run, %{stage: task_ids, dag_def: dag_def} = state) do
-    Enum.each(task_ids, fn task_id ->
-      task = Flows.get_task!(task_id)
-
-      case Coord.process_task(task, dag_def.tasks) do
+  def handle_continue(
+        :process_task,
+        %{stage: stage, dag_def: dag_def} = state
+      ) do
+    Enum.each(stage, fn {status, task} ->
+      case status do
         :ok ->
           start_task(task, dag_def)
 
-        :already_processed ->
-          send(self(), {:task_result, nil, task_id, :already_processed})
+        status when status in [:already_processed, :skipped, :upstream_failed] ->
+          send(self(), {:task_result, nil, task.id, status})
 
-        :upstream_failed ->
-          send(self(), {:task_result, nil, task_id, :upstream_failed})
-
-        :skipped ->
-          send(self(), {:task_result, nil, task_id, :skipped})
+        {:non_recoverable_error, error} ->
+          send(self(), {:task_result, error, task.id, :non_recoverable_error})
       end
     end)
 
@@ -103,7 +107,7 @@ defmodule Gust.DAG.Runner.StageWorker do
         %{stage: _stage, dag_def: dag_def, coord: coord} = state
       ) do
     start_task(task, dag_def)
-    Coord.put_running(coord, task.id)
+    coord = Coord.put_running(coord, task.id)
 
     {:noreply, %{state | coord: coord}}
   end
@@ -116,7 +120,7 @@ defmodule Gust.DAG.Runner.StageWorker do
   defp apply_task_result(dag_def, task_id, status, result) do
     task = Flows.get_task!(task_id)
 
-    if status == :error do
+    if status in [:error, :non_recoverable_error] do
       update_error(task, result)
     else
       maybe_update_result(task, dag_def.tasks, status, result)
@@ -151,6 +155,9 @@ defmodule Gust.DAG.Runner.StageWorker do
       :error ->
         update_status(task, :failed)
 
+      :non_recoverable_error ->
+        update_status(task, :failed)
+
       :upstream_failed ->
         update_status(task, :upstream_failed)
 
@@ -169,7 +176,10 @@ defmodule Gust.DAG.Runner.StageWorker do
   defp update_result?(_tasks, _name, _status), do: false
 
   defp start_task(task, dag_def) do
-    task_opts = dag_def.tasks[task.name]
+    task_opts =
+      dag_def.tasks
+      |> Map.fetch!(task.name)
+
     {:ok, _pid} = TaskRunnerSupervisor.start_child(task, dag_def, self(), task_opts)
     update_status(task, :running)
   end
@@ -178,7 +188,7 @@ defmodule Gust.DAG.Runner.StageWorker do
     Flows.update_task_status(task, status) |> broadcast()
   end
 
-  defp broadcast({:ok, %Flows.Task{run_id: id, status: status}}) do
-    PubSub.broadcast_run_status(id, status)
+  defp broadcast({:ok, %Flows.Task{run_id: id, status: status, name: _name, id: task_id}}) do
+    PubSub.broadcast_run_status(id, status, task_id)
   end
 end

@@ -3,6 +3,7 @@ defmodule Gust.FileMonitor.Worker do
 
   use GenServer
   alias Gust.DAG.Adapter
+  alias Gust.DAG.Folder
   alias Gust.DAG.Parser
   alias Gust.FileMonitor
 
@@ -41,8 +42,8 @@ defmodule Gust.FileMonitor.Worker do
   defp delay, do: Application.get_env(:gust, :file_reload_delay)
 
   defp broadcast_path(path, loader, adapter) do
-    action = if File.exists?(path), do: "reload", else: "removed"
-    dag_name = path |> Path.basename() |> Path.rootname()
+    action = Folder.action(path)
+    dag_name = Folder.dag_name(path)
 
     send(loader, {dag_name, Parser.parse(adapter, path), action})
   end

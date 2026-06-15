@@ -69,6 +69,29 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       assert_worker_result(ref, task.id, %{run_id: task.run_id}, :ok)
     end
 
+    test "runs mapped task with params in context", %{task: task} do
+      params = %{"model" => "gpt-5"}
+      mapped_task = %{task | map_index: 1, params: params}
+
+      dag_content = """
+      defmodule MappedTaskDag do
+        def hi(%{params: %{"model" => model}}) do
+          %{model: model}
+        end
+      end
+      """
+
+      mod = compile_dag!(dag_content)
+
+      ref =
+        start_worker_and_monitor!(mapped_task, mod, %{
+          store_result: true,
+          skip_if: nil
+        })
+
+      assert_worker_result(ref, task.id, %{model: "gpt-5"}, :ok)
+    end
+
     test "run succeed", %{task: task} do
       result = "i_am_done"
 
@@ -88,6 +111,28 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       ref = start_worker_and_monitor!(task, mod, %{store_result: true})
 
       assert_worker_result(ref, task.id, %{res: result}, :ok)
+    end
+
+    test "wraps a list result when storing the result", %{task: task} do
+      dag_content = """
+        defmodule ListResultTaskDag do
+          use Gust.DSL
+
+          task :#{task.name}, store_result: true do
+            [%{id: 1}, %{id: 2}]
+          end
+        end
+      """
+
+      mod = compile_dag!(dag_content)
+      ref = start_worker_and_monitor!(task, mod, %{store_result: true})
+
+      assert_worker_result(
+        ref,
+        task.id,
+        %{gust_task_items: [%{id: 1}, %{id: 2}]},
+        :ok
+      )
     end
 
     test "run fails", %{task: task} do

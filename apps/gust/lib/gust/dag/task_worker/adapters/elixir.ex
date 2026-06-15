@@ -23,8 +23,8 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
         :run,
         %{task: task, dag_def: dag_def, stage_pid: stage_pid, opts: opts} = state
       ) do
-    fn_name = String.to_atom(task.name)
-    args = [%{run_id: task.run_id}]
+    fn_name = String.to_existing_atom(task.name)
+    args = [task_context(task)]
 
     Logger.set_task(task.id, task.attempt)
 
@@ -61,7 +61,15 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
   def maybe_validate_result(false, result), do: {:ok, result}
   def maybe_validate_result(true, result) when is_map(result), do: {:ok, result}
 
+  def maybe_validate_result(true, result) when is_list(result),
+    do: {:ok, %{gust_task_items: result}}
+
   def maybe_validate_result(true, result) do
     raise("Task returned #{inspect(result)} but store_result requires a map")
   end
+
+  defp task_context(%{map_index: nil} = task), do: %{run_id: task.run_id}
+
+  defp task_context(task),
+    do: %{run_id: task.run_id, params: task.params}
 end

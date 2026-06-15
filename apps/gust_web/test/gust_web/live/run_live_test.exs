@@ -67,6 +67,86 @@ defmodule GustWeb.RunLiveTest do
       assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=3&page=1"
     end
 
+    test "filters runs by status", %{conn: conn, dag: dag, run: created_run} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+      succeeded_run = run_fixture(%{dag_id: dag.id, status: :succeeded})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      index_live
+      |> element("#status-filter")
+      |> render_change(%{"_target" => "status", "status" => "failed"})
+
+      assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed"
+      assert index_live |> has_element?("#run-status-filter option[value='failed']:checked")
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
+      refute index_live |> has_element?("#runs-#{created_run.id}")
+      refute index_live |> has_element?("#runs-#{succeeded_run.id}")
+    end
+
+    test "clears status filter", %{conn: conn, dag: dag, run: created_run} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed")
+
+      index_live
+      |> element("#status-filter")
+      |> render_change(%{"_target" => "status", "status" => ""})
+
+      assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=30&page=1"
+      assert index_live |> has_element?("#runs-#{created_run.id}")
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
+    end
+
+    test "treats empty status params as all statuses", %{conn: conn, dag: dag, run: created_run} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=")
+
+      assert index_live |> has_element?("#run-status-filter option[value='']:checked")
+      assert index_live |> has_element?("#runs-#{created_run.id}")
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
+    end
+
+    test "treats unknown status params as all statuses", %{conn: conn, dag: dag, run: created_run} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=not_a_status")
+
+      assert index_live |> has_element?("#run-status-filter option[value='']:checked")
+      assert index_live |> has_element?("#runs-#{created_run.id}")
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
+    end
+
+    test "keeps status filter when selecting page", %{conn: conn, dag: dag, run: _first_run} do
+      page_size = 1
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      older_failed_run =
+        run_fixture(%{dag_id: dag.id, status: :failed, inserted_at: DateTime.add(now, -60)})
+
+      newer_failed_run =
+        run_fixture(%{dag_id: dag.id, status: :failed, inserted_at: DateTime.add(now, 60)})
+
+      _created_run = run_fixture(%{dag_id: dag.id, status: :created})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=#{page_size}&page=1&status=failed")
+
+      assert index_live |> has_element?("#runs-#{newer_failed_run.id}")
+      refute index_live |> has_element?("#runs-#{older_failed_run.id}")
+
+      index_live
+      |> element("#page-select")
+      |> render_change(%{"_target" => "page", "page" => "2"})
+
+      assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=1&page=2&status=failed"
+    end
+
     test "deletes run in listing", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
@@ -85,6 +165,17 @@ defmodule GustWeb.RunLiveTest do
       assert index_live |> has_element?("#runs-#{new_run.id}")
     end
 
+    test "does not insert newly started runs outside the selected status", %{conn: conn, dag: dag} do
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed")
+
+      new_run = run_fixture(%{dag_id: dag.id, status: :created})
+
+      Gust.PubSub.broadcast_run_started(dag.id, new_run.id)
+
+      refute index_live |> has_element?("#runs-#{new_run.id}")
+    end
+
     test "run is updated", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
@@ -97,6 +188,31 @@ defmodule GustWeb.RunLiveTest do
         index_live |> element("#runs-#{run.id} [data-testid='status-badge']") |> render()
 
       assert badge_html =~ "succeeded"
+    end
+
+    test "updates runs that still match the selected status", %{conn: conn, dag: dag} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed")
+
+      Gust.PubSub.broadcast_run_status(failed_run.id, :failed)
+
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
+    end
+
+    test "removes updated runs that no longer match the selected status", %{conn: conn, dag: dag} do
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed")
+
+      assert index_live |> has_element?("#runs-#{failed_run.id}")
+
+      Flows.update_run_status(failed_run, :succeeded)
+      Gust.PubSub.broadcast_run_status(failed_run.id, :succeeded)
+
+      refute index_live |> has_element?("#runs-#{failed_run.id}")
     end
   end
 end

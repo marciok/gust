@@ -18,11 +18,11 @@ defmodule DAG.StageRunnerSupervisor.DynamicSupervisorTest do
     on_exit(fn -> Application.put_env(:gust, :dag_stage_runner, old) end)
 
     start_supervised!(StageRunnerSupervisor)
-    task_id = "123"
     run_id = "321"
+    task = %Gust.Flows.Task{id: 123}
 
     {:ok, runner_pid} =
-      StageRunnerSupervisor.start_child(dag_def, [task_id], run_id)
+      StageRunnerSupervisor.start_child(dag_def, [{:ok, task}], run_id)
 
     assert Process.alive?(runner_pid)
 

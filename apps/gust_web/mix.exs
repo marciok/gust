@@ -1,7 +1,7 @@
 defmodule GustWeb.MixProject do
   use Mix.Project
 
-  @version "0.1.32"
+  @version "0.1.33"
 
   def project do
     [
@@ -58,7 +58,7 @@ defmodule GustWeb.MixProject do
       {:phoenix_ecto, "~> 4.5"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "~> 1.1.0"},
+      {:phoenix_live_view, ">= 1.1.0 and < 1.3.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
@@ -108,7 +108,11 @@ defmodule GustWeb.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.setup": [
+        "tailwind.install --if-missing",
+        "esbuild.install --if-missing",
+        "cmd --cd assets npm ci"
+      ],
       "assets.build": ["tailwind gust_web", "esbuild gust_web"],
       "assets.deploy": [
         "tailwind gust_web --minify",

@@ -14,7 +14,7 @@ defmodule Gust.DAG.Run.Trigger do
   @type graph :: term()
 
   @callback reset_run(run()) :: term()
-  @callback reset_task(graph(), task()) :: term()
+  @callback reset_task(graph(), task(), integer() | nil) :: term()
   @callback dispatch_run(run()) :: term()
   @callback dispatch_all_runs(term()) :: [term()]
 
@@ -22,8 +22,8 @@ defmodule Gust.DAG.Run.Trigger do
   @spec reset_run(run()) :: term()
   def reset_run(run), do: impl().reset_run(run)
 
-  @spec reset_task(graph(), task()) :: term()
-  def reset_task(graph, task), do: impl().reset_task(graph, task)
+  @spec reset_task(graph(), task(), term()) :: term()
+  def reset_task(graph, task, map_index \\ nil), do: impl().reset_task(graph, task, map_index)
 
   @spec dispatch_run(run()) :: term()
   def dispatch_run(run), do: impl().dispatch_run(run)
