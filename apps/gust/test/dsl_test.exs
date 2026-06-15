@@ -124,7 +124,7 @@ defmodule DSLTest do
     [{mod, _bin}] = Code.compile_string(dag_code)
 
     assert mod.__dag_tasks__() == [{:insert_models, [map_over: :say_by]}]
-    assert apply(mod, :insert_models, [%{params: %{"model" => "gpt-5"}}]) == "gpt-5"
+    assert mod.insert_models(%{params: %{"model" => "gpt-5"}}) == "gpt-5"
 
     :code.purge(mod)
     :code.delete(mod)
@@ -143,7 +143,7 @@ defmodule DSLTest do
 
     [{mod, _bin}] = Code.compile_string(dag_code)
 
-    assert apply(mod, :say_bye, [%{params: %{"item" => "MARCIO"}}]) == "MARCIO"
+    assert mod.say_bye(%{params: %{"item" => "MARCIO"}}) == "MARCIO"
 
     :code.purge(mod)
     :code.delete(mod)
