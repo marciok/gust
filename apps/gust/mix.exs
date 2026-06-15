@@ -57,7 +57,6 @@ defmodule Gust.MixProject do
       {:ecto_sql, "~> 3.13"},
       {:postgrex, ">= 0.0.0"},
       {:jason, "~> 1.2"},
-      {:swoosh, "~> 1.16"},
       {:req, "~> 0.5"},
       {:quantum, "~> 3.0"},
       {:cloak_ecto, "~> 1.2.0"},

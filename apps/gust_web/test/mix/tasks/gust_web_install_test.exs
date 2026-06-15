@@ -172,7 +172,6 @@ defmodule Mix.Tasks.GustWebInstallTest do
 
     assert mix_diff =~ ~s(+ |      {:gust_web, "#{gust_web_version}"})
     assert mix_diff =~ ~s(+ |      {:file_system, "~> 1.1", only: :dev})
-    assert mix_diff =~ ~s(+ |      {:hackney, "~> 1.9"})
   end
 
   test "adds import and scope to router", %{igniter: igniter} do
