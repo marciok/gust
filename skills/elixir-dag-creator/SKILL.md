@@ -64,6 +64,7 @@ end
 - `:save` — persists the task return value; when enabled, the return value must be a map
 - `:ctx` — pattern matched against the task context; commonly `%{run_id: run_id}`
 - `:skip_if` — name of a DAG module function that receives the task context and returns a boolean. If it returns `true`, Gust does not run the task body and marks the task as skipped. Downstream tasks that depend on a skipped upstream are skipped too.
+- `:map_over` — name of an upstream task whose saved list result should start one parallel task instance per item. The upstream task must use `save: true` and return a list. Each item is passed as `ctx.params`; map items are passed unchanged and scalar items are wrapped as `%{"item" => value}`. If the upstream list is empty, the mapped task is skipped.
 
 ### Examples
 
@@ -91,6 +92,16 @@ end
 
 task :export, skip_if: :skip_export? do
   :ok
+end
+
+task :list_names, downstream: [:greet], save: true do
+  ["Ada", "Grace"]
+end
+
+task :greet,
+     map_over: :list_names,
+     ctx: %{params: %{"item" => name}} do
+  IO.puts("Hello #{name}")
 end
 ```
 
