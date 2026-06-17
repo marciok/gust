@@ -8,6 +8,8 @@ defmodule Gust.DAG.TaskWorker do
 
       @impl true
       def init(init_arg) do
+        Process.flag(:trap_exit, true)
+
         {:ok, init_arg, {:continue, :init_run}}
       end
 
@@ -37,8 +39,23 @@ defmodule Gust.DAG.TaskWorker do
         {:noreply, state}
       end
 
+      @impl true
+      def handle_info(
+            {:EXIT, _pid, reason},
+            %{task: task, stage_pid: stage_pid} = state
+          )
+          when reason not in [:normal, :shutdown] do
+        send(stage_pid, {:task_result, exit_error(reason), task.id, :error})
+
+        {:stop, :normal, state}
+      end
+
       defp via_tuple(name) do
         {:via, Registry, {Gust.Registry, name}}
+      end
+
+      defp exit_error(reason) do
+        %RuntimeError{message: "Linked process exited: #{inspect(reason)}"}
       end
     end
   end
