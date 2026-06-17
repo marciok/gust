@@ -53,10 +53,9 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
   end
 
   defp try_run(mod, fn_name, args, store_result) do
-    case apply_and_validate(mod, fn_name, args, store_result) do
-      {:ok, result} -> maybe_linked_exit_error({:ok, result})
-      result -> result
-    end
+    mod
+    |> apply_and_validate(fn_name, args, store_result)
+    |> maybe_linked_exit_error()
   rescue
     e -> {:error, e}
   end
