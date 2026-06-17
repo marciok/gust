@@ -62,7 +62,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
 
   defp maybe_linked_exit_error(result) do
     receive do
-      {:EXIT, _pid, reason} when reason not in [:normal, :shutdown] ->
+      {:EXIT, _pid, reason} when not normal_exit?(reason) ->
         {:error, exit_error(reason)}
     after
       0 ->

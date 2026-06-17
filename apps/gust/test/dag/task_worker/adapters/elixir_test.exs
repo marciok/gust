@@ -198,6 +198,25 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       assert_worker_result(ref, task.id, result, :error)
     end
 
+    test "run ignores linked process shutdown exits", %{task: task} do
+      dag_content = """
+        defmodule LinkedProcessShutdownTaskDag do
+          use Gust.DSL
+
+          task :#{task.name} do
+            spawn_link(fn -> exit({:shutdown, :finished}) end)
+            Process.sleep(20)
+            %{ok: true}
+          end
+        end
+      """
+
+      mod = compile_dag!(dag_content)
+      ref = start_worker_and_monitor!(task, mod, %{store_result: true})
+
+      assert_worker_result(ref, task.id, %{ok: true}, :ok)
+    end
+
     test "skip_if is set and return is false", %{task: task} do
       skip_if_fn = :skip_me
 
