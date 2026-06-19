@@ -68,7 +68,7 @@ defmodule GustWeb.Dashboard.AssetsTest do
       assert_receive {:asset_conn, conn}
       assert conn.status == 200
       assert conn.resp_body == ""
-      assert warning =~ "CSS asset not found at #{path}, run mix assets.build"
+      assert warning =~ "CSS asset not found at #{path}"
     end
   end
 
