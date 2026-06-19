@@ -1,21 +1,27 @@
 defmodule GustWeb.Dashboard.Assets do
   @moduledoc false
+
   import Plug.Conn
 
-  phoenix_js_paths =
-    for app <- [:phoenix, :phoenix_html, :phoenix_live_view] do
-      path = Application.app_dir(app, ["priv", "static", "#{app}.js"])
-      Module.put_attribute(__MODULE__, :external_resource, path)
-      path
-    end
+  @phoenix_js_apps [:phoenix, :phoenix_html, :phoenix_live_view]
+  @css_segments ~w(priv static assets css app.css)
+  @js_segments ~w(priv static assets js app.js)
 
-  @phoenix_js_paths phoenix_js_paths
+  @external_resource Path.expand(
+                       "../../../priv/static/assets/css/app.css",
+                       __DIR__
+                     )
+  @external_resource Path.expand(
+                       "../../../priv/static/assets/js/app.js",
+                       __DIR__
+                     )
 
-  @css_path Application.app_dir(:gust_web, ["priv", "static", "assets", "css", "app.css"])
-  @external_resource @css_path
-
-  @js_path Application.app_dir(:gust_web, ["priv", "static", "assets", "js", "app.js"])
-  @external_resource @js_path
+  for app <- @phoenix_js_apps do
+    @external_resource Application.app_dir(
+                         app,
+                         ["priv", "static", "#{app}.js"]
+                       )
+  end
 
   def init(asset) when asset in [:css, :js], do: asset
 
@@ -30,12 +36,6 @@ defmodule GustWeb.Dashboard.Assets do
     |> halt()
   end
 
-  defp contents_and_type(:css), do: {contents(:css), "text/css"}
-  defp contents_and_type(:js), do: {contents(:js), "text/javascript"}
-
-  @doc """
-  Returns the current hash for the given `asset`.
-  """
   def current_hash(asset) when asset in [:css, :js] do
     asset
     |> contents()
@@ -43,17 +43,30 @@ defmodule GustWeb.Dashboard.Assets do
     |> Base.encode16(case: :lower)
   end
 
+  defp contents_and_type(:css), do: {contents(:css), "text/css"}
+  defp contents_and_type(:js), do: {contents(:js), "text/javascript"}
+
   defp contents(:css) do
-    read_asset(@css_path, "CSS")
+    :gust_web
+    |> Application.app_dir(@css_segments)
+    |> read_asset("CSS")
   end
 
   defp contents(:js) do
     phoenix_js =
-      for path <- @phoenix_js_paths do
-        path |> File.read!() |> String.replace("//# sourceMappingURL=", "// ")
-      end
+      Enum.map(@phoenix_js_apps, fn app ->
+        app
+        |> Application.app_dir(["priv", "static", "#{app}.js"])
+        |> read_asset("#{app} JS")
+        |> String.replace("//# sourceMappingURL=", "// ")
+      end)
 
-    Enum.join(phoenix_js, "\n") <> "\n" <> read_asset(@js_path, "JS")
+    gust_js =
+      :gust_web
+      |> Application.app_dir(@js_segments)
+      |> read_asset("JS")
+
+    Enum.join(phoenix_js, "\n") <> "\n" <> gust_js
   end
 
   defp read_asset(path, label) do
@@ -61,8 +74,8 @@ defmodule GustWeb.Dashboard.Assets do
       {:ok, contents} ->
         contents
 
-      {:error, _} ->
-        IO.warn("#{label} asset not found at #{path}, run mix assets.build")
+      {:error, reason} ->
+        IO.warn("#{label} asset not found at #{path}: #{:file.format_error(reason)}")
         ""
     end
   end
