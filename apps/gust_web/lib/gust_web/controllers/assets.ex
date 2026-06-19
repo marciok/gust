@@ -7,7 +7,6 @@ defmodule GustWeb.Dashboard.Assets do
   @css_segments ~w(priv static assets css app.css)
   @js_segments ~w(priv static assets js app.js)
 
-  # Compile-time tracking only. These paths must never be used at runtime.
   @external_resource Path.expand(
                        "../../../priv/static/assets/css/app.css",
                        __DIR__
@@ -81,4 +80,3 @@ defmodule GustWeb.Dashboard.Assets do
     end
   end
 end
-
