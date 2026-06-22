@@ -359,14 +359,21 @@ defmodule Gust.Flows do
 
   @doc """
   Gets a DAG with its runs and tasks preloaded, with pagination for runs.
+
+  Tasks are loaded with only the fields required by the run-history grid.
+  Use the task or run detail functions when payload fields are needed.
   """
   def get_dag_with_runs_and_tasks!(name, limit: limit, offset: offset) do
+    tasks_q =
+      from t in Task,
+        select: struct(t, [:id, :name, :status, :map_index, :run_id])
+
     runs_q =
       from r in Run,
         order_by: [desc: r.inserted_at],
         limit: ^limit,
         offset: ^offset,
-        preload: [:tasks]
+        preload: [tasks: ^tasks_q]
 
     Repo.one!(
       from d in Dag,

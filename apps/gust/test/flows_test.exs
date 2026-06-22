@@ -75,25 +75,55 @@ defmodule FlowsTest do
       assert Flows.list_dags() == [dag]
     end
 
-    test "get_dag_with_runs_and_tasks!/1 returns dag with ordered runs and tasks" do
+    test "get_dag_with_runs_and_tasks!/2 returns ordered runs with lightweight tasks" do
       name = "my_name"
       dag = dag_fixture(%{name: name})
 
       run_3 = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2022-01-01 00:00:00]})
       run_2 = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2021-01-01 00:00:00]})
-      run_1 = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2020-01-01 00:00:00]})
+      _run_1 = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2020-01-01 00:00:00]})
 
-      task_fixture(%{run_id: run_1.id, name: "my_task"})
+      task =
+        task_fixture(%{
+          run_id: run_2.id,
+          name: "my_task",
+          status: :succeeded,
+          map_index: 3,
+          result: %{"large" => "result"},
+          params: %{"large" => "params"},
+          error: %{"large" => "error"}
+        })
 
       page_size = 2
       offset = 0
 
-      run_ids =
-        for run <- Flows.get_dag_with_runs_and_tasks!(name, limit: page_size, offset: offset).runs do
-          run.id
-        end
+      loaded_dag =
+        Flows.get_dag_with_runs_and_tasks!(name, limit: page_size, offset: offset)
 
-      assert run_ids == [run_3.id, run_2.id]
+      assert Enum.map(loaded_dag.runs, & &1.id) == [run_3.id, run_2.id]
+
+      loaded_run = Enum.find(loaded_dag.runs, &(&1.id == run_2.id))
+      assert [loaded_task] = loaded_run.tasks
+
+      task_id = task.id
+      run_id = run_2.id
+
+      assert %{
+               id: ^task_id,
+               name: "my_task",
+               status: :succeeded,
+               map_index: 3,
+               run_id: ^run_id
+             } = loaded_task
+
+      assert loaded_task.result == %{}
+      assert loaded_task.params == %{}
+      assert loaded_task.error == %{}
+
+      full_task = Flows.get_task!(task.id)
+      assert full_task.result == %{"large" => "result"}
+      assert full_task.params == %{"large" => "params"}
+      assert full_task.error == %{"large" => "error"}
     end
 
     test "get_dag_by_name_with_runs!/1 returns dag with runs honoring pagination" do
