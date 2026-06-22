@@ -3,7 +3,6 @@ defmodule GustWeb.Dashboard.Assets do
 
   import Plug.Conn
 
-  @phoenix_js_apps [:phoenix, :phoenix_html, :phoenix_live_view]
   @css_segments ~w(priv static assets css app.css)
   @js_segments ~w(priv static assets js app.js)
 
@@ -15,13 +14,6 @@ defmodule GustWeb.Dashboard.Assets do
                        "../../../priv/static/assets/js/app.js",
                        __DIR__
                      )
-
-  for app <- @phoenix_js_apps do
-    @external_resource Application.app_dir(
-                         app,
-                         ["priv", "static", "#{app}.js"]
-                       )
-  end
 
   def init(asset) when asset in [:css, :js], do: asset
 
@@ -53,20 +45,9 @@ defmodule GustWeb.Dashboard.Assets do
   end
 
   defp contents(:js) do
-    phoenix_js =
-      Enum.map(@phoenix_js_apps, fn app ->
-        app
-        |> Application.app_dir(["priv", "static", "#{app}.js"])
-        |> read_asset("#{app} JS")
-        |> String.replace("//# sourceMappingURL=", "// ")
-      end)
-
-    gust_js =
-      :gust_web
-      |> Application.app_dir(@js_segments)
-      |> read_asset("JS")
-
-    Enum.join(phoenix_js, "\n") <> "\n" <> gust_js
+    :gust_web
+    |> Application.app_dir(@js_segments)
+    |> read_asset("JS")
   end
 
   defp read_asset(path, label) do

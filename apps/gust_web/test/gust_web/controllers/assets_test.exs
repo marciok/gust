@@ -33,6 +33,18 @@ defmodule GustWeb.Dashboard.AssetsTest do
       assert conn.halted
     end
 
+    test "serves one phoenix_html confirmation handler", %{conn: conn} do
+      conn = Assets.call(conn, :js)
+
+      confirmation_handlers =
+        Regex.scan(
+          ~r/window\.addEventListener\(["']phoenix\.link\.click["']/,
+          conn.resp_body
+        )
+
+      assert length(confirmation_handlers) == 1
+    end
+
     test "skips csrf protection", %{conn: conn} do
       conn = Assets.call(conn, :css)
 
