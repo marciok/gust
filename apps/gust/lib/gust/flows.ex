@@ -328,6 +328,16 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Gets all task statuses by name and run ID.
+  """
+  def get_task_statuses_by_name(name, run_id) do
+    Task
+    |> where(run_id: ^run_id, name: ^name)
+    |> select([task], task.status)
+    |> Repo.all()
+  end
+
+  @doc """
   Updates a run status.
   """
   def update_run_status(run, status) do

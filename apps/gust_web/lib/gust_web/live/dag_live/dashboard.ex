@@ -10,6 +10,16 @@ defmodule GustWeb.DagLive.Dashboard do
   use GustWeb, :live_view
 
   @page_size 30
+  @aggregate_status_precedence [
+    :failed,
+    :upstream_failed,
+    :retrying,
+    :running,
+    :enqueued,
+    :created,
+    :skipped,
+    :succeeded
+  ]
 
   @impl true
   def mount(params, _session, socket) do
@@ -25,6 +35,33 @@ defmodule GustWeb.DagLive.Dashboard do
       {:error, _error} ->
         mount_error(socket, dag)
     end
+  end
+
+  defp task_cell_data(task_name, ran_tasks, selected_item) do
+    task_instances = Enum.filter(ran_tasks, &(&1.name == task_name))
+
+    if task_instances != [] do
+      %{
+        status: get_status(task_instances),
+        selected: task_group_selected?(selected_item, task_instances)
+      }
+    end
+  end
+
+  defp task_group_selected?(nil, _tasks), do: false
+
+  defp task_group_selected?([%Task{run_id: run_id, name: name} | _tail], tasks) do
+    same_task_group?(tasks, run_id, name)
+  end
+
+  defp task_group_selected?(%Task{run_id: run_id, name: name}, tasks) do
+    same_task_group?(tasks, run_id, name)
+  end
+
+  defp task_group_selected?(_selected_item, _tasks), do: false
+
+  defp same_task_group?(tasks, run_id, name) do
+    Enum.any?(tasks, &(&1.run_id == run_id and &1.name == name))
   end
 
   defp load_dag(page, name) do
@@ -78,7 +115,18 @@ defmodule GustWeb.DagLive.Dashboard do
   defp get_status(nil), do: nil
   defp get_status(%Task{status: status}), do: status
   defp get_status(%Run{status: status}), do: status
-  defp get_status([%Task{} | _tail]), do: nil
+
+  defp get_status([%Task{} | _tail] = tasks) do
+    tasks
+    |> Enum.map(& &1.status)
+    |> aggregate_status()
+  end
+
+  defp aggregate_status(statuses) do
+    statuses = MapSet.new(statuses)
+
+    Enum.find(@aggregate_status_precedence, &MapSet.member?(statuses, &1))
+  end
 
   defp get_timestamps(nil), do: {nil, nil}
   defp get_timestamps(%Task{inserted_at: ins, updated_at: up}), do: {ins, up}
@@ -334,7 +382,11 @@ defmodule GustWeb.DagLive.Dashboard do
     cond do
       task_id in socket.assigns.expanded_item_ids ->
         task = Flows.get_task!(task_id)
-        stream_insert(socket, :expanded_items, task)
+        statuses = Flows.get_task_statuses_by_name(task.name, task.run_id)
+
+        socket
+        |> assign(:item_status, aggregate_status(statuses))
+        |> stream_insert(:expanded_items, task)
 
       socket.assigns.item_id == task_id ->
         task = Flows.get_task!(task_id)
@@ -361,10 +413,6 @@ defmodule GustWeb.DagLive.Dashboard do
   defp mapped_task?(dag_def, task_name) do
     dag_def.tasks[task_name][:map_over] != nil
   end
-
-  defp selected_task(%Task{} = task), do: task
-  defp selected_task([%Task{} = task | _tail]), do: task
-  defp selected_task(_item), do: nil
 
   defp show_cancel?(%Task{}), do: true
   defp show_cancel?(_item), do: false

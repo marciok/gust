@@ -81,7 +81,7 @@
             phx-update="stream"
             id="run_history"
           >
-            <%= for {id, %Run{status: status, id: run_id, tasks: tasks} = run} <- @streams.runs do %>
+            <%= for {id, %Run{status: status, id: run_id, tasks: ran_tasks} = run} <- @streams.runs do %>
               <div class={"px-1 rounded #{selected_run_class(run_id, @selected_item)}"} id={id}>
                 <.link navigate={
                   ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&page=#{@page}"
@@ -91,16 +91,15 @@
                   </div>
                 </.link>
 
-                <div :for={name <- @dag_def.task_list} class="flex justify-center mb-2">
+                <div :for={task_name <- @dag_def.task_list} class="flex justify-center mb-2">
                   <.interactive_task_cell
-                    name={name}
-                    ran_tasks={tasks}
+                    task_data={task_cell_data(task_name, ran_tasks, @selected_item)}
+                    name={task_name}
                     run_id={run_id}
-                    selected_task={selected_task(@selected_item)}
                     navigate={
-                      ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&task_name=#{name}&page=#{@page}"
+                      ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&task_name=#{task_name}&page=#{@page}"
                     }
-                    data-testid={"#{name}-at-run-#{run_id}-link"}
+                    data-testid={"#{task_name}-at-run-#{run_id}-link"}
                   />
                 </div>
               </div>
