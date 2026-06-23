@@ -142,7 +142,7 @@ defmodule GustWeb.DagLiveDashboardTest do
     end
 
     test "renders status badge for a retrying task", setup do
-      assert_status_badge(:retrying, "badge-info", setup)
+      assert_status_badge(:retrying, "badge-warning", setup)
     end
 
     test "renders status badge for a running task", setup do
@@ -979,6 +979,7 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
 
       assert render(element(dashboard_live, "##{task_name}-map-badge")) =~ "[]"
+      assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "failed"
       assert has_element?(dashboard_live, "#mapped-task-runs")
       assert has_element?(dashboard_live, "#mapped-task-run-#{task.id}")
       assert has_element?(dashboard_live, "#mapped-task-run-#{mapped_task.id}")
@@ -992,6 +993,8 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert render(element(dashboard_live, "#mapped-task-run-#{mapped_task.id}")) =~
                "succeeded"
+
+      assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "succeeded"
 
       {:ok, mapped_task_live, _html} =
         live(
@@ -1066,6 +1069,60 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert dashboard_live |> element("#restart") |> render_click() =~
                "Task: #{task.name} was restarted"
+    end
+
+    test "uses deterministic precedence for tied mapped task statuses", %{conn: conn} do
+      dag_name = "mapped_status_precedence_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      task_fixture(%{
+        run_id: run.id,
+        name: task_name,
+        status: :succeeded,
+        map_index: 0
+      })
+
+      task_fixture(%{
+        run_id: run.id,
+        name: task_name,
+        status: :upstream_failed,
+        map_index: 1
+      })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_status_precedence_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      assert render(element(dashboard_live, "[data-testid='status-badge']")) =~
+               "upstream_failed"
     end
 
     test "restarts the selected mapped task instance from the indexed view", %{conn: conn} do

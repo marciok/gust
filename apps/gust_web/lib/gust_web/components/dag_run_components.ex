@@ -18,6 +18,7 @@ defmodule GustWeb.DagRunComponents do
           :succeeded -> "badge-success"
           :failed -> "badge-error"
           :skipped -> "badge-warning"
+          :retrying -> "badge-warning"
           :upstream_failed -> "badge-warning"
           _ -> "badge-info"
         end
@@ -48,8 +49,8 @@ defmodule GustWeb.DagRunComponents do
   end
 
   attr :id, :string, required: true
-  attr :selected, :string
-  attr :status, :string
+  attr :selected, :boolean, default: false
+  attr :status, :atom
 
   def task_cell(assigns) do
     assigns =
@@ -71,25 +72,19 @@ defmodule GustWeb.DagRunComponents do
     """
   end
 
-  attr :run_id, :string, required: true
-  attr :ran_tasks, :list, required: true
+  attr :run_id, :integer, required: true
   attr :name, :string, required: true
-  attr :selected_task, :map, required: true
   attr :navigate, :string, required: true
   attr :rest, :global
+  attr :task_data, :map, default: nil
 
   def interactive_task_cell(assigns) do
-    assigns =
-      assign_new(assigns, :current_task_ran, fn ->
-        assigns[:ran_tasks] |> Enum.find(&(&1.name == assigns[:name]))
-      end)
-
-    if assigns[:current_task_ran] do
+    if assigns[:task_data] do
       ~H"""
       <.link navigate={@navigate} {@rest}>
         <.task_cell
-          selected={if @selected_task, do: @selected_task.id == @current_task_ran.id, else: false}
-          status={@current_task_ran.status}
+          selected={@task_data[:selected]}
+          status={@task_data[:status]}
           id={"#{@name}-at-run-#{@run_id}"}
         />
       </.link>
