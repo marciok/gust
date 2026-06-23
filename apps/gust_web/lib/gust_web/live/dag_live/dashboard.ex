@@ -37,8 +37,8 @@ defmodule GustWeb.DagLive.Dashboard do
     end
   end
 
-  defp task_cell_data(task_name, ran_tasks, selected_item) do
-    task_instances = Enum.filter(ran_tasks, &(&1.name == task_name))
+  defp task_cell_data(task_name, tasks_by_name, selected_item) do
+    task_instances = Map.get(tasks_by_name, task_name, [])
 
     if task_instances != [] do
       %{

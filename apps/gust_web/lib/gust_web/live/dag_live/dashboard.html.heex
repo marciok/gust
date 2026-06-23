@@ -82,6 +82,7 @@
             id="run_history"
           >
             <%= for {id, %Run{status: status, id: run_id, tasks: ran_tasks} = run} <- @streams.runs do %>
+              <% tasks_by_name = Enum.group_by(ran_tasks, & &1.name) %>
               <div class={"px-1 rounded #{selected_run_class(run_id, @selected_item)}"} id={id}>
                 <.link navigate={
                   ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&page=#{@page}"
@@ -93,7 +94,7 @@
 
                 <div :for={task_name <- @dag_def.task_list} class="flex justify-center mb-2">
                   <.interactive_task_cell
-                    task_data={task_cell_data(task_name, ran_tasks, @selected_item)}
+                    task_data={task_cell_data(task_name, tasks_by_name, @selected_item)}
                     name={task_name}
                     run_id={run_id}
                     navigate={
