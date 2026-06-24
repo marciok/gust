@@ -42,7 +42,6 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 - [Multi-node setup](#multi-node-setup)
 - [Features](#features)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
-- [Upgrading from 0.1.29](#upgrading-from-0.1.29)
 - [Benchmark](https://github.com/marciok/gust-benchmark)
 
 
@@ -224,39 +223,6 @@ policy outside the macro, at the router scope or pipeline level.
 ```
 gh skill install marciok/gust elixir-dag-creator
 ```
-
----
-
-## Upgrading from 0.1.29
-
-This note applies only to projects upgrading from Gust `0.1.29` to `0.1.30`
-or later.
-
-The project migrated form a simple dependency to an extension of your Phoenix App that is installed via [Igniter](https://hexdocs.pm/igniter/readme.html).  
-
-### Key changes:
-
-Starting with Gust `0.1.30`, `Gust.Repo` stores its migration history in
-`gust_schema_migrations` instead of the default `schema_migrations` table.
-
-*Fresh installs do not need any special handling*.
-
-If your project already ran Gust migrations on `0.1.29`, you must bootstrap
-the new migration-tracking table before running `mix ecto.migrate`. Otherwise
-Ecto will treat all Gust migrations as pending and attempt to run them again.
-
-Run this SQL once against your database before migrating:
-
-```sql
-CREATE TABLE IF NOT EXISTS gust_schema_migrations (
-  version bigint PRIMARY KEY,
-  inserted_at timestamp(0) without time zone
-);
-
-```
-
-After that, continue with `mix ecto.migrate` as usual.
-
 
 ---
 
