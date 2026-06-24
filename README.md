@@ -42,7 +42,6 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 - [Multi-node setup](#multi-node-setup)
 - [Features](#features)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
-- [Upgrading from 0.1.29](#upgrading-from-0.1.29)
 - [Benchmark](https://github.com/marciok/gust-benchmark)
 
 
@@ -117,6 +116,17 @@ defmodule HelloWorld do
     task = Flows.get_task_by_name_run("first_task", run_id)
 
     Logger.info(task.result)
+  end
+
+  # Declaring a task that stores a list for `map_over`.
+  task :list_names, downstream: [:mapped_greeting], ctx: %{run_id: run_id}, save: true do
+    run = Flows.get_run!(run_id)
+    Map.get(run.params, "names", ["Ana", "Bruno", "Carla"])
+  end
+
+  # Gust creates one "mapped_greeting" task instance for each item returned by "list_names".
+  task :mapped_greeting, map_over: :list_names, ctx: %{params: %{"item" => name}} do
+    Logger.info("Hi #{name} from mapped_greeting")
   end
 end
 
@@ -227,38 +237,6 @@ gh skill install marciok/gust elixir-dag-creator
 
 ---
 
-## Upgrading from 0.1.29
-
-This note applies only to projects upgrading from Gust `0.1.29` to `0.1.30`
-or later.
-
-The project migrated form a simple dependency to an extension of your Phoenix App that is installed via [Igniter](https://hexdocs.pm/igniter/readme.html).  
-
-### Key changes:
-
-Starting with Gust `0.1.30`, `Gust.Repo` stores its migration history in
-`gust_schema_migrations` instead of the default `schema_migrations` table.
-
-*Fresh installs do not need any special handling*.
-
-If your project already ran Gust migrations on `0.1.29`, you must bootstrap
-the new migration-tracking table before running `mix ecto.migrate`. Otherwise
-Ecto will treat all Gust migrations as pending and attempt to run them again.
-
-Run this SQL once against your database before migrating:
-
-```sql
-CREATE TABLE IF NOT EXISTS gust_schema_migrations (
-  version bigint PRIMARY KEY,
-  inserted_at timestamp(0) without time zone
-);
-
-```
-
-After that, continue with `mix ecto.migrate` as usual.
-
-
----
 
 
 ## Adding Gust to an existing Phoenix app
