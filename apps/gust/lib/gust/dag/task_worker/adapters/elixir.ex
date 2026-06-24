@@ -31,7 +31,12 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
     {status, result} =
       case try_skip_cond(opts[:skip_if], dag_def.mod, args) do
         false ->
-          try_run(dag_def.mod, fn_name, args, opts[:store_result])
+          try do
+            try_run(dag_def.mod, fn_name, args, opts[:store_result])
+          catch
+            :exit, reason ->
+              {:error, %RuntimeError{message: inspect(reason)}}
+          end
 
         true ->
           {:skipped, %{}}
@@ -48,9 +53,21 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
   end
 
   defp try_run(mod, fn_name, args, store_result) do
-    apply_and_validate(mod, fn_name, args, store_result)
+    mod
+    |> apply_and_validate(fn_name, args, store_result)
+    |> maybe_linked_exit_error()
   rescue
     e -> {:error, e}
+  end
+
+  defp maybe_linked_exit_error(result) do
+    receive do
+      {:EXIT, _pid, reason} when not normal_exit?(reason) ->
+        {:error, exit_error(reason)}
+    after
+      0 ->
+        result
+    end
   end
 
   defp apply_and_validate(mod, fn_name, args, store_result) do

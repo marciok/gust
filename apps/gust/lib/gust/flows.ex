@@ -328,6 +328,16 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Gets all task statuses by name and run ID.
+  """
+  def get_task_statuses_by_name(name, run_id) do
+    Task
+    |> where(run_id: ^run_id, name: ^name)
+    |> select([task], task.status)
+    |> Repo.all()
+  end
+
+  @doc """
   Updates a run status.
   """
   def update_run_status(run, status) do
@@ -359,14 +369,21 @@ defmodule Gust.Flows do
 
   @doc """
   Gets a DAG with its runs and tasks preloaded, with pagination for runs.
+
+  Tasks are loaded with only the fields required by the run-history grid.
+  Use the task or run detail functions when payload fields are needed.
   """
   def get_dag_with_runs_and_tasks!(name, limit: limit, offset: offset) do
+    tasks_q =
+      from t in Task,
+        select: struct(t, [:id, :name, :status, :map_index, :run_id])
+
     runs_q =
       from r in Run,
         order_by: [desc: r.inserted_at],
         limit: ^limit,
         offset: ^offset,
-        preload: [:tasks]
+        preload: [tasks: ^tasks_q]
 
     Repo.one!(
       from d in Dag,

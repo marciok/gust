@@ -6,8 +6,15 @@ defmodule Gust.DAG.TaskWorker do
       use GenServer
       alias Gust.DAG
 
+      defguardp normal_exit?(reason)
+                when reason in [:normal, :shutdown] or
+                       (is_tuple(reason) and tuple_size(reason) == 2 and
+                          elem(reason, 0) == :shutdown)
+
       @impl true
       def init(init_arg) do
+        Process.flag(:trap_exit, true)
+
         {:ok, init_arg, {:continue, :init_run}}
       end
 
@@ -37,8 +44,23 @@ defmodule Gust.DAG.TaskWorker do
         {:noreply, state}
       end
 
+      @impl true
+      def handle_info(
+            {:EXIT, _pid, reason},
+            %{task: task, stage_pid: stage_pid} = state
+          )
+          when not normal_exit?(reason) do
+        send(stage_pid, {:task_result, exit_error(reason), task.id, :error})
+
+        {:stop, :normal, state}
+      end
+
       defp via_tuple(name) do
         {:via, Registry, {Gust.Registry, name}}
+      end
+
+      defp exit_error(reason) do
+        %RuntimeError{message: "Linked process exited: #{inspect(reason)}"}
       end
     end
   end

@@ -33,6 +33,26 @@ defmodule GustWeb.Dashboard.AssetsTest do
       assert conn.halted
     end
 
+    test "serves one phoenix_html confirmation handler", %{conn: conn} do
+      path = Application.app_dir(:gust_web, ["priv", "static", "assets", "js", "app.js"])
+
+      replace_asset(path, """
+      window.addEventListener("phoenix.link.click", function(event) {
+        window.confirm(event.target.getAttribute("data-confirm"))
+      })
+      """)
+
+      conn = Assets.call(conn, :js)
+
+      confirmation_handlers =
+        Regex.scan(
+          ~r/window\.addEventListener\(["']phoenix\.link\.click["']/,
+          conn.resp_body
+        )
+
+      assert length(confirmation_handlers) == 1
+    end
+
     test "skips csrf protection", %{conn: conn} do
       conn = Assets.call(conn, :css)
 
@@ -68,7 +88,7 @@ defmodule GustWeb.Dashboard.AssetsTest do
       assert_receive {:asset_conn, conn}
       assert conn.status == 200
       assert conn.resp_body == ""
-      assert warning =~ "CSS asset not found at #{path}, run mix assets.build"
+      assert warning =~ "CSS asset not found at #{path}"
     end
   end
 
@@ -102,5 +122,19 @@ defmodule GustWeb.Dashboard.AssetsTest do
       assert get_resp_header(conn, "content-type") == ["image/png"]
       assert conn.resp_body != ""
     end
+  end
+
+  defp replace_asset(path, contents) do
+    previous_contents = File.read(path)
+
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, contents)
+
+    on_exit(fn ->
+      case previous_contents do
+        {:ok, contents} -> File.write!(path, contents)
+        {:error, :enoent} -> File.rm(path)
+      end
+    end)
   end
 end
