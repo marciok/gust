@@ -5,6 +5,7 @@ defmodule DAG.TaskRunnerSupervisor.DynamicSupervisorTest do
   import Mox
 
   setup :set_mox_from_context
+  setup :verify_on_exit!
 
   test "start_child/4" do
     dag = dag_fixture()
@@ -15,6 +16,7 @@ defmodule DAG.TaskRunnerSupervisor.DynamicSupervisorTest do
     dag_content = """
     defmodule DagToBeRun do
       def #{task_name}(args) do
+        Process.sleep(50)
         args
       end
     end
@@ -31,7 +33,7 @@ defmodule DAG.TaskRunnerSupervisor.DynamicSupervisorTest do
       :code.delete(mod)
     end)
 
-    dag_def = %Gust.DAG.Definition{adapter: :elixir}
+    dag_def = %Gust.DAG.Definition{adapter: :elixir, mod: mod}
 
     start_supervised!(TaskRunnerSupervisor)
 
