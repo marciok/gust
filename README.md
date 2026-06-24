@@ -41,6 +41,7 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 - [Adding to an existing app](#adding-gust-to-an-existing-phoenix-app)
 - [Multi-node setup](#multi-node-setup)
 - [Features](#features)
+- [GustWeb API](#gustweb-api)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
 - [Benchmark](https://github.com/marciok/gust-benchmark)
 
@@ -191,6 +192,46 @@ GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/
   - Hook for finished dag run.
   - Web UI for live monitoring, runs and secrets editing.
 
+
+---
+### GustWeb API
+
+GustWeb includes a small HTTP API for triggering DAG runs from external systems.
+Mount it inside any Phoenix API scope with the `GustWeb.API` router macro:
+
+```elixir
+import GustWeb.API
+
+scope "/gust/api", MyAppWeb do
+  pipe_through :api
+
+  gust_api()
+end
+```
+
+That exposes `POST /gust/api/dags/:dag_name/run`. Requests must include a bearer
+token matching the configured `:gust_web, :api_token`; in releases, the default
+runtime config reads it from `GUST_API_TOKEN`.
+
+```sh
+curl -X POST http://localhost:4000/gust/api/dags/daily_import/run \
+  -H "Authorization: Bearer $GUST_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"params":{"name":"Ada"}}'
+```
+
+Successful requests return `201 Created` with the new run id and status:
+
+```json
+{
+  "id": "123",
+  "status": "enqueued"
+}
+```
+
+Disabled DAGs create a run without enqueueing it and return `"status": "created"`.
+Unknown DAGs return `404` with `{"error":"dag_not_found"}`, and invalid tokens
+return `401` with `{"error":"unauthorized"}`.
 
 ---
 ### MCP Server
