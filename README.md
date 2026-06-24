@@ -1,4 +1,3 @@
-
 <p align="center">
   <picture>
     <img alt="Gust" src="https://gust-github.s3.us-east-1.amazonaws.com/gust-symbol-logo.png" width="320">
@@ -55,8 +54,7 @@ Gust is the perfect fit for our needs, and I encourage you to try it and push it
 ---
 ## In Action
 
-
-https://github.com/user-attachments/assets/a5ad13ca-0a5f-47e5-9344-1f57c7c2ecb5
+https://github.com/user-attachments/assets/250ec668-4275-4aa5-a022-b3ba758c515c
 
 ---
 ## Overview
