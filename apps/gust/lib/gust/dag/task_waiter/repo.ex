@@ -19,24 +19,20 @@ defmodule Gust.DAG.TaskWaiter.Repo do
     run_id = Keyword.get(opts, :run_id)
     payload = resume_payload(opts)
 
-    Repo.transaction(fn ->
-      run_id
-      |> waiting_tasks_query(wait_for)
-      |> Repo.all()
-      |> Enum.map(&resume_task(&1, payload))
-    end)
-    |> case do
-      {:ok, tasks} ->
-        tasks
-        |> Enum.map(& &1.run_id)
-        |> Enum.uniq()
-        |> Enum.each(&trigger_run/1)
+    {:ok, tasks} =
+      Repo.transaction(fn ->
+        run_id
+        |> waiting_tasks_query(wait_for)
+        |> Repo.all()
+        |> Enum.map(&resume_task(&1, payload))
+      end)
 
-        {:ok, tasks}
+    tasks
+    |> Enum.map(& &1.run_id)
+    |> Enum.uniq()
+    |> Enum.each(&trigger_run/1)
 
-      {:error, reason} ->
-        {:error, reason}
-    end
+    {:ok, tasks}
   end
 
   @impl true

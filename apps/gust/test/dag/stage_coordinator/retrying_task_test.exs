@@ -88,6 +88,14 @@ defmodule DAG.StageCoordinator.RetryingTaskTest do
 
       assert RetryingTask.process_task(task, tasks) == {:wait_for, "payment_received"}
     end
+
+    test "waiting task without a persisted key is already processed", %{task: task} do
+      {:ok, task} = Flows.update_task_status(task, :waiting)
+
+      tasks = %{task.name => %{upstream: []}}
+
+      assert RetryingTask.process_task(task, tasks) == :already_processed
+    end
   end
 
   describe "process_task/2 when upstream is present" do
