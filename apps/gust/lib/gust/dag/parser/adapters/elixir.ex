@@ -83,6 +83,7 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
             |> put_option(all_tasks, :store_result)
             |> put_option(all_tasks, :skip_if)
             |> put_option(all_tasks, :map_over)
+            |> put_option(all_tasks, :wait_for)
 
           stages = build_stages(mod)
 

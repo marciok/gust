@@ -1,7 +1,7 @@
 defmodule GustWeb.MCP.Tools.Call do
   @moduledoc false
 
-  alias Gust.DAG.{Adapter, Definition, Loader, Terminator}
+  alias Gust.DAG.{Adapter, Definition, Loader, TaskWaiter, Terminator}
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias GustWeb.MCP.{Content, Tool, Tools}
@@ -129,6 +129,25 @@ defmodule GustWeb.MCP.Tools.Call do
     {false, [content(text)]}
   end
 
+  def handle(%Tool{name: :resume_task}, %{"waiting_for" => waiting_for} = args) do
+    opts =
+      []
+      |> maybe_put_resume_run_id(args)
+      |> Keyword.put(:payload, Map.get(args, "payload", %{}))
+
+    {:ok, tasks} = TaskWaiter.resume(waiting_for, opts)
+
+    task_ids = Enum.map(tasks, & &1.id)
+    run_ids = tasks |> Enum.map(& &1.run_id) |> Enum.uniq()
+
+    {false,
+     [
+       content(
+         "Resumed #{length(tasks)} task(s) waiting for #{inspect(waiting_for)}. Task IDs: #{inspect(task_ids)}; Run IDs: #{inspect(run_ids)}"
+       )
+     ]}
+  end
+
   def handle(%Tool{name: :trigger_dag_run}, %{"dag_id" => dag_id} = args) do
     trigger_dag_run_reply(dag_id, Map.get(args, "params", %{}))
   end
@@ -202,6 +221,11 @@ defmodule GustWeb.MCP.Tools.Call do
 
     {false, [content("Run #{run.id} triggered")]}
   end
+
+  defp maybe_put_resume_run_id(opts, %{"run_id" => run_id}),
+    do: Keyword.put(opts, :run_id, run_id)
+
+  defp maybe_put_resume_run_id(opts, _args), do: opts
 
   defp invalid_properties_text(%Tool{name: name, props: []}) do
     "Tool #{name} supports no properties."

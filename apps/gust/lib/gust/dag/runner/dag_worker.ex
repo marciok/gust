@@ -140,9 +140,18 @@ defmodule Gust.DAG.Runner.DAGWorker do
       |> then(& &1.on_finished_callback(dag_def, callback_fn_name, run, status))
     end
 
-    dag_def
-    |> runtime_adapter()
-    |> then(& &1.teardown(dag_def, runtime_id))
+    teardown(dag_def, runtime_id)
+
+    {:stop, :normal, state}
+  end
+
+  def handle_info(
+        {:stage_waiting, _task_id},
+        %State{dag_def: dag_def, run: run, runtime_id: runtime_id} = state
+      ) do
+    update_status(run, :waiting)
+
+    teardown(dag_def, runtime_id)
 
     {:stop, :normal, state}
   end
@@ -171,6 +180,12 @@ defmodule Gust.DAG.Runner.DAGWorker do
     start_stage(stage, run.id, dag_def)
 
     {:noreply, %{state | stages: next_stages}}
+  end
+
+  defp teardown(dag_def, runtime_id) do
+    dag_def
+    |> runtime_adapter()
+    |> then(& &1.teardown(dag_def, runtime_id))
   end
 
   defp update_status(run, status) do

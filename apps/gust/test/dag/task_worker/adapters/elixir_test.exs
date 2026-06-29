@@ -40,10 +40,8 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
   defp start_worker_and_monitor!(task, mod, opts) do
     dag_def = %Gust.DAG.Definition{mod: mod, adapter: :elixir}
 
-    worker_pid =
-      start_link_supervised!(
-        {TaskWorker, %{task: task, dag_def: dag_def, stage_pid: self(), opts: opts}}
-      )
+    {:ok, worker_pid} =
+      TaskWorker.start_link(%{task: task, dag_def: dag_def, stage_pid: self(), opts: opts})
 
     Process.monitor(worker_pid)
   end
@@ -66,7 +64,25 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       mod = compile_dag!(dag_content)
       ref = start_worker_and_monitor!(task, mod, %{store_result: false, skip_if: nil})
 
-      assert_worker_result(ref, task.id, %{run_id: task.run_id}, :ok)
+      assert_worker_result(ref, task.id, %{run_id: task.run_id, params: %{}}, :ok)
+    end
+
+    test "runs unmapped task with params in context", %{task: task} do
+      params = %{"__gust_wait_payload__" => %{"child_run_id" => 123}}
+      task = %{task | params: params}
+
+      dag_content = """
+      defmodule UnmappedParamsTaskDag do
+        def hi(%{params: %{"__gust_wait_payload__" => payload}}) do
+          payload
+        end
+      end
+      """
+
+      mod = compile_dag!(dag_content)
+      ref = start_worker_and_monitor!(task, mod, %{store_result: false, skip_if: nil})
+
+      assert_worker_result(ref, task.id, %{"child_run_id" => 123}, :ok)
     end
 
     test "runs mapped task with params in context", %{task: task} do

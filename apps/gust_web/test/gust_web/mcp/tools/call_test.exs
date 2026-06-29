@@ -363,6 +363,54 @@ defmodule GustWeb.MCP.Tools.CallTest do
            ]
   end
 
+  test "handle/2 delegates resume_task to the configured task waiter" do
+    dag = dag_fixture(%{name: "waitable_dag"})
+    run = run_fixture(%{dag_id: dag.id})
+    task = task_fixture(%{run_id: run.id, name: "await_payment", status: :created})
+
+    GustWeb.DAGTaskWaiterMock
+    |> expect(:resume, fn waiting_for, opts ->
+      assert waiting_for == "payment_received"
+      assert opts == [payload: %{"invoice_id" => "inv_123"}, run_id: run.id]
+
+      {:ok, [task]}
+    end)
+
+    assert {false, contents} =
+             Call.handle(%Tool{name: :resume_task}, %{
+               "run_id" => run.id,
+               "waiting_for" => "payment_received",
+               "payload" => %{"invoice_id" => "inv_123"}
+             })
+
+    assert text_list(contents) == [
+             "Resumed 1 task(s) waiting for \"payment_received\". Task IDs: #{inspect([task.id])}; Run IDs: #{inspect([run.id])}"
+           ]
+  end
+
+  test "handle/2 delegates resume_task without run scope" do
+    dag = dag_fixture(%{name: "global_waitable_dag"})
+    first_run = run_fixture(%{dag_id: dag.id})
+    second_run = run_fixture(%{dag_id: dag.id})
+
+    first_task = task_fixture(%{run_id: first_run.id, name: "first_wait", status: :created})
+    second_task = task_fixture(%{run_id: second_run.id, name: "second_wait", status: :created})
+
+    GustWeb.DAGTaskWaiterMock
+    |> expect(:resume, fn waiting_for, opts ->
+      assert waiting_for == "payment_received"
+      assert opts == [payload: %{}]
+      {:ok, [first_task, second_task]}
+    end)
+
+    assert {false, contents} =
+             Call.handle(%Tool{name: :resume_task}, %{"waiting_for" => "payment_received"})
+
+    assert text_list(contents) == [
+             "Resumed 2 task(s) waiting for \"payment_received\". Task IDs: #{inspect([first_task.id, second_task.id])}; Run IDs: #{inspect([first_run.id, second_run.id])}"
+           ]
+  end
+
   test "handle/2 creates and dispatches a run for the requested dag" do
     dag = dag_fixture(%{name: "triggerable_dag"})
 
