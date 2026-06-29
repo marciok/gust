@@ -180,27 +180,29 @@ defmodule Gust.DAG.Runner.StageWorker do
   defp update_result?(_tasks, _name, _status), do: false
 
   defp process_stage(stage, coord, dag_def) do
-    Enum.reduce_while(stage, {:continue, coord}, fn {status, task}, {:continue, coord} ->
-      case status do
-        :ok ->
-          start_task(task, dag_def)
-          {:cont, {:continue, coord}}
-
-        status when status in [:already_processed, :skipped, :upstream_failed] ->
-          send(self(), {:task_result, nil, task.id, status})
-          {:cont, {:continue, coord}}
-
-        {:non_recoverable_error, error} ->
-          send(self(), {:task_result, error, task.id, :non_recoverable_error})
-          {:cont, {:continue, coord}}
-
-        {:wait_for, wait_for} ->
-          case put_task_waiting(coord, task, wait_for) do
-            {:continue, coord} -> {:cont, {:continue, coord}}
-            {:waiting, coord} -> {:halt, {:waiting, coord}}
-          end
-      end
+    Enum.reduce(stage, {:continue, coord}, fn {status, task}, {_stage_status, coord} ->
+      handle_task(status, task, coord, dag_def)
     end)
+  end
+
+  defp handle_task(:ok, task, coord, dag_def) do
+    start_task(task, dag_def)
+    {:continue, coord}
+  end
+
+  defp handle_task(status, task, coord, _dag_def)
+       when status in [:already_processed, :skipped, :upstream_failed] do
+    send(self(), {:task_result, nil, task.id, status})
+    {:continue, coord}
+  end
+
+  defp handle_task({:non_recoverable_error, error}, task, coord, _dag_def) do
+    send(self(), {:task_result, error, task.id, :non_recoverable_error})
+    {:continue, coord}
+  end
+
+  defp handle_task({:wait_for, wait_for}, task, coord, _dag_def) do
+    put_task_waiting(coord, task, wait_for)
   end
 
   defp put_task_waiting(coord, task, wait_for) do
