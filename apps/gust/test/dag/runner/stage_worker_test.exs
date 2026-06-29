@@ -103,6 +103,49 @@ defmodule Dag.Runner.StageWorkerTest do
     end
   end
 
+  describe "handle_continue/2 when task waits for an external event" do
+    test "marks task as waiting and pauses the stage", %{
+      run: run,
+      dag_def: dag_def,
+      task: task
+    } do
+      Gust.PubSub.subscribe_run(run.id)
+      task_id = task.id
+      run_id = run.id
+
+      expect_coord_new(task)
+
+      Gust.DAGStageCoordinatorMock
+      |> expect(:put_waiting, fn _coord, ^task_id -> {:waiting, %{}} end)
+
+      runner_pid =
+        start_link_supervised!(
+          {Gust.DAG.Runner.StageWorker,
+           %{
+             stage: [stage_entry({:wait_for, "payment_received"}, task)],
+             dag_def: dag_def,
+             run_id: run.id
+           }}
+        )
+
+      ref = Process.monitor(runner_pid)
+
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :waiting, task_id: ^task_id}},
+                     400
+
+      assert_receive {:stage_waiting, ^task_id}, 400
+
+      assert %Flows.Task{
+               status: :waiting,
+               waiting_for: "payment_received",
+               wait_satisfied_at: nil
+             } =
+               Flows.get_task!(task_id)
+
+      assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 400
+    end
+  end
+
   describe "handle_continue/2 when upstream did fail" do
     setup [:upstream_failed]
 

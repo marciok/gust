@@ -85,8 +85,6 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
     raise("Task returned #{inspect(result)} but store_result requires a map")
   end
 
-  defp task_context(%{map_index: nil} = task), do: %{run_id: task.run_id}
-
   defp task_context(task),
     do: %{run_id: task.run_id, params: task.params}
 end

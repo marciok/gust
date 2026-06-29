@@ -15,6 +15,7 @@ defmodule GustWeb.DagLive.Dashboard do
     :upstream_failed,
     :retrying,
     :running,
+    :waiting,
     :enqueued,
     :created,
     :skipped,
@@ -418,7 +419,7 @@ defmodule GustWeb.DagLive.Dashboard do
   defp show_cancel?(_item), do: false
 
   defp restartable?([%Task{} | _tail], _status), do: true
-  defp restartable?(_item, status), do: status in [:failed, :succeeded]
+  defp restartable?(_item, status), do: status in [:failed, :succeeded, :waiting]
 
   defp assign_item_attrs(socket, selected_item) do
     {inserted_at, updated_at} = get_timestamps(selected_item)

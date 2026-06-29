@@ -34,6 +34,19 @@ defmodule DAG.StageCoordinator.RetryingTaskTest do
       tasks = %{task.name => %{upstream: []}}
       assert RetryingTask.process_task(task, tasks) == :ok
     end
+
+    test "returns wait instruction when task has wait_for", %{task: task} do
+      tasks = %{task.name => %{upstream: [], wait_for: "payment_received"}}
+      assert RetryingTask.process_task(task, tasks) == {:wait_for, "payment_received"}
+    end
+
+    test "runs task when its wait has been satisfied", %{task: task} do
+      {:ok, task} = Flows.update_task_wait_state(task, %{wait_satisfied_at: DateTime.utc_now()})
+
+      tasks = %{task.name => %{upstream: [], wait_for: "payment_received"}}
+
+      assert RetryingTask.process_task(task, tasks) == :ok
+    end
   end
 
   describe "process_task/2 when task staus is not :running" do
@@ -65,6 +78,15 @@ defmodule DAG.StageCoordinator.RetryingTaskTest do
       {:ok, task} = Flows.update_task_status(task, :retrying)
       tasks = %{task.name => %{upstream: []}}
       assert RetryingTask.process_task(task, tasks) == :ok
+    end
+
+    test "waiting task keeps waiting on its persisted key", %{task: task} do
+      {:ok, task} = Flows.update_task_wait_state(task, %{waiting_for: "payment_received"})
+      {:ok, task} = Flows.update_task_status(task, :waiting)
+
+      tasks = %{task.name => %{upstream: []}}
+
+      assert RetryingTask.process_task(task, tasks) == {:wait_for, "payment_received"}
     end
   end
 
@@ -169,6 +191,38 @@ defmodule DAG.StageCoordinator.RetryingTaskTest do
                retrying: %{^sec_task_id => 2}
              } =
                RetryingTask.put_running(coord0, task.id)
+    end
+  end
+
+  describe "put_waiting/2" do
+    test "marks a task as waiting and continues while other tasks are active", %{
+      run: run,
+      task: task
+    } do
+      sec_task = task_fixture(%{run_id: run.id, name: "second_task"})
+
+      coord = %RetryingTask{running: MapSet.new([task.id, sec_task.id])}
+
+      assert {:continue,
+              %RetryingTask{
+                running: running,
+                waiting: waiting
+              }} = RetryingTask.put_waiting(coord, task.id)
+
+      assert running == MapSet.new([sec_task.id])
+      assert waiting == MapSet.new([task.id])
+    end
+
+    test "returns waiting when no normal tasks remain", %{task: task} do
+      coord = %RetryingTask{running: MapSet.new([task.id])}
+
+      assert {:waiting,
+              %RetryingTask{
+                running: %MapSet{},
+                waiting: waiting
+              }} = RetryingTask.put_waiting(coord, task.id)
+
+      assert waiting == MapSet.new([task.id])
     end
   end
 

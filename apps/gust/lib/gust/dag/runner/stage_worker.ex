@@ -4,6 +4,7 @@ defmodule Gust.DAG.Runner.StageWorker do
   alias Gust.DAG.ErrorParser
   alias Gust.DAG.StageCoordinator, as: Coord
   alias Gust.DAG.TaskRunnerSupervisor
+  alias Gust.DAG.TaskWaiter
   alias Gust.Flows
   alias Gust.PubSub
 
@@ -41,22 +42,15 @@ defmodule Gust.DAG.Runner.StageWorker do
   @impl true
   def handle_continue(
         :process_task,
-        %{stage: stage, dag_def: dag_def} = state
+        %{stage: stage, dag_def: dag_def, coord: coord} = state
       ) do
-    Enum.each(stage, fn {status, task} ->
-      case status do
-        :ok ->
-          start_task(task, dag_def)
+    case process_stage(stage, coord, dag_def) do
+      {:continue, coord} ->
+        {:noreply, %{state | coord: coord}}
 
-        status when status in [:already_processed, :skipped, :upstream_failed] ->
-          send(self(), {:task_result, nil, task.id, status})
-
-        {:non_recoverable_error, error} ->
-          send(self(), {:task_result, error, task.id, :non_recoverable_error})
-      end
-    end)
-
-    {:noreply, state}
+      {:waiting, coord} ->
+        {:stop, :normal, %{state | coord: coord}}
+    end
   end
 
   @impl true
@@ -95,9 +89,14 @@ defmodule Gust.DAG.Runner.StageWorker do
 
       {:finished, coord} ->
         update_task_result(task, status)
+        message_dag_worker(task.run_id, {:stage_completed, status})
 
-        dag_runner_pid = lookup_worker("dag_run_#{task.run_id}")
-        send(dag_runner_pid, {:stage_completed, status})
+        {:stop, :normal, %{state | coord: coord}}
+
+      {:waiting, coord} ->
+        update_task_result(task, status)
+        message_dag_worker(task.run_id, {:stage_waiting, task.id})
+
         {:stop, :normal, %{state | coord: coord}}
     end
   end
@@ -110,6 +109,11 @@ defmodule Gust.DAG.Runner.StageWorker do
     coord = Coord.put_running(coord, task.id)
 
     {:noreply, %{state | coord: coord}}
+  end
+
+  defp message_dag_worker(run_id, message) do
+    dag_runner_pid = lookup_worker("dag_run_#{run_id}")
+    send(dag_runner_pid, message)
   end
 
   defp lookup_worker(key) do
@@ -175,7 +179,53 @@ defmodule Gust.DAG.Runner.StageWorker do
   defp update_result?(tasks, name, :ok), do: tasks[name][:store_result]
   defp update_result?(_tasks, _name, _status), do: false
 
+  defp process_stage(stage, coord, dag_def) do
+    Enum.reduce_while(stage, {:continue, coord}, fn {status, task}, {:continue, coord} ->
+      case status do
+        :ok ->
+          start_task(task, dag_def)
+          {:cont, {:continue, coord}}
+
+        status when status in [:already_processed, :skipped, :upstream_failed] ->
+          send(self(), {:task_result, nil, task.id, status})
+          {:cont, {:continue, coord}}
+
+        {:non_recoverable_error, error} ->
+          send(self(), {:task_result, error, task.id, :non_recoverable_error})
+          {:cont, {:continue, coord}}
+
+        {:wait_for, wait_for} ->
+          case put_task_waiting(coord, task, wait_for) do
+            {:continue, coord} -> {:cont, {:continue, coord}}
+            {:waiting, coord} -> {:halt, {:waiting, coord}}
+          end
+      end
+    end)
+  end
+
+  defp put_task_waiting(coord, task, wait_for) do
+    {:ok, task} =
+      Flows.update_task_wait_state(task, %{
+        waiting_for: to_string(wait_for),
+        wait_satisfied_at: nil
+      })
+
+    update_status(task, :waiting)
+
+    case Coord.put_waiting(coord, task.id) do
+      {:continue, coord} ->
+        {:continue, coord}
+
+      {:waiting, coord} ->
+        dag_runner_pid = lookup_worker("dag_run_#{task.run_id}")
+        send(dag_runner_pid, {:stage_waiting, task.id})
+        {:waiting, coord}
+    end
+  end
+
   defp start_task(task, dag_def) do
+    task = TaskWaiter.clear_wait(task)
+
     task_opts =
       dag_def.tasks
       |> Map.fetch!(task.name)
