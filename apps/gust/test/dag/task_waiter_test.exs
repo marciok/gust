@@ -4,6 +4,7 @@ defmodule Gust.DAG.TaskWaiterTest do
   import Gust.FlowsFixtures
   import Mox
 
+  alias Gust.DAG.Run.Trigger.Requeue
   alias Gust.DAG.TaskWaiter
   alias Gust.Flows
   alias Gust.PubSub
@@ -36,7 +37,7 @@ defmodule Gust.DAG.TaskWaiterTest do
 
     Gust.DAGRunTriggerMock
     |> expect(:dispatch_run, fn %Flows.Run{id: run_id} when run_id == run.id ->
-      Gust.DAG.Run.Trigger.Requeue.dispatch_run(run)
+      Requeue.dispatch_run(run)
     end)
 
     assert {:ok, [%Flows.Task{id: task_id}]} =
@@ -103,7 +104,7 @@ defmodule Gust.DAG.TaskWaiterTest do
 
     Gust.DAGRunTriggerMock
     |> expect(:dispatch_run, 2, fn %Flows.Run{} = run ->
-      Gust.DAG.Run.Trigger.Requeue.dispatch_run(run)
+      Requeue.dispatch_run(run)
     end)
 
     assert {:ok, tasks} =
