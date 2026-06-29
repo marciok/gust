@@ -19,6 +19,7 @@ defmodule GustWeb.MCP.Tools.ListTest do
              :restart_run,
              :restart_task,
              :cancel_task,
+             :resume_task,
              :trigger_dag_run
            ]
 
@@ -85,6 +86,33 @@ defmodule GustWeb.MCP.Tools.ListTest do
                 %{
                   "description" =>
                     "Optional run params payload, matching the API request body params object",
+                  "type" => "object"
+                }}
+             ]
+           } = tool
+  end
+
+  test "all/0 defines resume_task with a required waiting key and optional scope/payload" do
+    tool = Enum.find(List.all(), &(&1.name == :resume_task))
+
+    assert %Tool{
+             description: "Resume tasks waiting on an external event key",
+             props: [
+               {"waiting_for", true,
+                %{
+                  "description" =>
+                    "External wait key to resume, matching the task wait_for option",
+                  "type" => "string"
+                }},
+               {"run_id", false,
+                %{
+                  "description" =>
+                    "Optional run ID. When omitted, all tasks waiting on the key are resumed.",
+                  "type" => "integer"
+                }},
+               {"payload", false,
+                %{
+                  "description" => "Optional payload made available to the resumed task params",
                   "type" => "object"
                 }}
              ]
