@@ -18,6 +18,7 @@ defmodule GustWeb.API do
   defmacro gust_api do
     quote do
       post("/dags/:dag_name/run", GustWeb.APIController, :create_run)
+      post("/tasks/resume", GustWeb.APIController, :resume_task)
     end
   end
 end
