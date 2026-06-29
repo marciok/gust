@@ -219,8 +219,7 @@ defmodule Gust.DAG.Runner.StageWorker do
         {:continue, coord}
 
       {:waiting, coord} ->
-        dag_runner_pid = lookup_worker("dag_run_#{task.run_id}")
-        send(dag_runner_pid, {:stage_waiting, task.id})
+        message_dag_worker(task.run_id, {:stage_waiting, task.id})
         {:waiting, coord}
     end
   end
