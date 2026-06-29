@@ -103,6 +103,122 @@ defmodule Dag.Runner.StageWorkerTest do
     end
   end
 
+  describe "handle_continue/2 when task waits for an external event" do
+    test "marks task as waiting and pauses the stage", %{
+      run: run,
+      dag_def: dag_def,
+      task: task
+    } do
+      Gust.PubSub.subscribe_run(run.id)
+      task_id = task.id
+      run_id = run.id
+
+      expect_coord_new(task)
+
+      Gust.DAGStageCoordinatorMock
+      |> expect(:put_waiting, fn _coord, ^task_id -> {:waiting, %{}} end)
+
+      runner_pid =
+        start_link_supervised!(
+          {Gust.DAG.Runner.StageWorker,
+           %{
+             stage: [stage_entry({:wait_for, "payment_received"}, task)],
+             dag_def: dag_def,
+             run_id: run.id
+           }}
+        )
+
+      ref = Process.monitor(runner_pid)
+
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :waiting, task_id: ^task_id}},
+                     400
+
+      assert_receive {:stage_waiting, ^task_id}, 400
+
+      assert %Flows.Task{
+               status: :waiting,
+               waiting_for: "payment_received",
+               wait_satisfied_at: nil
+             } =
+               Flows.get_task!(task_id)
+
+      assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 400
+    end
+
+    test "starts later tasks after a waiting task and reports waiting when they finish", %{
+      run: run,
+      dag_def: dag_def,
+      task: wait_task
+    } do
+      run_id = run.id
+      wait_task_id = wait_task.id
+      work_task = task_fixture(%{run_id: run.id, name: "work"})
+      work_task_id = work_task.id
+
+      dag_def = %{
+        dag_def
+        | tasks: %{
+            wait_task.name => %{upstream: MapSet.new([]), store_result: false},
+            work_task.name => %{upstream: MapSet.new([]), store_result: false}
+          }
+      }
+
+      Gust.PubSub.subscribe_run(run_id)
+
+      Gust.DAGStageCoordinatorMock
+      |> expect(:new, fn task_ids ->
+        assert MapSet.new(task_ids) == MapSet.new([wait_task_id, work_task_id])
+        :initial_coord
+      end)
+      |> expect(:put_waiting, fn :initial_coord, ^wait_task_id ->
+        {:continue, :waiting_coord}
+      end)
+      |> expect(:apply_task_result, fn :waiting_coord, %Flows.Task{id: ^work_task_id}, :ok ->
+        {:waiting, :final_coord}
+      end)
+
+      Gust.DAGTaskRunnerSupervisorMock
+      |> expect(:start_child, fn %Flows.Task{id: ^work_task_id},
+                                 %Gust.DAG.Definition{},
+                                 _pid,
+                                 _opts ->
+        {:ok, spawn(fn -> Process.sleep(10) end)}
+      end)
+
+      runner_pid =
+        start_link_supervised!(
+          {Gust.DAG.Runner.StageWorker,
+           %{
+             stage: [
+               stage_entry({:wait_for, "payment_received"}, wait_task),
+               stage_entry(:ok, work_task)
+             ],
+             dag_def: dag_def,
+             run_id: run_id
+           }}
+        )
+
+      ref = Process.monitor(runner_pid)
+
+      assert_receive {:dag, :run_status,
+                      %{run_id: ^run_id, status: :waiting, task_id: ^wait_task_id}},
+                     400
+
+      assert_receive {:dag, :run_status,
+                      %{run_id: ^run_id, status: :running, task_id: ^work_task_id}},
+                     400
+
+      send(runner_pid, {:task_result, %{}, work_task_id, :ok})
+
+      assert_receive {:dag, :run_status,
+                      %{run_id: ^run_id, status: :succeeded, task_id: ^work_task_id}},
+                     400
+
+      assert_receive {:stage_waiting, ^work_task_id}, 400
+      assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 400
+    end
+  end
+
   describe "handle_continue/2 when upstream did fail" do
     setup [:upstream_failed]
 

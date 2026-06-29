@@ -16,13 +16,16 @@ defmodule Gust.Flows.Task do
         :retrying,
         :upstream_failed,
         :skipped,
-        :enqueued
+        :enqueued,
+        :waiting
       ],
       default: :created
 
     field :result, :map, default: %{}
     field :error, :map, default: %{}
     field :params, :map, default: %{}
+    field :waiting_for, :string
+    field :wait_satisfied_at, :utc_datetime
     field :attempt, :integer, default: 1
     field :map_index, :integer
     belongs_to :run, Gust.Flows.Run
@@ -42,10 +45,13 @@ defmodule Gust.Flows.Task do
             | :retrying
             | :upstream_failed
             | :skipped
-            | :enqueued,
+            | :enqueued
+            | :waiting,
           result: map(),
           error: map(),
           params: map(),
+          waiting_for: String.t() | nil,
+          wait_satisfied_at: DateTime.t() | nil,
           attempt: integer(),
           map_index: integer() | nil,
           run_id: integer() | nil,
@@ -58,7 +64,18 @@ defmodule Gust.Flows.Task do
   @doc false
   def changeset(task, attrs) do
     task
-    |> cast(attrs, [:name, :status, :run_id, :result, :attempt, :error, :params, :map_index])
+    |> cast(attrs, [
+      :name,
+      :status,
+      :run_id,
+      :result,
+      :attempt,
+      :error,
+      :params,
+      :waiting_for,
+      :wait_satisfied_at,
+      :map_index
+    ])
     |> validate_required([:name, :status, :run_id, :result, :error, :params])
     |> task_identity_constraints()
   end
@@ -76,6 +93,8 @@ defmodule Gust.Flows.Task do
       :attempt,
       :error,
       :params,
+      :waiting_for,
+      :wait_satisfied_at,
       :map_index
     ])
     |> validate_required([:name, :status, :run_id, :result, :error, :params])
