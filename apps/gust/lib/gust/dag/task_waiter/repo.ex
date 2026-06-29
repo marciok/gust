@@ -27,6 +27,8 @@ defmodule Gust.DAG.TaskWaiter.Repo do
         |> Enum.map(&resume_task(&1, payload))
       end)
 
+    Enum.each(tasks, fn task -> PubSub.broadcast_run_status(task.run_id, :created, task.id) end)
+
     tasks
     |> Enum.map(& &1.run_id)
     |> Enum.uniq()
@@ -77,8 +79,6 @@ defmodule Gust.DAG.TaskWaiter.Repo do
       |> Map.put(@wait_payload_param, payload)
 
     {:ok, task} = Flows.resume_waiting_task(task, params, now)
-
-    PubSub.broadcast_run_status(task.run_id, :created, task.id)
 
     task
   end
