@@ -16,7 +16,15 @@ defmodule Gust.DAG.StageCoordinator do
               | {:waiting, stage_spec}
               | {:reschedule, stage_spec, task, integer()}
   @callback update_restart_timer(stage_spec, task, ref) :: stage_spec
-  @callback process_task(task, map()) :: :ok | :upstream_failed | :already_processed | :skipped
+  @callback process_task(task, map()) ::
+              :ok
+              | :upstream_failed
+              | :already_processed
+              | :skipped
+              | {:wait_for, term()}
+              | {:expand_task, list()}
+              | {:expand_task_error, term()}
+              | {:already_expanded, term()}
 
   def put_running(stage_spec, task_id), do: impl().put_running(stage_spec, task_id)
 
