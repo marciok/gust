@@ -76,13 +76,30 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
   end
 
   def maybe_validate_result(false, result), do: {:ok, result}
-  def maybe_validate_result(true, result) when is_map(result), do: {:ok, result}
+
+  def maybe_validate_result(true, result) when is_map(result),
+    do: validate_serializable(result)
 
   def maybe_validate_result(true, result) when is_list(result),
-    do: {:ok, %{gust_task_items: result}}
+    do: validate_serializable(%{gust_task_items: result})
 
   def maybe_validate_result(true, result) do
     raise("Task returned #{inspect(result)} but store_result requires a map")
+  end
+
+  defp validate_serializable(result) do
+    case Jason.encode(result) do
+      {:ok, _json} ->
+        {:ok, result}
+
+      {:error, %Jason.EncodeError{message: message}} ->
+        raise("Task result is not JSON-serializable: #{message} (#{inspect(result)})")
+
+      {:error, %Protocol.UndefinedError{value: value}} ->
+        raise(
+          "Task result is not JSON-serializable: #{inspect(value)} has no Jason encoder (#{inspect(result)})"
+        )
+    end
   end
 
   defp task_context(task),
