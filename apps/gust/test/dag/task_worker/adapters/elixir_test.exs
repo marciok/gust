@@ -345,5 +345,27 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
 
       assert_worker_result(ref, task.id, result, :error)
     end
+
+    test "store result is a map but contains a non-serializable value", %{task: task} do
+      dag_content = """
+        defmodule StoreResultNotSerializableDag do
+          use Gust.DSL
+
+          task :#{task.name}, store_result: true do
+            Process.sleep(100)
+            %{user: {:name, "marcio"}}
+          end
+        end
+      """
+
+      mod = compile_dag!(dag_content)
+      ref = start_worker_and_monitor!(task, mod, %{store_result: true})
+
+      assert_receive {:task_result, %RuntimeError{message: message}, task_id, :error}, 200
+      assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+      assert task_id == task.id
+      assert message =~ "Task result is not JSON-serializable"
+      assert message =~ "{:name, \"marcio\"}"
+    end
   end
 end
