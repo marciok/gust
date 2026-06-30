@@ -41,17 +41,15 @@
             Restart {@item_name}
           </button>
 
-          <div :if={show_cancel?(@selected_item)}>
-            <button
-              :if={@item_status in [:running, :retrying]}
-              id="cancel-task"
-              phx-click="cancel_task"
-              phx-value-id={@item_id}
-              class="btn px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
-            >
-              Cancel {@item_name}
-            </button>
-          </div>
+          <button
+            :if={cancelable?(@selected_item, @item_status)}
+            id="cancel-task"
+            phx-click="cancel_task"
+            phx-value-id={@item_id}
+            class="btn px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
+          >
+            Cancel {@item_name}
+          </button>
         </div>
       </div>
     </section>

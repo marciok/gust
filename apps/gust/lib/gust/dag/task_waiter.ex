@@ -14,9 +14,11 @@ defmodule Gust.DAG.TaskWaiter do
 
   @callback resume(term(), resume_opts()) :: {:ok, [task()]} | {:error, term()}
   @callback clear_wait(task()) :: task()
+  @callback fail(task()) :: {:ok, task()} | {:error, term()}
 
   def resume(waiting_for, opts) when is_list(opts), do: impl().resume(waiting_for, opts)
   def clear_wait(task), do: impl().clear_wait(task)
+  def fail(task), do: impl().fail(task)
 
   def impl, do: Application.get_env(:gust, :dag_task_waiter, Gust.DAG.TaskWaiter.Repo)
 end

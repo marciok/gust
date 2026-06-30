@@ -38,6 +38,16 @@ defmodule Gust.DAG.TaskWaiter.Repo do
   end
 
   @impl true
+  def fail(task) do
+    with {:ok, task} <- Flows.cancel_waiting_task(task) do
+      PubSub.broadcast_run_status(task.run_id, :failed, task.id)
+      trigger_run(task.run_id)
+
+      {:ok, task}
+    end
+  end
+
+  @impl true
   def clear_wait(%Flows.Task{waiting_for: nil, wait_satisfied_at: nil} = task), do: task
 
   def clear_wait(task) do

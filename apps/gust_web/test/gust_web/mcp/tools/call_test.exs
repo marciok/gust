@@ -353,13 +353,28 @@ defmodule GustWeb.MCP.Tools.CallTest do
   end
 
   @tag :mock_load_definition
+  test "handle/2 cancels a waiting task via the terminator", %{
+    task: task
+  } do
+    {:ok, task} = Flows.update_task_status(task, :waiting)
+
+    GustWeb.DAGTerminatorMock
+    |> expect(:cancel_waiting, fn ^task ->
+      nil
+    end)
+
+    assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
+    assert text_list(contents) == ["Task: #{task.name} waiting cancelled"]
+  end
+
+  @tag :mock_load_definition
   test "handle/2 returns a message when cancel_task receives a task in an unsupported status", %{
     task: task
   } do
     assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
 
     assert text_list(contents) == [
-             "Task: #{task.name} cannot be cancelled from status :failed. Only :running and :retrying tasks can be cancelled."
+             "Task: #{task.name} cannot be cancelled from status :failed. Only :running, :retrying, and :waiting tasks can be cancelled."
            ]
   end
 

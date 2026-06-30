@@ -707,6 +707,29 @@ defmodule GustWeb.DagLiveDashboardTest do
       refute has_element?(dashboard_live, "#cancel-task[disabled]")
     end
 
+    test "click on cancel on waiting", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, waiting_task} = Gust.Flows.update_task_status(task, :waiting)
+
+      {:ok, dashboard_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{waiting_task.name}"
+        )
+
+      GustWeb.DAGTerminatorMock
+      |> expect(:cancel_waiting, fn ^waiting_task -> nil end)
+
+      assert dashboard_live |> element("#cancel-task") |> render_click() =~
+               "Task: #{waiting_task.name} waiting cancelled"
+
+      refute has_element?(dashboard_live, "#cancel-task[disabled]")
+    end
+
     test "click restart run on succeeded run", %{
       conn: conn,
       dag: dag,
