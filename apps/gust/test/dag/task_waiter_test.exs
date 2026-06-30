@@ -144,4 +144,44 @@ defmodule Gust.DAG.TaskWaiterTest do
     assert %Flows.Task{waiting_for: nil, wait_satisfied_at: nil} =
              TaskWaiter.clear_wait(task)
   end
+
+  test "fail/1 clears wait markers, marks the task failed, broadcasts, and requeues the run" do
+    dag = dag_fixture()
+    run = run_fixture(%{dag_id: dag.id, status: :waiting})
+
+    task =
+      task_fixture(%{
+        run_id: run.id,
+        name: "await_payment",
+        status: :waiting,
+        waiting_for: "payment_received"
+      })
+
+    PubSub.subscribe_run(run.id)
+    PubSub.subscribe_runs_pool()
+
+    Gust.DAGRunTriggerMock
+    |> expect(:dispatch_run, fn %Flows.Run{id: run_id} when run_id == run.id ->
+      Requeue.dispatch_run(run)
+    end)
+
+    assert {:ok,
+            %Flows.Task{id: task_id, status: :failed, waiting_for: nil, wait_satisfied_at: nil}} =
+             TaskWaiter.fail(task)
+
+    assert task_id == task.id
+
+    assert %Flows.Task{status: :failed, waiting_for: nil, wait_satisfied_at: nil} =
+             Flows.get_task!(task.id)
+
+    assert %Flows.Run{status: :enqueued} = Flows.get_run!(run.id)
+
+    assert_receive {:dag, :run_status, %{run_id: run_id, task_id: ^task_id, status: :failed}}
+                   when run_id == run.id
+
+    assert_receive {:dag, :run_status, %{run_id: run_id, status: :enqueued}}
+                   when run_id == run.id
+
+    assert_receive {:run_pool, :dispatch_run, %{run_id: run_id}} when run_id == run.id
+  end
 end

@@ -122,8 +122,12 @@ defmodule GustWeb.MCP.Tools.Call do
           Terminator.cancel_timer(task, :cancelled)
           "Task: #{task.name} retrying cancelled"
 
+        :waiting ->
+          Terminator.cancel_waiting(task)
+          "Task: #{task.name} waiting cancelled"
+
         status ->
-          "Task: #{task.name} cannot be cancelled from status #{inspect(status)}. Only :running and :retrying tasks can be cancelled."
+          "Task: #{task.name} cannot be cancelled from status #{inspect(status)}. Only :running, :retrying, and :waiting tasks can be cancelled."
       end
 
     {false, [content(text)]}

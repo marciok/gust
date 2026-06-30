@@ -252,6 +252,10 @@ defmodule GustWeb.DagLive.Dashboard do
           Terminator.kill_task(task, :cancelled, runtime)
           {:info, "Task: #{task.name} was cancelled"}
 
+        :waiting ->
+          Terminator.cancel_waiting(task)
+          {:info, "Task: #{task.name} waiting cancelled"}
+
         :retrying ->
           Terminator.cancel_timer(task, :cancelled)
           {:info, "Task: #{task.name} retrying cancelled"}
@@ -415,11 +419,11 @@ defmodule GustWeb.DagLive.Dashboard do
     dag_def.tasks[task_name][:map_over] != nil
   end
 
-  defp show_cancel?(%Task{}), do: true
-  defp show_cancel?(_item), do: false
+  defp cancelable?(%Task{}, status), do: status in [:running, :retrying, :waiting]
+  defp cancelable?(_item, _status), do: false
 
   defp restartable?([%Task{} | _tail], _status), do: true
-  defp restartable?(_item, status), do: status in [:failed, :succeeded, :waiting]
+  defp restartable?(_item, status), do: status in [:failed, :succeeded]
 
   defp assign_item_attrs(socket, selected_item) do
     {inserted_at, updated_at} = get_timestamps(selected_item)

@@ -260,6 +260,19 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Cancels a waiting task by clearing its wait markers and marking it failed in one write.
+  """
+  def cancel_waiting_task(task) do
+    task
+    |> Task.changeset(%{
+      waiting_for: nil,
+      wait_satisfied_at: nil,
+      status: :failed
+    })
+    |> Repo.update()
+  end
+
+  @doc """
   Updates a task's persisted wait state.
   """
   def update_task_wait_state(task, attrs) do

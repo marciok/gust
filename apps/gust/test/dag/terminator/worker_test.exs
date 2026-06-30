@@ -98,4 +98,24 @@ defmodule DAG.Terminator.WorkerTest do
 
     assert_receive {:cancel_timer, ^task_id, ^status}, 200
   end
+
+  test "cancel_waiting/1", %{task: task} do
+    previous_task_waiter = Application.get_env(:gust, :dag_task_waiter)
+    Application.put_env(:gust, :dag_task_waiter, Gust.DAGTaskWaiterMock)
+
+    on_exit(fn ->
+      if previous_task_waiter do
+        Application.put_env(:gust, :dag_task_waiter, previous_task_waiter)
+      else
+        Application.delete_env(:gust, :dag_task_waiter)
+      end
+    end)
+
+    cancelled_task = %{task | status: :failed}
+
+    Gust.DAGTaskWaiterMock
+    |> expect(:fail, fn ^task -> {:ok, cancelled_task} end)
+
+    assert Terminator.cancel_waiting(task) == cancelled_task
+  end
 end
