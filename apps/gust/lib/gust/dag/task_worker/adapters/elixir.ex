@@ -92,12 +92,9 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
       {:ok, _json} ->
         {:ok, result}
 
-      {:error, %Jason.EncodeError{message: message}} ->
-        raise("Task result is not JSON-serializable: #{message} (#{inspect(result)})")
-
-      {:error, %Protocol.UndefinedError{value: value}} ->
+      {:error, error} ->
         raise(
-          "Task result is not JSON-serializable: #{inspect(value)} has no Jason encoder (#{inspect(result)})"
+          "Task result is not JSON-serializable: #{Exception.message(error)} (#{inspect(result)})"
         )
     end
   end
