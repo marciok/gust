@@ -170,8 +170,9 @@ GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/
 ## Features
 
   - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
-  - Parallel task mapping with `map_over`, creating one task instance per upstream list item.
+  - Parallel task mapping with `:map_over`, creating one task instance per upstream list item.
   - Conditional task skipping with `:skip_if`; dependent downstream tasks are skipped when an upstream task is skipped.
+  - Durable task waiting with `:wait_for`, so a DAG can pause until another DAG, webhook, or external process resumes it.
   - Support multiple nodes.
   - [Support for Python DAGs](https://github.com/marciok/gust/tree/main/apps/gust_py)
   - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
