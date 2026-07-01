@@ -132,5 +132,38 @@ defmodule DAG.Run.Cron.JobLoaderTest do
 
       assert Scheduler.find_job(:removed_schedule_dag) == nil
     end
+
+    test "ignores file update events that are not reload actions" do
+      start_link_supervised!(Scheduler)
+      dag = dag_fixture(%{name: "ignore_update_action_dag"})
+
+      dag_def = %Gust.DAG.Definition{
+        mod: MockDagMod,
+        name: dag.name,
+        error: %{},
+        options: [schedule: "* * * * *"]
+      }
+
+      reloaded_dag_def = %Gust.DAG.Definition{
+        dag_def
+        | options: [schedule: "*/5 * * * *"]
+      }
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definitions, fn ->
+        %{dag.id => {:ok, dag_def}}
+      end)
+
+      start_link_supervised!({JobLoader, reload_schedules?: true})
+      Process.sleep(200)
+
+      Gust.PubSub.broadcast_file_update(dag.name, {:ok, reloaded_dag_def}, "update")
+      Process.sleep(200)
+
+      schedule = ~e[* * * * *]
+
+      assert %Quantum.Job{name: :ignore_update_action_dag, schedule: ^schedule} =
+               Scheduler.find_job(:ignore_update_action_dag)
+    end
   end
 end
