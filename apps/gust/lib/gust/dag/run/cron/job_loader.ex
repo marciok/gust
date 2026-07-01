@@ -13,14 +13,7 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
   use GenServer
 
   def init(args) do
-    state = %{
-      reload_schedules?:
-        Keyword.get(
-          args,
-          :reload_schedules?,
-          Application.get_env(:gust, :reload_dag_cron, false)
-        )
-    }
+    state = %{reload_schedules?: reload_opt(args)}
 
     if state.reload_schedules?, do: PubSub.subscribe_all_files("update")
 
@@ -30,6 +23,9 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
+
+  defp reload_opt(args),
+    do: Keyword.get(args, :reload_schedules?, Application.get_env(:gust, :dag_cron_reload, false))
 
   def handle_continue(:load_jobs, state) do
     for {dag_id, {:ok, dag_def}} <- Loader.get_definitions(),
@@ -54,7 +50,7 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
         {:dag, :file_updated, %{action: "removed", dag_name: name}},
         state
       ) do
-    delete_job(name)
+    maybe_delete_job(name)
     {:noreply, state}
   end
 
@@ -76,7 +72,7 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
   end
 
   defp reload_dag_job(%Definition{name: name} = dag_def) do
-    delete_job(name)
+    maybe_delete_job(name)
 
     with true <- Definition.empty_errors?(dag_def),
          schedule when not is_nil(schedule) <- dag_def.options[:schedule],
@@ -87,11 +83,9 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
     end
   end
 
-  defp delete_job(name) do
+  defp maybe_delete_job(name) do
     job_name = String.to_existing_atom(name)
 
-    if Scheduler.find_job(job_name) do
-      Scheduler.delete_job(job_name)
-    end
+    if Scheduler.find_job(job_name), do: Scheduler.delete_job(job_name)
   end
 end
