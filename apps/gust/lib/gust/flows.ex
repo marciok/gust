@@ -238,6 +238,50 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Updates a task's persisted parameters.
+  """
+  def update_task_params(task, params) do
+    Task.changeset(task, %{params: params})
+    |> Repo.update()
+  end
+
+  @doc """
+  Updates a resumed waiting task's params, wait state, and status in one write.
+  """
+  def resume_waiting_task(task, params, wait_satisfied_at) do
+    task
+    |> Task.changeset(%{
+      params: params,
+      waiting_for: nil,
+      wait_satisfied_at: wait_satisfied_at,
+      status: :created
+    })
+    |> Repo.update()
+  end
+
+  @doc """
+  Cancels a waiting task by clearing its wait markers and marking it failed in one write.
+  """
+  def cancel_waiting_task(task) do
+    task
+    |> Task.changeset(%{
+      waiting_for: nil,
+      wait_satisfied_at: nil,
+      status: :failed
+    })
+    |> Repo.update()
+  end
+
+  @doc """
+  Updates a task's persisted wait state.
+  """
+  def update_task_wait_state(task, attrs) do
+    task
+    |> Task.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
   Updates a task error.
   """
   def update_task_error(task, error) do

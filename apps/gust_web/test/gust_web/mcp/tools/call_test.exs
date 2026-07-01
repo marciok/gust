@@ -353,13 +353,76 @@ defmodule GustWeb.MCP.Tools.CallTest do
   end
 
   @tag :mock_load_definition
+  test "handle/2 cancels a waiting task via the terminator", %{
+    task: task
+  } do
+    {:ok, task} = Flows.update_task_status(task, :waiting)
+
+    GustWeb.DAGTerminatorMock
+    |> expect(:cancel_waiting, fn ^task ->
+      nil
+    end)
+
+    assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
+    assert text_list(contents) == ["Task: #{task.name} waiting cancelled"]
+  end
+
+  @tag :mock_load_definition
   test "handle/2 returns a message when cancel_task receives a task in an unsupported status", %{
     task: task
   } do
     assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
 
     assert text_list(contents) == [
-             "Task: #{task.name} cannot be cancelled from status :failed. Only :running and :retrying tasks can be cancelled."
+             "Task: #{task.name} cannot be cancelled from status :failed. Only :running, :retrying, and :waiting tasks can be cancelled."
+           ]
+  end
+
+  test "handle/2 delegates resume_task to the configured task waiter" do
+    dag = dag_fixture(%{name: "waitable_dag"})
+    run = run_fixture(%{dag_id: dag.id})
+    task = task_fixture(%{run_id: run.id, name: "await_payment", status: :created})
+
+    GustWeb.DAGTaskWaiterMock
+    |> expect(:resume, fn waiting_for, opts ->
+      assert waiting_for == "payment_received"
+      assert opts == [payload: %{"invoice_id" => "inv_123"}, run_id: run.id]
+
+      {:ok, [task]}
+    end)
+
+    assert {false, contents} =
+             Call.handle(%Tool{name: :resume_task}, %{
+               "run_id" => run.id,
+               "waiting_for" => "payment_received",
+               "payload" => %{"invoice_id" => "inv_123"}
+             })
+
+    assert text_list(contents) == [
+             "Resumed 1 task(s) waiting for \"payment_received\". Task IDs: #{inspect([task.id])}; Run IDs: #{inspect([run.id])}"
+           ]
+  end
+
+  test "handle/2 delegates resume_task without run scope" do
+    dag = dag_fixture(%{name: "global_waitable_dag"})
+    first_run = run_fixture(%{dag_id: dag.id})
+    second_run = run_fixture(%{dag_id: dag.id})
+
+    first_task = task_fixture(%{run_id: first_run.id, name: "first_wait", status: :created})
+    second_task = task_fixture(%{run_id: second_run.id, name: "second_wait", status: :created})
+
+    GustWeb.DAGTaskWaiterMock
+    |> expect(:resume, fn waiting_for, opts ->
+      assert waiting_for == "payment_received"
+      assert opts == [payload: %{}]
+      {:ok, [first_task, second_task]}
+    end)
+
+    assert {false, contents} =
+             Call.handle(%Tool{name: :resume_task}, %{"waiting_for" => "payment_received"})
+
+    assert text_list(contents) == [
+             "Resumed 2 task(s) waiting for \"payment_received\". Task IDs: #{inspect([first_task.id, second_task.id])}; Run IDs: #{inspect([first_run.id, second_run.id])}"
            ]
   end
 

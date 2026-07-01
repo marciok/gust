@@ -130,6 +130,25 @@ defmodule DSLTest do
     :code.delete(mod)
   end
 
+  test "task macro with wait_for option" do
+    dag_code = """
+      defmodule MyWaitingDag do
+        use Gust.DSL
+
+        task :await_payment, wait_for: "payment_received" do
+          :ok
+        end
+      end
+    """
+
+    [{mod, _bin}] = Code.compile_string(dag_code)
+
+    assert mod.__dag_tasks__() == [{:await_payment, [wait_for: "payment_received"]}]
+
+    :code.purge(mod)
+    :code.delete(mod)
+  end
+
   test "task macro supports the default scalar map_over item context" do
     dag_code = """
       defmodule MyScalarMappedDag do

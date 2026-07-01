@@ -11,7 +11,6 @@ defmodule Gust.DSL do
 
       defmodule HelloWorld do
         # `schedule` and `on_finished_callback` are optional.
-        # Note: if you change `schedule`, restart the server to update the cron job.
         use Gust.DSL, schedule: "* * * * *", on_finished_callback: :notify_something
 
         # Gust logs are stored and displayed through GustWeb via Logger.
@@ -58,7 +57,7 @@ defmodule Gust.DSL do
     * `on_finished_callback` - The name of the function to be called.
   """
 
-  @task_opts [:downstream, :store_result, :ctx, :skip_if, :map_over]
+  @task_opts [:downstream, :store_result, :ctx, :skip_if, :map_over, :wait_for]
 
   defmacro __using__(dag_options) do
     quote do
@@ -102,6 +101,8 @@ defmodule Gust.DSL do
       start one parallel task instance per item. Gust persists the list under the
       `gust_task_items` key, and each item is passed as `ctx.params`. Map items are passed
       unchanged. Other values are wrapped as `%{"item" => value}`.
+    * `:wait_for` — A durable external event key. When reached, the task and run are marked
+      as `:waiting` until `Gust.DAG.TaskWaiter.resume/2` receives the matching key.
 
   ## Example
 
@@ -119,6 +120,10 @@ defmodule Gust.DSL do
 
       task :process_item, map_over: :persist_items, ctx: %{params: %{"item" => item}} do
         IO.inspect(item)
+      end
+
+      task :await_payment, wait_for: "payment_received" do
+        :ok
       end
 
       def skip_export?(%{run_id: run_id}) do

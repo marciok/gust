@@ -15,6 +15,7 @@ defmodule GustWeb.DagLive.Dashboard do
     :upstream_failed,
     :retrying,
     :running,
+    :waiting,
     :enqueued,
     :created,
     :skipped,
@@ -73,6 +74,7 @@ defmodule GustWeb.DagLive.Dashboard do
   defp mount_success(socket, %Dag{runs: runs} = dag, dag_def, params, page) do
     selected_item = load_selected_item(params)
     expanded_items = get_expanded_items(selected_item)
+    logs = get_logs(selected_item)
 
     if connected?(socket), do: subscribe_updates(dag, runs)
 
@@ -87,7 +89,8 @@ defmodule GustWeb.DagLive.Dashboard do
      |> assign(:item_id, get_id(selected_item))
      |> assign_item_attrs(selected_item)
      |> assign(:reload_dag_file, {dag_def.file_path, time()})
-     |> stream(:logs, get_logs(selected_item))
+     |> stream(:logs, logs)
+     |> assign(:empty_logs, logs == [])
      |> assign(:expanded_item_ids, get_expanded_ids(expanded_items))
      |> stream(:expanded_items, expanded_items, dom_id: &"mapped-task-run-#{&1.id}")
      |> stream(:runs, runs |> Enum.reverse())}
@@ -251,6 +254,10 @@ defmodule GustWeb.DagLive.Dashboard do
           Terminator.kill_task(task, :cancelled, runtime)
           {:info, "Task: #{task.name} was cancelled"}
 
+        :waiting ->
+          Terminator.cancel_waiting(task)
+          {:info, "Task: #{task.name} waiting cancelled"}
+
         :retrying ->
           Terminator.cancel_timer(task, :cancelled)
           {:info, "Task: #{task.name} retrying cancelled"}
@@ -265,7 +272,8 @@ defmodule GustWeb.DagLive.Dashboard do
   @impl true
   def handle_event("filter_logs", %{"level" => level}, socket) do
     logs = get_logs(socket.assigns.selected_item, level)
-    {:noreply, socket |> stream(:logs, logs, reset: true)}
+
+    {:noreply, socket |> stream(:logs, logs, reset: true) |> assign(:empty_logs, logs == [])}
   end
 
   @impl true
@@ -308,7 +316,10 @@ defmodule GustWeb.DagLive.Dashboard do
     socket =
       if socket.assigns.item_id == task_id do
         log = Flows.get_log!(log_id)
-        stream_insert(socket, :logs, log)
+
+        socket
+        |> stream_insert(:logs, log)
+        |> assign(:empty_logs, false)
       else
         socket
       end
@@ -414,8 +425,8 @@ defmodule GustWeb.DagLive.Dashboard do
     dag_def.tasks[task_name][:map_over] != nil
   end
 
-  defp show_cancel?(%Task{}), do: true
-  defp show_cancel?(_item), do: false
+  defp cancelable?(%Task{}, status), do: status in [:running, :retrying, :waiting]
+  defp cancelable?(_item, _status), do: false
 
   defp restartable?([%Task{} | _tail], _status), do: true
   defp restartable?(_item, status), do: status in [:failed, :succeeded]
