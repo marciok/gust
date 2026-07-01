@@ -1,4 +1,3 @@
-
 <p align="center">
   <picture>
     <img alt="Gust" src="https://gust-github.s3.us-east-1.amazonaws.com/gust-symbol-logo.png" width="320">
@@ -41,6 +40,7 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 - [Adding to an existing app](#adding-gust-to-an-existing-phoenix-app)
 - [Multi-node setup](#multi-node-setup)
 - [Features](#features)
+- [GustWeb API](#gustweb-api)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
 - [Benchmark](https://github.com/marciok/gust-benchmark)
 
@@ -54,8 +54,7 @@ Gust is the perfect fit for our needs, and I encourage you to try it and push it
 ---
 ## In Action
 
-
-https://github.com/user-attachments/assets/a5ad13ca-0a5f-47e5-9344-1f57c7c2ecb5
+https://github.com/user-attachments/assets/250ec668-4275-4aa5-a022-b3ba758c515c
 
 ---
 ## Overview
@@ -116,6 +115,17 @@ defmodule HelloWorld do
     task = Flows.get_task_by_name_run("first_task", run_id)
 
     Logger.info(task.result)
+  end
+
+  # Declaring a task that stores a list for `map_over`.
+  task :list_names, downstream: [:mapped_greeting], ctx: %{run_id: run_id}, save: true do
+    run = Flows.get_run!(run_id)
+    Map.get(run.params, "names", ["Ana", "Bruno", "Carla"])
+  end
+
+  # Gust creates one "mapped_greeting" task instance for each item returned by "list_names".
+  task :mapped_greeting, map_over: :list_names, ctx: %{params: %{"item" => name}} do
+    Logger.info("Hi #{name} from mapped_greeting")
   end
 end
 
@@ -183,6 +193,46 @@ GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/
 
 
 ---
+### GustWeb API
+
+GustWeb includes a small HTTP API for triggering DAG runs from external systems.
+Mount it inside any Phoenix API scope with the `GustWeb.API` router macro:
+
+```elixir
+import GustWeb.API
+
+scope "/gust/api", MyAppWeb do
+  pipe_through :api
+
+  gust_api()
+end
+```
+
+That exposes `POST /gust/api/dags/:dag_name/run`. Requests must include a bearer
+token matching the configured `:gust_web, :api_token`; in releases, the default
+runtime config reads it from `GUST_API_TOKEN`.
+
+```sh
+curl -X POST http://localhost:4000/gust/api/dags/daily_import/run \
+  -H "Authorization: Bearer $GUST_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"params":{"name":"Ada"}}'
+```
+
+Successful requests return `201 Created` with the new run id and status:
+
+```json
+{
+  "id": "123",
+  "status": "enqueued"
+}
+```
+
+Disabled DAGs create a run without enqueueing it and return `"status": "created"`.
+Unknown DAGs return `404` with `{"error":"dag_not_found"}`, and invalid tokens
+return `401` with `{"error":"unauthorized"}`.
+
+---
 ### MCP Server
 
 GustWeb includes a built-in MCP server that gives your LLM access to Gust’s core features, including listing DAGs, triggering runs, exploring DAG definitions, and debugging executions.
@@ -226,7 +276,6 @@ gh skill install marciok/gust elixir-dag-creator
 ```
 
 ---
-
 
 ## Adding Gust to an existing Phoenix app
 
