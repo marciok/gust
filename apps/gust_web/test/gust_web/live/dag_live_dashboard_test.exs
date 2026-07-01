@@ -169,6 +169,47 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert has_element?(dashboard_live, "#logs-#{log_warn.id}")
     end
 
+    test "displays an empty logs state for a selected item with no logs", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(dashboard_live, "#logs-empty-state")
+      assert has_element?(dashboard_live, "#logs-empty-state .hero-document-text")
+      assert has_element?(dashboard_live, "#log-filter")
+      assert has_element?(dashboard_live, "#log-list")
+
+      empty_state_html = render(element(dashboard_live, "#logs-empty-state"))
+      assert empty_state_html =~ "No logs for this item"
+      assert empty_state_html =~ "The selected item has not emitted any logs yet."
+    end
+
+    test "shows the empty logs state when filtering removes all logs", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      log = log_fixture(%{task_id: task.id, content: "info log", level: "info", attempt: 1})
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      refute has_element?(dashboard_live, "#logs-empty-state")
+      assert has_element?(dashboard_live, "#logs-#{log.id}")
+
+      dashboard_live
+      |> element("#log-filter")
+      |> render_change(%{"_target" => "level", "level" => "warn"})
+
+      assert has_element?(dashboard_live, "#logs-empty-state")
+      refute has_element?(dashboard_live, "#logs-#{log.id}")
+    end
+
     test "click on non-existent task", %{
       conn: conn,
       dag: dag,
@@ -411,6 +452,8 @@ defmodule GustWeb.DagLiveDashboardTest do
       log = log_fixture(%{task_id: task.id, content: log_content, level: "info", attempt: 1})
 
       Gust.PubSub.broadcast_log(task.id, log.id)
+
+      refute has_element?(dashboard_live, "#logs-empty-state")
 
       log_html = dashboard_live |> element("#log-list") |> render()
       assert log_html =~ log.content
