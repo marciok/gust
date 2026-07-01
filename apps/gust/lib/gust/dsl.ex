@@ -11,7 +11,6 @@ defmodule Gust.DSL do
 
       defmodule HelloWorld do
         # `schedule` and `on_finished_callback` are optional.
-        # Note: if you change `schedule`, restart the server to update the cron job.
         use Gust.DSL, schedule: "* * * * *", on_finished_callback: :notify_something
 
         # Gust logs are stored and displayed through GustWeb via Logger.
