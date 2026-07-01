@@ -133,6 +133,68 @@ defmodule DAG.Run.Cron.JobLoaderTest do
       assert Scheduler.find_job(:removed_schedule_dag) == nil
     end
 
+    test "adds a job when a previously unscheduled DAG gains a schedule" do
+      start_link_supervised!(Scheduler)
+      dag = dag_fixture(%{name: "new_schedule_dag"})
+
+      dag_def = %Gust.DAG.Definition{
+        mod: MockDagMod,
+        name: dag.name,
+        error: %{},
+        options: []
+      }
+
+      reloaded_dag_def = %Gust.DAG.Definition{
+        dag_def
+        | options: [schedule: "*/5 * * * *"]
+      }
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definitions, fn ->
+        %{dag.id => {:ok, dag_def}}
+      end)
+
+      start_link_supervised!({JobLoader, reload_schedules?: true})
+      Process.sleep(200)
+
+      assert Scheduler.find_job(:new_schedule_dag) == nil
+
+      Gust.PubSub.broadcast_file_update(dag.name, {:ok, reloaded_dag_def}, "reload")
+      Process.sleep(200)
+
+      schedule = ~e[*/5 * * * *]
+
+      assert %Quantum.Job{name: :new_schedule_dag, schedule: ^schedule} =
+               Scheduler.find_job(:new_schedule_dag)
+    end
+
+    test "removes an existing job when the DAG file is removed" do
+      start_link_supervised!(Scheduler)
+      dag = dag_fixture(%{name: "removed_file_dag"})
+
+      dag_def = %Gust.DAG.Definition{
+        mod: MockDagMod,
+        name: dag.name,
+        error: %{},
+        options: [schedule: "* * * * *"]
+      }
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definitions, fn ->
+        %{dag.id => {:ok, dag_def}}
+      end)
+
+      start_link_supervised!({JobLoader, reload_schedules?: true})
+      Process.sleep(200)
+
+      assert %Quantum.Job{name: :removed_file_dag} = Scheduler.find_job(:removed_file_dag)
+
+      Gust.PubSub.broadcast_file_update(dag.name, {:error, nil}, "removed")
+      Process.sleep(200)
+
+      assert Scheduler.find_job(:removed_file_dag) == nil
+    end
+
     test "ignores file update events that are not reload actions" do
       start_link_supervised!(Scheduler)
       dag = dag_fixture(%{name: "ignore_update_action_dag"})

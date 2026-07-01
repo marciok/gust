@@ -50,6 +50,14 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
     {:noreply, state}
   end
 
+  def handle_info(
+        {:dag, :file_updated, %{action: "removed", dag_name: name}},
+        state
+      ) do
+    delete_job(name)
+    {:noreply, state}
+  end
+
   def handle_info({:dag, :file_updated, _payload}, state), do: {:noreply, state}
 
   def add_dag_job(dag_def, dag_id) do
@@ -68,8 +76,7 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
   end
 
   defp reload_dag_job(%Definition{name: name} = dag_def) do
-    job_name = String.to_atom(name)
-    Scheduler.delete_job(job_name)
+    delete_job(name)
 
     with true <- Definition.empty_errors?(dag_def),
          schedule when not is_nil(schedule) <- dag_def.options[:schedule],
@@ -77,6 +84,14 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
       add_dag_job(dag_def, dag_id)
     else
       _no_job -> :ok
+    end
+  end
+
+  defp delete_job(name) do
+    job_name = String.to_existing_atom(name)
+
+    if Scheduler.find_job(job_name) do
+      Scheduler.delete_job(job_name)
     end
   end
 end
