@@ -277,27 +277,47 @@
     </section>
 
     <section :if={@expanded_item_ids == []} class="dag-card__body">
-      <div class="border-t border-slate-200/70 -mx-4 mb-3" />
-      <div class="overflow-x-auto overflow-y-auto max-h-96">
-        <div class="flex flex-wrap items-center justify-between pb-3 gap-3">
-          <h4 class="text-sm font-semibold text-slate-700">Logs</h4>
-          <.form for={%{}} id="log-filter" phx-change="filter_logs" class="log-filter">
-            <.input
-              id="log-filter-level"
-              value=""
-              name="level"
-              type="select"
-              options={[
-                {"All", ""},
-                {"info", "info"},
-                {"debug", "debug"},
-                {"warn", "warn"},
-                {"error", "error"}
-              ]}
-              class="select select-bordered select-sm w-28"
-            />
-          </.form>
+      <div class="border-t border-slate-200/70 -mx-4 mb-4" />
+      <div class="flex flex-wrap items-center justify-between pb-3 gap-3">
+        <h4 class="text-sm font-semibold text-slate-700">Logs</h4>
+        <.form for={%{}} id="log-filter" phx-change="filter_logs" class="log-filter">
+          <.input
+            id="log-filter-level"
+            value=""
+            name="level"
+            type="select"
+            options={[
+              {"All", ""},
+              {"info", "info"},
+              {"debug", "debug"},
+              {"warn", "warn"},
+              {"error", "error"}
+            ]}
+            class="select select-bordered select-sm w-28"
+          />
+        </.form>
+      </div>
+
+      <div
+        :if={@empty_logs}
+        id="logs-empty-state"
+        class="flex items-start gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5"
+      >
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-500 ring-1 ring-slate-200">
+          <.icon name="hero-document-text" class="h-5 w-5" />
         </div>
+        <div class="min-w-0">
+          <h4 class="text-sm font-semibold text-slate-900">No logs for this item</h4>
+          <p class="mt-1 text-sm text-slate-600">
+            The selected item has not emitted any logs yet.
+          </p>
+        </div>
+      </div>
+
+      <div class={[
+        "overflow-x-auto overflow-y-auto max-h-96",
+        @empty_logs && "hidden"
+      ]}>
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-slate-50">
             <tr>
