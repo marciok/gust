@@ -68,4 +68,69 @@ defmodule DAG.Run.Cron.JobLoaderTest do
       assert_receive {:dag, :run_started, %{run_id: ^run_id}}
     end
   end
+
+  describe "file reloads" do
+    test "replaces an existing job when the schedule changes" do
+      start_link_supervised!(Scheduler)
+      dag = dag_fixture(%{name: "reload_schedule_dag"})
+
+      dag_def = %Gust.DAG.Definition{
+        mod: MockDagMod,
+        name: dag.name,
+        error: %{},
+        options: [schedule: "* * * * *"]
+      }
+
+      reloaded_dag_def = %Gust.DAG.Definition{
+        dag_def
+        | options: [schedule: "*/5 * * * *"]
+      }
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definitions, fn ->
+        %{dag.id => {:ok, dag_def}}
+      end)
+
+      start_link_supervised!({JobLoader, reload_schedules?: true})
+      Process.sleep(200)
+
+      Gust.PubSub.broadcast_file_update(dag.name, {:ok, reloaded_dag_def}, "reload")
+      Process.sleep(200)
+
+      schedule = ~e[*/5 * * * *]
+
+      assert %Quantum.Job{name: :reload_schedule_dag, schedule: ^schedule} =
+               Scheduler.find_job(:reload_schedule_dag)
+    end
+
+    test "removes an existing job when the schedule is removed" do
+      start_link_supervised!(Scheduler)
+      dag = dag_fixture(%{name: "removed_schedule_dag"})
+
+      dag_def = %Gust.DAG.Definition{
+        mod: MockDagMod,
+        name: dag.name,
+        error: %{},
+        options: [schedule: "* * * * *"]
+      }
+
+      reloaded_dag_def = %Gust.DAG.Definition{dag_def | options: []}
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definitions, fn ->
+        %{dag.id => {:ok, dag_def}}
+      end)
+
+      start_link_supervised!({JobLoader, reload_schedules?: true})
+      Process.sleep(200)
+
+      assert %Quantum.Job{name: :removed_schedule_dag} =
+               Scheduler.find_job(:removed_schedule_dag)
+
+      Gust.PubSub.broadcast_file_update(dag.name, {:ok, reloaded_dag_def}, "reload")
+      Process.sleep(200)
+
+      assert Scheduler.find_job(:removed_schedule_dag) == nil
+    end
+  end
 end
