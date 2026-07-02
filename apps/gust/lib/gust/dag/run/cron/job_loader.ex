@@ -84,7 +84,7 @@ defmodule Gust.DAG.Run.Cron.JobLoader do
   end
 
   defp maybe_delete_job(name) do
-    job_name = String.to_existing_atom(name)
+    job_name = String.to_atom(name)
 
     if Scheduler.find_job(job_name), do: Scheduler.delete_job(job_name)
   end
