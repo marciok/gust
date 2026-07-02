@@ -83,6 +83,28 @@ defmodule GustWeb.MCP.Tools.List do
         ]
       ),
       Tool.new(
+        :resume_task,
+        "Resume tasks waiting on an external event key",
+        [
+          Tool.prop(
+            "waiting_for",
+            "string",
+            "External wait key to resume, matching the task wait_for option",
+            required: true
+          ),
+          Tool.prop(
+            "run_id",
+            "integer",
+            "Optional run ID. When omitted, all tasks waiting on the key are resumed."
+          ),
+          Tool.prop(
+            "payload",
+            "object",
+            "Optional payload made available to the resumed task params"
+          )
+        ]
+      ),
+      Tool.new(
         :trigger_dag_run,
         "Trigger a dag run with a given dag name",
         [

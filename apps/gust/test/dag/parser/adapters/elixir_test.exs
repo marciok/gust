@@ -105,14 +105,16 @@ defmodule DAG.Parser.Adapters.ElixirTest do
             downstream: MapSet.new([]),
             store_result: false,
             skip_if: nil,
-            map_over: nil
+            map_over: nil,
+            wait_for: nil
           },
           "hi" => %{
             upstream: MapSet.new([]),
             downstream: MapSet.new(["bye"]),
             store_result: true,
             skip_if: nil,
-            map_over: nil
+            map_over: nil,
+            wait_for: nil
           }
         }
       }
@@ -160,7 +162,7 @@ defmodule DAG.Parser.Adapters.ElixirTest do
       {:ok, dag_def} = Adapter.parse_file(file)
       [error_message] = dag_def.messages
 
-      assert "unknown keys [:foo_bar] in [foo_bar: \"hi\"], the allowed keys are: [:downstream, :store_result, :ctx, :skip_if, :map_over]" ==
+      assert "unknown keys [:foo_bar] in [foo_bar: \"hi\"], the allowed keys are: [:downstream, :store_result, :ctx, :skip_if, :map_over, :wait_for]" ==
                error_message.message
 
       assert "cannot compile module MyInvalidTaskDag (errors have been logged)" ==

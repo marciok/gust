@@ -90,6 +90,38 @@ defmodule DAG.Runner.DagWorkerTest do
   end
 
   describe "handle_info/2, stage_completed unsuccessfully" do
+    test "stage waiting pauses the run and stops worker", %{run: run, dag_def: dag_def} do
+      Gust.PubSub.subscribe_run(run.id)
+      last_stage = dag_def.stages |> List.last()
+      dag_def = %Gust.DAG.Definition{dag_def | stages: [last_stage]}
+      run_id = run.id
+
+      Gust.RuntimeAdapterMock |> expect(:teardown, fn _dag_def, _runtime -> :ok end)
+
+      expect_stage_processing(last_stage)
+
+      Gust.DAGStageRunnerSupervisorMock
+      |> expect(:start_child, fn ^dag_def, stage, _pid ->
+        Enum.each(stage, &assert_stage_entry(&1, last_stage, run.id))
+
+        {:ok, spawn(fn -> Process.sleep(10) end)}
+      end)
+
+      runner_pid =
+        start_supervised!({Gust.DAG.Runner.DAGWorker, %{run: run, dag_def: dag_def}})
+
+      ref = Process.monitor(runner_pid)
+
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :running}}, 400
+
+      send(runner_pid, {:stage_waiting, 123})
+
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :waiting}}, 400
+      assert Flows.get_run!(run.id).status == :waiting
+
+      assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+    end
+
     test "task cancelled", %{run: run, dag_def: dag_def} do
       Gust.PubSub.subscribe_run(run.id)
       last_stage = dag_def.stages |> List.last()

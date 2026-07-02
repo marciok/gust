@@ -8,7 +8,7 @@ defmodule Gust.Flows.Run do
     belongs_to :dag, Gust.Flows.Dag
 
     field :status, Ecto.Enum,
-      values: [:created, :running, :succeeded, :failed, :enqueued],
+      values: [:created, :running, :succeeded, :failed, :enqueued, :waiting],
       default: :created
 
     field :params, :map, default: %{}
@@ -24,7 +24,7 @@ defmodule Gust.Flows.Run do
   @type t :: %__MODULE__{
           id: integer() | nil,
           dag_id: integer() | nil,
-          status: :created | :running | :succeeded | :failed | :enqueued,
+          status: :created | :running | :succeeded | :failed | :enqueued | :waiting,
           params: map(),
           tasks: [Gust.Flows.Task.t()] | Ecto.Association.NotLoaded.t(),
           dag: Gust.Flows.Dag.t() | Ecto.Association.NotLoaded.t(),

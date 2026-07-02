@@ -9,6 +9,7 @@ Mox.defmock(Gust.DAGStageRunnerSupervisorMock, for: Gust.DAG.StageRunnerSupervis
 Mox.defmock(Gust.DAGStageCoordinatorMock, for: Gust.DAG.StageCoordinator)
 Mox.defmock(Gust.DAGLoggerMock, for: Gust.DAG.Logger)
 Mox.defmock(Gust.DAGRunTriggerMock, for: Gust.DAG.Run.Trigger)
+Mox.defmock(Gust.DAGTaskWaiterMock, for: Gust.DAG.TaskWaiter)
 Mox.defmock(Gust.DAGTaskDelayerMock, for: Gust.DAG.TaskDelayer)
 Mox.defmock(Gust.DAGTaskExpanderMock, for: Gust.DAG.TaskExpander)
 Mox.defmock(Gust.DBLockerMock, for: Gust.DBLocker)

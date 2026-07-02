@@ -170,6 +170,10 @@
     @apply bg-amber-400;
   }
 
+  .status-waiting {
+    @apply bg-gray-500;
+  }
+
   .status-upstream_failed {
     @apply bg-orange-600;
   }

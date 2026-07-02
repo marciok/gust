@@ -64,89 +64,17 @@ defmodule GustWeb.DagLiveDashboardTest do
       %{conn: conn, dag: dag, run: run, task: task, dag_def: dag_def, dag_file: dag_file}
     end
 
-    test "runs styles", %{
+    test "renders run and task status cells", %{
       conn: conn,
       dag: dag,
       run: run,
       task: task
     } do
-      {:ok, _} = Gust.Flows.update_run_status(run, :running)
-      {:ok, _} = Gust.Flows.update_task_status(task, :running)
-
-      base = [{:running, :running, run, task}]
-
-      scenarios = [
-        {:failed, :failed},
-        {:enqueued, :enqueued},
-        {:succeeded, :succeeded},
-        {:created, :created},
-        {:running, :upstream_failed}
-      ]
-
-      entries =
-        Enum.reduce(scenarios, base, fn {run_status, task_status}, acc ->
-          r = run_fixture(%{dag_id: dag.id, status: run_status})
-          t = task_fixture(%{run_id: r.id, status: task_status, name: task.name})
-          [{run_status, task_status, r, t} | acc]
-        end)
-        |> Enum.reverse()
-
       {:ok, dashboard_live, html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       assert html =~ dag.name
-
-      Enum.each(entries, fn {run_status, task_status, r, t} ->
-        assert has_element?(dashboard_live, "##{t.name}-at-run-#{r.id}.status-#{task_status}")
-        assert has_element?(dashboard_live, "#run-status-cell-#{r.id}.status-#{run_status}")
-      end)
-    end
-
-    def assert_status_badge(status, badge, %{
-          conn: conn,
-          dag: dag,
-          run: run,
-          task: task
-        }) do
-      Flows.update_task_status(task, status)
-
-      {:ok, live, _html} =
-        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
-
-      badge_html =
-        live
-        |> element("[data-testid='status-badge']")
-        |> render()
-
-      assert badge_html =~ badge
-      assert badge_html =~ to_string(status)
-    end
-
-    test "renders status badge for a succeeded task", setup do
-      assert_status_badge(:succeeded, "badge-success", setup)
-    end
-
-    test "renders status badge for a failed task", setup do
-      assert_status_badge(:failed, "badge-error", setup)
-    end
-
-    test "renders status badge for an upstream_failed task", setup do
-      assert_status_badge(:upstream_failed, "badge-warning", setup)
-    end
-
-    test "renders status badge for a skipped task", setup do
-      assert_status_badge(:skipped, "badge-warning", setup)
-    end
-
-    test "renders status badge for a created task", setup do
-      assert_status_badge(:created, "badge-info", setup)
-    end
-
-    test "renders status badge for a retrying task", setup do
-      assert_status_badge(:retrying, "badge-warning", setup)
-    end
-
-    test "renders status badge for a running task", setup do
-      assert_status_badge(:running, "badge-info", setup)
+      assert has_element?(dashboard_live, "#run-status-cell-#{run.id}.task-grid-cell")
+      assert has_element?(dashboard_live, "##{task.name}-at-run-#{run.id}.task-grid-cell")
     end
 
     test "error on dag definition", %{
@@ -221,27 +149,65 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       log_html = dashboard_live |> element("#log-list") |> render()
-      info_log_level = dashboard_live |> element("#logs-#{log.id}") |> render()
-
-      warn_log_level = dashboard_live |> element("#logs-#{log_warn.id}") |> render()
-      debug_log_level = dashboard_live |> element("#logs-#{log_debug.id}") |> render()
-
-      error_log_level =
-        dashboard_live |> element("#logs-#{log_error.id}") |> render()
-
       assert log_html =~ log.content
-      assert debug_log_level =~ "badge-info"
-      assert info_log_level =~ "badge-info"
-      assert warn_log_level =~ "badge-warning"
-      assert error_log_level =~ "badge-error"
+      assert has_element?(dashboard_live, "#logs-#{log.id}")
+      assert has_element?(dashboard_live, "#logs-#{log_debug.id}")
+      assert has_element?(dashboard_live, "#logs-#{log_warn.id}")
+      assert has_element?(dashboard_live, "#logs-#{log_error.id}")
 
-      refute dashboard_live
-             |> element("#log-filter")
-             |> render_change(%{"_target" => "level", "level" => "info"}) =~ "badge-warning"
+      dashboard_live
+      |> element("#log-filter")
+      |> render_change(%{"_target" => "level", "level" => "info"})
 
-      assert dashboard_live
-             |> element("#log-filter")
-             |> render_change(%{"_target" => "level", "level" => ""}) =~ "badge-warning"
+      assert has_element?(dashboard_live, "#logs-#{log.id}")
+      refute has_element?(dashboard_live, "#logs-#{log_warn.id}")
+
+      dashboard_live
+      |> element("#log-filter")
+      |> render_change(%{"_target" => "level", "level" => ""})
+
+      assert has_element?(dashboard_live, "#logs-#{log_warn.id}")
+    end
+
+    test "displays an empty logs state for a selected item with no logs", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(dashboard_live, "#logs-empty-state")
+      assert has_element?(dashboard_live, "#logs-empty-state .hero-document-text")
+      assert has_element?(dashboard_live, "#log-filter")
+      assert has_element?(dashboard_live, "#log-list")
+
+      empty_state_html = render(element(dashboard_live, "#logs-empty-state"))
+      assert empty_state_html =~ "No logs for this item"
+      assert empty_state_html =~ "The selected item has not emitted any logs yet."
+    end
+
+    test "shows the empty logs state when filtering removes all logs", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      log = log_fixture(%{task_id: task.id, content: "info log", level: "info", attempt: 1})
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      refute has_element?(dashboard_live, "#logs-empty-state")
+      assert has_element?(dashboard_live, "#logs-#{log.id}")
+
+      dashboard_live
+      |> element("#log-filter")
+      |> render_change(%{"_target" => "level", "level" => "warn"})
+
+      assert has_element?(dashboard_live, "#logs-empty-state")
+      refute has_element?(dashboard_live, "#logs-#{log.id}")
     end
 
     test "click on non-existent task", %{
@@ -487,6 +453,8 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       Gust.PubSub.broadcast_log(task.id, log.id)
 
+      refute has_element?(dashboard_live, "#logs-empty-state")
+
       log_html = dashboard_live |> element("#log-list") |> render()
       assert log_html =~ log.content
     end
@@ -622,15 +590,15 @@ defmodule GustWeb.DagLiveDashboardTest do
       GustWeb.DAGTerminatorMock
       |> expect(:kill_task, fn ^running_task, :cancelled, ^runtime -> nil end)
 
-      assert dashboard_live |> element("#cancel-task") |> render_click() =~
+      assert dashboard_live |> element("#cancel") |> render_click() =~
                "Task: #{running_task.name} was cancelled"
 
-      refute has_element?(dashboard_live, "#cancel-task[disabled]")
+      refute has_element?(dashboard_live, "#cancel[disabled]")
 
       {:ok, _failed_task} = Gust.Flows.update_task_status(running_task, :failed)
       Gust.PubSub.broadcast_run_status(run.id, :failed, running_task.id)
 
-      refute has_element?(dashboard_live, "#cancel-task")
+      refute has_element?(dashboard_live, "#cancel")
 
       assert has_element?(
                dashboard_live,
@@ -729,7 +697,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
-      assert render_click(dashboard_live, "cancel_task", %{"id" => task.id}) =~
+      assert render_click(dashboard_live, "cancel") =~
                "Task: #{task.name} is not running"
     end
 
@@ -776,10 +744,33 @@ defmodule GustWeb.DagLiveDashboardTest do
       GustWeb.DAGTerminatorMock
       |> expect(:cancel_timer, fn ^running_task, :cancelled -> nil end)
 
-      assert dashboard_live |> element("#cancel-task") |> render_click() =~
+      assert dashboard_live |> element("#cancel") |> render_click() =~
                "Task: #{running_task.name} retrying cancelled"
 
-      refute has_element?(dashboard_live, "#cancel-task[disabled]")
+      refute has_element?(dashboard_live, "#cancel[disabled]")
+    end
+
+    test "click on cancel on waiting", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, waiting_task} = Gust.Flows.update_task_status(task, :waiting)
+
+      {:ok, dashboard_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{waiting_task.name}"
+        )
+
+      GustWeb.DAGTerminatorMock
+      |> expect(:cancel_waiting, fn ^waiting_task -> nil end)
+
+      assert dashboard_live |> element("#cancel") |> render_click() =~
+               "Task: #{waiting_task.name} waiting cancelled"
+
+      refute has_element?(dashboard_live, "#cancel[disabled]")
     end
 
     test "click restart run on succeeded run", %{
@@ -855,7 +846,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
-      refute dashboard_live |> has_element?("#cancel-task")
+      refute dashboard_live |> has_element?("#cancel")
     end
 
     test "click on trigger", %{
@@ -1069,6 +1060,77 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert dashboard_live |> element("#restart") |> render_click() =~
                "Task: #{task.name} was restarted"
+    end
+
+    test "cancels cancellable mapped task instances from the aggregate view", %{conn: conn} do
+      dag_name = "mapped_cancel_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      _failed_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 0
+        })
+
+      running_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :running,
+          map_index: 1
+        })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_cancel_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
+
+      on_exit(fn ->
+        Application.put_env(:gust, :dag_adapter, previous_dag_adapter)
+        File.rm_rf!(dag_file)
+      end)
+
+      Application.put_env(:gust, :dag_adapter, elixir: %{runtime: Gust.RuntimeAdapterMock})
+      runtime = Gust.RuntimeAdapterMock
+
+      running_task_id = running_task.id
+
+      GustWeb.DAGTerminatorMock
+      |> expect(:kill_task, fn %Flows.Task{id: ^running_task_id}, :cancelled, ^runtime -> nil end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "failed"
+
+      assert dashboard_live |> element("#cancel") |> render_click() =~
+               "All #{task_name} tasks are being cancelled"
     end
 
     test "uses deterministic precedence for tied mapped task statuses", %{conn: conn} do

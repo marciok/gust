@@ -304,6 +304,15 @@ defmodule FlowsTest do
       assert status == new_status
     end
 
+    test "update_task_params/2 updates task params" do
+      dag = dag_fixture(%{name: "task_params_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+      task = task_fixture(%{run_id: run.id, name: "param_task"})
+
+      assert {:ok, %Task{params: %{"invoice_id" => "inv_123"}}} =
+               Flows.update_task_params(task, %{"invoice_id" => "inv_123"})
+    end
+
     test "get_task_with_logs!/1 returns the task with preloaded logs" do
       dag = dag_fixture(%{name: "some_name"})
       run = run_fixture(%{dag_id: dag.id})

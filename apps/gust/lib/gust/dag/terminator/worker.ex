@@ -4,6 +4,7 @@ defmodule Gust.DAG.Terminator.Worker do
 
   use GenServer
 
+  alias Gust.DAG.TaskWaiter
   alias Gust.Flows
   alias Gust.Registry, as: GustReg
 
@@ -14,6 +15,12 @@ defmodule Gust.DAG.Terminator.Worker do
   @impl true
   def init(init_arg) do
     {:ok, init_arg}
+  end
+
+  @impl true
+  def handle_call({:cancel_waiting, task}, _from, state) do
+    {:ok, task} = TaskWaiter.fail(task)
+    {:reply, task, state}
   end
 
   @impl true
@@ -40,6 +47,13 @@ defmodule Gust.DAG.Terminator.Worker do
     run = Flows.get_run!(task.run_id)
     run_node = String.to_atom(run.claimed_by)
     GenServer.cast({__MODULE__, run_node}, {:terminate, task, status, runtime})
+  end
+
+  @impl true
+  def cancel_waiting(task) do
+    run = Flows.get_run!(task.run_id)
+    run_node = String.to_atom(run.claimed_by)
+    GenServer.call({__MODULE__, run_node}, {:cancel_waiting, task})
   end
 
   @impl true

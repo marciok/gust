@@ -19,6 +19,7 @@ defmodule GustWeb.DagRunComponents do
           :failed -> "badge-error"
           :skipped -> "badge-warning"
           :retrying -> "badge-warning"
+          :waiting -> "badge-warning"
           :upstream_failed -> "badge-warning"
           _ -> "badge-info"
         end

@@ -6,7 +6,7 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
 
   alias __MODULE__, as: Coord
 
-  defstruct running: MapSet.new(), retrying: %{}
+  defstruct running: MapSet.new(), retrying: %{}, waiting: MapSet.new()
 
   def new(pending_task_ids), do: %Coord{running: MapSet.new(pending_task_ids)}
 
@@ -17,7 +17,16 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
     %{coord | retrying: updated_retrying}
   end
 
-  def process_task(%{status: :created, name: name, run_id: run_id, map_index: map_index}, tasks) do
+  def process_task(
+        %{
+          status: :created,
+          name: name,
+          run_id: run_id,
+          map_index: map_index,
+          wait_satisfied_at: wait_satisfied_at
+        },
+        tasks
+      ) do
     upstream_statuses =
       tasks[name][:upstream]
       |> Enum.flat_map(&Flows.get_tasks_by_name(&1, run_id))
@@ -30,11 +39,20 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
       any_skipped?(upstream_statuses) ->
         :skipped
 
-      true ->
+      wait_satisfied?(tasks[name], wait_satisfied_at) ->
         map_or_else(tasks[name], run_id, map_index)
+
+      true ->
+        wait_map_or_else(tasks[name], run_id, map_index)
     end
   end
 
+  def process_task(%{status: :waiting, waiting_for: wait_for}, _tasks)
+      when not is_nil(wait_for) do
+    {:wait_for, wait_for}
+  end
+
+  def process_task(%{status: status}, _tasks) when status in [:waiting], do: :already_processed
   def process_task(%{status: status}, _tasks) when status in [:retrying], do: :ok
 
   def process_task(%{status: status}, _tasks)
@@ -43,6 +61,13 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
 
   def put_running(%{running: running} = coord, task_id) do
     %{coord | running: MapSet.put(running, task_id)}
+  end
+
+  def put_waiting(%{running: running, waiting: waiting} = coord, task_id) do
+    coord
+    |> Map.put(:running, MapSet.delete(running, task_id))
+    |> Map.put(:waiting, MapSet.put(waiting, task_id))
+    |> coord_status()
   end
 
   def apply_task_result(coord, task, status)
@@ -77,11 +102,10 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
   defp remove_pending_task(%Coord{running: running, retrying: retrying} = coord, task) do
     task_id = task.id
 
-    coord_status(%{
-      coord
-      | running: MapSet.delete(running, task_id),
-        retrying: Map.delete(retrying, task_id)
-    })
+    coord
+    |> Map.put(:running, MapSet.delete(running, task_id))
+    |> Map.put(:retrying, Map.delete(retrying, task_id))
+    |> coord_status()
   end
 
   defp any_upstream_failed?(upstream_tasks) do
@@ -92,16 +116,24 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
     Enum.any?(upstream_tasks, fn status -> status == :skipped end)
   end
 
-  defp coord_status(coord), do: {if(any_running?(coord), do: :continue, else: :finished), coord}
+  defp coord_status(coord) do
+    status =
+      cond do
+        any_running?(coord) -> :continue
+        any_waiting?(coord) -> :waiting
+        true -> :finished
+      end
+
+    {status, coord}
+  end
 
   defp fail_task(%{running: running, retrying: retrying} = coord, task, task_id) do
     retrying = Map.delete(retrying, task.id)
 
-    coord_status(%{
-      coord
-      | running: MapSet.delete(running, task_id),
-        retrying: retrying
-    })
+    coord
+    |> Map.put(:running, MapSet.delete(running, task_id))
+    |> Map.put(:retrying, retrying)
+    |> coord_status()
   end
 
   defp retry_task(%Coord{running: running, retrying: retrying} = coord, task, task_id) do
@@ -116,7 +148,22 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
      delay}
   end
 
+  defp wait_map_or_else(%{wait_for: wait_for}, _run_id, _map_index) when not is_nil(wait_for) do
+    {:wait_for, wait_for}
+  end
+
+  defp wait_map_or_else(task, run_id, map_index), do: map_or_else(task, run_id, map_index)
+
+  defp wait_satisfied?(task, wait_satisfied_at) do
+    case Map.get(task, :wait_for) do
+      nil -> false
+      _wait_for -> not is_nil(wait_satisfied_at)
+    end
+  end
+
   defp any_running?(%Coord{running: running, retrying: retrying}) do
     not Enum.empty?(running) or map_size(retrying) > 0
   end
+
+  defp any_waiting?(%Coord{waiting: waiting}), do: not Enum.empty?(waiting)
 end

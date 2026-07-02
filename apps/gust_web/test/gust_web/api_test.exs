@@ -34,6 +34,7 @@ defmodule GustWeb.APITest do
         |> Enum.map(& &1.path)
 
       assert "/gust/api/dags/:dag_name/run" in paths
+      assert "/gust/api/tasks/resume" in paths
     end
   end
 
@@ -99,6 +100,90 @@ defmodule GustWeb.APITest do
         |> post_api("/api/dags/missing/run")
 
       assert %{"error" => "dag_not_found"} = json_response(conn, 404)
+    end
+  end
+
+  describe "POST /api/tasks/resume" do
+    test "resumes tasks scoped to a run and returns resumed tasks", %{conn: conn} do
+      dag = dag_fixture(%{name: "wait_api_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+      task = task_fixture(%{run_id: run.id, name: "await_payment", status: :created})
+
+      GustWeb.DAGTaskWaiterMock
+      |> expect(:resume, fn waiting_for, opts ->
+        assert waiting_for == "payment_received"
+        assert opts == [payload: %{"invoice_id" => "inv_123"}, run_id: run.id]
+
+        {:ok, [task]}
+      end)
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{@token}")
+        |> post_api("/api/tasks/resume", %{
+          "run_id" => run.id,
+          "waiting_for" => "payment_received",
+          "payload" => %{"invoice_id" => "inv_123"}
+        })
+
+      assert [
+               %{
+                 "id" => task_id,
+                 "run_id" => run_id,
+                 "name" => "await_payment",
+                 "status" => "created",
+                 "params" => %{},
+                 "result" => %{},
+                 "error" => %{},
+                 "waiting_for" => nil,
+                 "wait_satisfied_at" => nil,
+                 "attempt" => 1,
+                 "map_index" => nil
+               }
+             ] = json_response(conn, 200)
+
+      assert task_id == to_string(task.id)
+      assert run_id == to_string(run.id)
+    end
+
+    test "resumes all tasks waiting on a key when run_id is omitted", %{conn: conn} do
+      dag = dag_fixture(%{name: "wait_api_all_dag"})
+      first_run = run_fixture(%{dag_id: dag.id})
+      second_run = run_fixture(%{dag_id: dag.id})
+      first_task = task_fixture(%{run_id: first_run.id, name: "await_first", status: :created})
+      second_task = task_fixture(%{run_id: second_run.id, name: "await_second", status: :created})
+
+      GustWeb.DAGTaskWaiterMock
+      |> expect(:resume, fn waiting_for, opts ->
+        assert waiting_for == "payment_received"
+        assert opts == [payload: %{}]
+        {:ok, [first_task, second_task]}
+      end)
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{@token}")
+        |> post_api("/api/tasks/resume", %{"waiting_for" => "payment_received"})
+
+      response = json_response(conn, 200)
+
+      assert Enum.map(response, & &1["id"]) == [
+               to_string(first_task.id),
+               to_string(second_task.id)
+             ]
+
+      assert Enum.map(response, & &1["run_id"]) == [
+               to_string(first_run.id),
+               to_string(second_run.id)
+             ]
+
+      assert Enum.map(response, & &1["name"]) == ["await_first", "await_second"]
+    end
+
+    test "returns unauthorized without a valid bearer token", %{conn: conn} do
+      conn = post_api(conn, "/api/tasks/resume", %{"waiting_for" => "payment_received"})
+
+      assert %{"error" => "unauthorized"} = json_response(conn, 401)
     end
   end
 
