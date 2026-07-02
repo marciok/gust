@@ -590,15 +590,15 @@ defmodule GustWeb.DagLiveDashboardTest do
       GustWeb.DAGTerminatorMock
       |> expect(:kill_task, fn ^running_task, :cancelled, ^runtime -> nil end)
 
-      assert dashboard_live |> element("#cancel-task") |> render_click() =~
+      assert dashboard_live |> element("#cancel") |> render_click() =~
                "Task: #{running_task.name} was cancelled"
 
-      refute has_element?(dashboard_live, "#cancel-task[disabled]")
+      refute has_element?(dashboard_live, "#cancel[disabled]")
 
       {:ok, _failed_task} = Gust.Flows.update_task_status(running_task, :failed)
       Gust.PubSub.broadcast_run_status(run.id, :failed, running_task.id)
 
-      refute has_element?(dashboard_live, "#cancel-task")
+      refute has_element?(dashboard_live, "#cancel")
 
       assert has_element?(
                dashboard_live,
@@ -697,7 +697,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
-      assert render_click(dashboard_live, "cancel_task", %{"id" => task.id}) =~
+      assert render_click(dashboard_live, "cancel") =~
                "Task: #{task.name} is not running"
     end
 
@@ -744,10 +744,10 @@ defmodule GustWeb.DagLiveDashboardTest do
       GustWeb.DAGTerminatorMock
       |> expect(:cancel_timer, fn ^running_task, :cancelled -> nil end)
 
-      assert dashboard_live |> element("#cancel-task") |> render_click() =~
+      assert dashboard_live |> element("#cancel") |> render_click() =~
                "Task: #{running_task.name} retrying cancelled"
 
-      refute has_element?(dashboard_live, "#cancel-task[disabled]")
+      refute has_element?(dashboard_live, "#cancel[disabled]")
     end
 
     test "click on cancel on waiting", %{
@@ -767,10 +767,10 @@ defmodule GustWeb.DagLiveDashboardTest do
       GustWeb.DAGTerminatorMock
       |> expect(:cancel_waiting, fn ^waiting_task -> nil end)
 
-      assert dashboard_live |> element("#cancel-task") |> render_click() =~
+      assert dashboard_live |> element("#cancel") |> render_click() =~
                "Task: #{waiting_task.name} waiting cancelled"
 
-      refute has_element?(dashboard_live, "#cancel-task[disabled]")
+      refute has_element?(dashboard_live, "#cancel[disabled]")
     end
 
     test "click restart run on succeeded run", %{
@@ -846,7 +846,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
-      refute dashboard_live |> has_element?("#cancel-task")
+      refute dashboard_live |> has_element?("#cancel")
     end
 
     test "click on trigger", %{
@@ -1060,6 +1060,77 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert dashboard_live |> element("#restart") |> render_click() =~
                "Task: #{task.name} was restarted"
+    end
+
+    test "cancels cancellable mapped task instances from the aggregate view", %{conn: conn} do
+      dag_name = "mapped_cancel_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      _failed_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 0
+        })
+
+      running_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :running,
+          map_index: 1
+        })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_cancel_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
+
+      on_exit(fn ->
+        Application.put_env(:gust, :dag_adapter, previous_dag_adapter)
+        File.rm_rf!(dag_file)
+      end)
+
+      Application.put_env(:gust, :dag_adapter, elixir: %{runtime: Gust.RuntimeAdapterMock})
+      runtime = Gust.RuntimeAdapterMock
+
+      running_task_id = running_task.id
+
+      GustWeb.DAGTerminatorMock
+      |> expect(:kill_task, fn %Flows.Task{id: ^running_task_id}, :cancelled, ^runtime -> nil end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "failed"
+
+      assert dashboard_live |> element("#cancel") |> render_click() =~
+               "All #{task_name} tasks are being cancelled"
     end
 
     test "uses deterministic precedence for tied mapped task statuses", %{conn: conn} do
