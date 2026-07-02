@@ -243,37 +243,21 @@ defmodule GustWeb.DagLive.Dashboard do
   defp reload_time({_file_path, reload_time}), do: reload_time
 
   @impl true
-  def handle_event("cancel_task", %{"id" => task_id}, socket) do
-    task = Flows.get_task!(task_id)
+  def handle_event("cancel", _params, socket) do
+    flash_msg =
+      case socket.assigns.selected_item do
+        %Task{} = task ->
+          handle_task_cancel(socket, reload_task(task))
 
-    {flash_level, flash} =
-      case task.status do
-        :running ->
-          dag_def = socket.assigns.dag_def
-          runtime = Adapter.impl!(dag_def.adapter, :runtime)
-          Terminator.kill_task(task, :cancelled, runtime)
-          {:info, "Task: #{task.name} was cancelled"}
+        [%Task{name: name} | _tail] = tasks ->
+          tasks
+          |> Enum.map(&reload_task/1)
+          |> Enum.each(fn task -> handle_task_cancel(socket, task) end)
 
-        :waiting ->
-          Terminator.cancel_waiting(task)
-          {:info, "Task: #{task.name} waiting cancelled"}
-
-        :retrying ->
-          Terminator.cancel_timer(task, :cancelled)
-          {:info, "Task: #{task.name} retrying cancelled"}
-
-        _status ->
-          {:info, "Task: #{task.name} is not running"}
+          "All #{name} tasks are being cancelled"
       end
 
-    {:noreply, put_flash(socket, flash_level, flash)}
-  end
-
-  @impl true
-  def handle_event("filter_logs", %{"level" => level}, socket) do
-    logs = get_logs(socket.assigns.selected_item, level)
-
-    {:noreply, socket |> stream(:logs, logs, reset: true) |> assign(:empty_logs, logs == [])}
+    {:noreply, socket |> put_flash(:info, flash_msg)}
   end
 
   @impl true
@@ -299,6 +283,13 @@ defmodule GustWeb.DagLive.Dashboard do
       end
 
     {:noreply, socket |> put_flash(:info, flash_msg)}
+  end
+
+  @impl true
+  def handle_event("filter_logs", %{"level" => level}, socket) do
+    logs = get_logs(socket.assigns.selected_item, level)
+
+    {:noreply, socket |> stream(:logs, logs, reset: true) |> assign(:empty_logs, logs == [])}
   end
 
   @impl true
@@ -381,6 +372,32 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply, socket |> stream_insert(:runs, run)}
   end
 
+  defp handle_task_cancel(socket, %Task{name: name, status: status} = task) do
+    msg =
+      case status do
+        :running ->
+          dag_def = socket.assigns.dag_def
+          runtime = Adapter.impl!(dag_def.adapter, :runtime)
+          Terminator.kill_task(task, :cancelled, runtime)
+          "was cancelled"
+
+        :waiting ->
+          Terminator.cancel_waiting(task)
+          "waiting cancelled"
+
+        :retrying ->
+          Terminator.cancel_timer(task, :cancelled)
+          "retrying cancelled"
+
+        _status ->
+          "is not running"
+      end
+
+    "Task: #{name} #{msg}"
+  end
+
+  defp reload_task(%Task{id: id}), do: Flows.get_task!(id)
+
   defp assign_run_reload(socket, run) do
     if socket.assigns.item_id == run.id do
       socket |> assign_item_attrs(run)
@@ -425,10 +442,17 @@ defmodule GustWeb.DagLive.Dashboard do
     dag_def.tasks[task_name][:map_over] != nil
   end
 
-  defp cancelable?(%Task{}, status), do: status in [:running, :retrying, :waiting]
+  defp cancelable?(%Task{}, status), do: cancellable_status?(status)
+
+  defp cancelable?([%Task{} | _tasks] = tasks, _status) do
+    Enum.any?(tasks, &cancellable_status?(&1.status))
+  end
+
   defp cancelable?(_item, _status), do: false
 
-  defp restartable?([%Task{} | _tail], _status), do: true
+  defp cancellable_status?(status), do: status in [:running, :retrying, :waiting]
+
+  defp restartable?([%Task{} | _tail], status), do: status in [:failed, :succeeded]
   defp restartable?(_item, status), do: status in [:failed, :succeeded]
 
   defp assign_item_attrs(socket, selected_item) do
