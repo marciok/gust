@@ -180,7 +180,7 @@ defmodule GustWeb.DagLive.Dashboard do
   defp fetch_selected_item(%{"run_id" => run_id, "task_name" => task_name}) do
     case Flows.get_tasks_by_name(task_name, run_id) do
       [] -> nil
-      [task] -> task
+      [task] when is_nil(task.map_index) -> task
       tasks -> tasks
     end
   end
