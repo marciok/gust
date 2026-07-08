@@ -154,6 +154,60 @@ defmodule GustWeb.RunLiveTest do
       refute has_element?(index_live, "#runs-#{run.id}")
     end
 
+    test "batch deletes selected runs in listing", %{conn: conn, dag: dag, run: first_run} do
+      second_run = run_fixture(%{dag_id: dag.id})
+      kept_run = run_fixture(%{dag_id: dag.id})
+      other_dag = dag_fixture(%{name: "other_dag_with_runs"})
+      other_dag_run = run_fixture(%{dag_id: other_dag.id})
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      selected_params = %{"run_ids" => [to_string(first_run.id), to_string(second_run.id)]}
+
+      index_live
+      |> element("#run-batch-form")
+      |> render_change(selected_params)
+
+      assert index_live
+             |> element("#batch-delete-runs")
+             |> render_click()
+
+      refute has_element?(index_live, "#runs-#{first_run.id}")
+      refute has_element?(index_live, "#runs-#{second_run.id}")
+      assert has_element?(index_live, "#runs-#{kept_run.id}")
+      assert Flows.get_run!(kept_run.id)
+      assert Flows.get_run!(other_dag_run.id)
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(first_run.id) end
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(second_run.id) end
+    end
+
+    test "selects all visible runs for batch delete", %{conn: conn, dag: dag, run: first_run} do
+      second_run = run_fixture(%{dag_id: dag.id})
+      third_run = run_fixture(%{dag_id: dag.id})
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      index_live
+      |> element("#select-all-runs")
+      |> render_click()
+
+      assert has_element?(index_live, "#select-all-runs[checked]")
+      assert has_element?(index_live, "#run-select-#{first_run.id}[checked]")
+      assert has_element?(index_live, "#run-select-#{second_run.id}[checked]")
+      assert has_element?(index_live, "#run-select-#{third_run.id}[checked]")
+
+      assert index_live
+             |> element("#batch-delete-runs")
+             |> render_click()
+
+      refute has_element?(index_live, "#runs-#{first_run.id}")
+      refute has_element?(index_live, "#runs-#{second_run.id}")
+      refute has_element?(index_live, "#runs-#{third_run.id}")
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(first_run.id) end
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(second_run.id) end
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(third_run.id) end
+    end
+
     test "new dag run was created", %{conn: conn, dag: dag} do
       {:ok, index_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
