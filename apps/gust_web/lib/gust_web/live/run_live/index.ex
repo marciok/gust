@@ -99,6 +99,10 @@ defmodule GustWeb.RunLive.Index do
   end
 
   @impl true
+  def handle_event("batch_delete", _params, %{assigns: %{selected_run_ids: []}} = socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("batch_delete", _params, socket) do
     {:ok, deleted_runs} =
       Flows.delete_runs_on_dag(socket.assigns.dag_id, socket.assigns.selected_run_ids)

@@ -13,8 +13,8 @@
   </div>
 
   <div class="dag-card mb-4">
-    <section class="dag-card__header ">
-      <div class="dag-card__title-row">
+    <section class="dag-card__header">
+      <div class="flex flex-col gap-3">
         <div class="flex flex-col items-start gap-2">
           <h2 class="dag-card__title dag-card__title-with-icon">
             <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
@@ -23,58 +23,80 @@
           </h2>
         </div>
 
-        <details class="dropdown">
-          <summary id="run-batch-actions" class="btn btn-sm">
-            <.icon name="hero-chevron-down" class="h-4 w-4" /> Actions
-          </summary>
-          <ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-            <li>
-              <.link
-                id="batch-delete-runs"
-                phx-click={JS.push("batch_delete")}
-                data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
-                class="btn btn-sm btn-soft btn-error"
-              >
-                Delete
-              </.link>
-            </li>
-          </ul>
-        </details>
-        <div class="dag-card__actions">
-          <.form for={%{}} id="status-filter" phx-change="filter_status">
-            <.input
-              id="run-status-filter"
-              value={@selected_status}
-              name="status"
-              type="select"
-              options={@run_status_options}
-              class="select select-bordered select-sm w-36"
-            />
-          </.form>
+        <nav
+          class="flex w-full flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3"
+          aria-label="Run list controls"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <label
+              for="select-all-runs"
+              class="inline-flex h-8 items-center gap-2 rounded border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
+            >
+              <input
+                type="checkbox"
+                name="select_all_runs"
+                phx-click={JS.push("select_all")}
+                checked={@all_selected?}
+                id="select-all-runs"
+                class="checkbox checkbox-sm"
+              />
+              <span>Select runs</span>
+            </label>
 
-          <.form for={%{}} id="page-select" phx-change="select_page">
-            <.input
-              id="pages"
-              value={@page}
-              name="page"
-              type="select"
-              options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
-              class="select select-bordered select-sm w-28"
-            />
-          </.form>
-        </div>
+            <details class="dropdown">
+              <summary id="run-batch-actions" class="btn btn-sm">
+                <.icon name="hero-chevron-down" class="h-4 w-4" /> Actions
+              </summary>
+              <ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-56 p-2 shadow-sm">
+                <li>
+                  <button
+                    id="batch-delete-runs"
+                    type="button"
+                    phx-click="batch_delete"
+                    disabled={@selected_run_ids == []}
+                    data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
+                    class={[
+                      "btn btn-sm btn-soft btn-error justify-start",
+                      @selected_run_ids == [] && "btn-disabled"
+                    ]}
+                  >
+                    <.icon name="hero-trash" class="h-4 w-4" /> Delete selected
+                    <span :if={@selected_run_ids != []}>({length(@selected_run_ids)})</span>
+                  </button>
+                </li>
+              </ul>
+            </details>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <.form for={%{}} id="status-filter" phx-change="filter_status">
+              <.input
+                id="run-status-filter"
+                value={@selected_status}
+                name="status"
+                type="select"
+                options={@run_status_options}
+                class="select select-bordered select-sm w-36"
+              />
+            </.form>
+
+            <.form for={%{}} id="page-select" phx-change="select_page">
+              <.input
+                id="pages"
+                value={@page}
+                name="page"
+                type="select"
+                options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
+                class="select select-bordered select-sm w-28"
+              />
+            </.form>
+          </div>
+        </nav>
       </div>
     </section>
 
     <div class="dag-card__body">
       <div class="overflow-x-auto">
-        <.input
-          type="checkbox"
-          name="select_all_runs"
-          phx-click={JS.push("select_all")}
-          checked={@all_selected?}
-          id="select-all-runs"
-        />
         <.form for={%{}} id="run-batch-form" phx-change="select_runs">
           <.table id="runs" rows={@streams.runs}>
             <:col :let={{_id, run}} label="Select">
