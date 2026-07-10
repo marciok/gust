@@ -181,6 +181,17 @@ defmodule GustWeb.RunLiveTest do
       assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(second_run.id) end
     end
 
+    test "batch delete with no selected runs does nothing", %{conn: conn, dag: dag, run: run} do
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      assert has_element?(index_live, "#batch-delete-runs[disabled]")
+
+      refute render_click(index_live, "batch_delete", %{}) =~ "runs deleted"
+
+      assert has_element?(index_live, "#runs-#{run.id}")
+      assert Flows.get_run!(run.id)
+    end
+
     test "batch restarts selected runs in listing", %{conn: conn, dag: dag, run: first_run} do
       second_run = run_fixture(%{dag_id: dag.id})
       other_dag = dag_fixture(%{name: "other_dag_with_restart_run"})
@@ -219,6 +230,17 @@ defmodule GustWeb.RunLiveTest do
       assert_received {:restarted_run, ^first_run_id}
       assert_received {:restarted_run, ^second_run_id}
       refute_received {:restarted_run, ^other_dag_run_id}
+    end
+
+    test "batch restart with no selected runs does nothing", %{conn: conn, dag: dag, run: run} do
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      assert has_element?(index_live, "#batch-restart-runs[disabled]")
+
+      refute render_click(index_live, "batch_restart", %{}) =~ "runs restarted"
+
+      assert has_element?(index_live, "#runs-#{run.id}")
+      assert Flows.get_run!(run.id)
     end
 
     test "selects all visible runs for batch delete", %{conn: conn, dag: dag, run: first_run} do
