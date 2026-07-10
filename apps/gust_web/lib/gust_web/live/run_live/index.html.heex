@@ -4,7 +4,7 @@
       <li>
         <.link
           class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
-          navigate={~g"/dags/#{@dag.name}/dashboard"}
+          navigate={~g"/dags/#{@dag_name}/dashboard"}
         >
           <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Back
         </.link>
@@ -13,78 +13,158 @@
   </div>
 
   <div class="dag-card mb-4">
-    <section class="dag-card__header ">
-      <div class="dag-card__title-row">
-        <h2 class="dag-card__title dag-card__title-with-icon">
-          <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
-          <span>Runs for {@dag.name}: </span>
-          <span>{@runs_count}</span>
-        </h2>
-        <div class="dag-card__actions">
-          <.form for={%{}} id="status-filter" phx-change="filter_status">
-            <.input
-              id="run-status-filter"
-              value={@selected_status}
-              name="status"
-              type="select"
-              options={@run_status_options}
-              class="select select-bordered select-sm w-36"
-            />
-          </.form>
-
-          <.form for={%{}} id="page-select" phx-change="select_page">
-            <.input
-              id="pages"
-              value={@page}
-              name="page"
-              type="select"
-              options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
-              class="select select-bordered select-sm w-28"
-            />
-          </.form>
+    <section class="dag-card__header">
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-col items-start gap-2">
+          <h2 class="dag-card__title dag-card__title-with-icon">
+            <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
+            <span>Runs for {@dag_name}: </span>
+            <span>{@runs_count}</span>
+          </h2>
         </div>
+
+        <nav
+          class="flex w-full flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3"
+          aria-label="Run list controls"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <label
+              for="select-all-runs"
+              class="inline-flex h-8 items-center gap-2 rounded border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
+            >
+              <input
+                type="checkbox"
+                name="select_all_runs"
+                phx-click={JS.push("select_all")}
+                checked={@all_selected?}
+                id="select-all-runs"
+                class="checkbox checkbox-sm"
+              />
+              <span>
+                Select runs
+                <span :if={@selected_run_ids != []}>({length(@selected_run_ids)})</span>
+              </span>
+            </label>
+
+            <details class="dropdown">
+              <summary id="run-batch-actions" class="btn btn-sm">
+                <.icon name="hero-chevron-down" class="h-4 w-4" /> Actions
+              </summary>
+              <ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-56 p-2 shadow-sm">
+                <li>
+                  <button
+                    id="batch-restart-runs"
+                    type="button"
+                    phx-click="batch_restart"
+                    disabled={@selected_run_ids == []}
+                    data-confirm="Are you sure you want to restart the selected runs?"
+                    class={[
+                      "btn btn-sm btn-soft justify-start",
+                      @selected_run_ids == [] && "btn-disabled"
+                    ]}
+                  >
+                    <.icon name="hero-arrow-path" class="h-4 w-4" /> Restart selected
+                  </button>
+                </li>
+                <li>
+                  <button
+                    id="batch-delete-runs"
+                    type="button"
+                    phx-click="batch_delete"
+                    disabled={@selected_run_ids == []}
+                    data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
+                    class={[
+                      "btn btn-sm btn-soft btn-error justify-start",
+                      @selected_run_ids == [] && "btn-disabled"
+                    ]}
+                  >
+                    <.icon name="hero-trash" class="h-4 w-4" /> Delete selected
+                  </button>
+                </li>
+              </ul>
+            </details>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <.form for={%{}} id="status-filter" phx-change="filter_status">
+              <.input
+                id="run-status-filter"
+                value={@selected_status}
+                name="status"
+                type="select"
+                options={@run_status_options}
+                class="select select-bordered select-sm w-36"
+              />
+            </.form>
+
+            <.form for={%{}} id="page-select" phx-change="select_page">
+              <.input
+                id="pages"
+                value={@page}
+                name="page"
+                type="select"
+                options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
+                class="select select-bordered select-sm w-28"
+              />
+            </.form>
+          </div>
+        </nav>
       </div>
     </section>
 
     <div class="dag-card__body">
       <div class="overflow-x-auto">
-        <.table id="runs" rows={@streams.runs}>
-          <:col :let={{_id, run}} label="Status">
-            <.status_badge status={run.status} data-testid="status-badge" />
-          </:col>
+        <.form for={%{}} id="run-batch-form" phx-change="select_runs">
+          <.table id="runs" rows={@streams.runs}>
+            <:col :let={{_id, run}} label="Select">
+              <input
+                id={"run-select-#{run.id}"}
+                type="checkbox"
+                name="run_ids[]"
+                value={run.id}
+                checked={run.id in @selected_run_ids}
+                class="checkbox checkbox-sm"
+                aria-label={"Select run #{run.id}"}
+              />
+            </:col>
 
-          <:col :let={{_id, run}} label="Inserted At">
-            {strftime(run.inserted_at, :long)}
-          </:col>
+            <:col :let={{_id, run}} label="Status">
+              <.status_badge status={run.status} data-testid="status-badge" />
+            </:col>
 
-          <:col :let={{_id, run}} label="Updated At">
-            {strftime(run.updated_at, :long)}
-          </:col>
+            <:col :let={{_id, run}} label="Inserted At">
+              {strftime(run.inserted_at, :long)}
+            </:col>
 
-          <:col :let={{_id, run}} label="ID">
-            {run.id}
-          </:col>
+            <:col :let={{_id, run}} label="Updated At">
+              {strftime(run.updated_at, :long)}
+            </:col>
 
-          <:col :let={{_id, run}} label="Params">
-            <pre
-              :if={run.params && map_size(run.params) > 0}
-              class="text-xs bg-slate-50 p-1 rounded max-w-xs overflow-x-auto"
-            ><%= pretty_json!(run.params) %></pre>
-            <span :if={!run.params || map_size(run.params) == 0} class="text-xs text-gray-400">
-              -
-            </span>
-          </:col>
+            <:col :let={{_id, run}} label="ID">
+              {run.id}
+            </:col>
 
-          <:action :let={{id, run}}>
-            <.link
-              phx-click={JS.push("delete", value: %{id: run.id}) |> hide("##{id}")}
-              data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
-              class="btn btn-sm btn-soft btn-error"
-            >
-              Delete
-            </.link>
-          </:action>
-        </.table>
+            <:col :let={{_id, run}} label="Params">
+              <pre
+                :if={run.params && map_size(run.params) > 0}
+                class="text-xs bg-slate-50 p-1 rounded max-w-xs overflow-x-auto"
+              ><%= pretty_json!(run.params) %></pre>
+              <span :if={!run.params || map_size(run.params) == 0} class="text-xs text-gray-400">
+                -
+              </span>
+            </:col>
+
+            <:action :let={{id, run}}>
+              <.link
+                phx-click={JS.push("delete", value: %{id: run.id}) |> hide("##{id}")}
+                data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
+                class="btn btn-sm btn-soft btn-error"
+              >
+                Delete
+              </.link>
+            </:action>
+          </.table>
+        </.form>
       </div>
     </div>
   </div>

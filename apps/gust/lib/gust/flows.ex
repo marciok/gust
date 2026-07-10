@@ -498,6 +498,17 @@ defmodule Gust.Flows do
     |> Repo.aggregate(:count)
   end
 
+  @doc """
+  Gets runs by ID that belong to the given DAG.
+  """
+  def get_runs_on_dag(dag_id, run_ids) when is_list(run_ids) do
+    run_ids = Enum.uniq(run_ids)
+
+    Run
+    |> where([run], run.dag_id == ^dag_id and run.id in ^run_ids)
+    |> Repo.all()
+  end
+
   defp maybe_filter_run_status(query, nil), do: query
 
   defp maybe_filter_run_status(query, status) do
@@ -566,6 +577,33 @@ defmodule Gust.Flows do
   """
   def delete_run(%Run{} = run) do
     Repo.delete(run)
+  end
+
+  @doc """
+  Deletes runs that belong to the given DAG.
+
+  Returns the deleted run structs so callers can update LiveView streams.
+  """
+
+  def delete_runs_on_dag(dag_id, run_ids) when is_list(run_ids) do
+    run_ids = Enum.uniq(run_ids)
+
+    Repo.transaction(fn ->
+      runs =
+        Run
+        |> where([run], run.dag_id == ^dag_id and run.id in ^run_ids)
+        |> Repo.all()
+
+      ids = Enum.map(runs, & &1.id)
+
+      if ids != [] do
+        Run
+        |> where([run], run.dag_id == ^dag_id and run.id in ^ids)
+        |> Repo.delete_all()
+      end
+
+      runs
+    end)
   end
 
   def delete_task!(%Task{} = task) do
