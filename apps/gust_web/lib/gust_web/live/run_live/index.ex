@@ -1,7 +1,10 @@
 defmodule GustWeb.RunLive.Index do
+  alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.PubSub
   use GustWeb, :live_view
+
+  defguardp selected_runs_empty?(socket) when socket.assigns.selected_run_ids == []
 
   @impl true
   def mount(_params, _session, socket) do
@@ -22,10 +25,7 @@ defmodule GustWeb.RunLive.Index do
 
     {runs_count, pages} = count_and_pages(dag.id, selected_status, page_size)
 
-    if connected?(socket) do
-      PubSub.subscribe_runs_for_dag(dag.id)
-      Enum.each(dag.runs, fn %{id: id} -> PubSub.subscribe_run(id) end)
-    end
+    subscribe_dag_runs(socket, dag)
 
     {:noreply,
      socket
@@ -99,7 +99,7 @@ defmodule GustWeb.RunLive.Index do
   end
 
   @impl true
-  def handle_event("batch_delete", _params, %{assigns: %{selected_run_ids: []}} = socket) do
+  def handle_event("batch_delete", _params, socket) when selected_runs_empty?(socket) do
     {:noreply, socket}
   end
 
@@ -109,11 +109,22 @@ defmodule GustWeb.RunLive.Index do
 
     {:noreply,
      socket
-     |> assign(:selected_run_ids, [])
-     |> assign(:all_selected?, false)
-     |> refresh_stream_runs()
-     |> refresh_runs_count()
+     |> refresh_run_list()
      |> put_flash(:info, "#{length(deleted_runs)} runs deleted")}
+  end
+
+  @impl true
+  def handle_event("batch_restart", _params, socket) when selected_runs_empty?(socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("batch_restart", _params, socket) do
+    restarted_runs = socket |> selected_runs_on_dag() |> Enum.map(&Trigger.reset_run/1)
+
+    {:noreply,
+     socket
+     |> refresh_run_list()
+     |> put_flash(:info, "#{length(restarted_runs)} runs restarted")}
   end
 
   @impl true
@@ -123,8 +134,7 @@ defmodule GustWeb.RunLive.Index do
 
     {:noreply,
      socket
-     |> refresh_stream_runs()
-     |> refresh_runs_count()}
+     |> refresh_run_list(clear_selection?: false)}
   end
 
   @impl true
@@ -189,6 +199,10 @@ defmodule GustWeb.RunLive.Index do
     |> Enum.map(&String.to_integer/1)
   end
 
+  defp selected_runs_on_dag(socket) do
+    Flows.get_runs_on_dag(socket.assigns.dag_id, socket.assigns.selected_run_ids)
+  end
+
   defp status_param(nil), do: ""
   defp status_param(status), do: to_string(status)
 
@@ -217,9 +231,33 @@ defmodule GustWeb.RunLive.Index do
         run_status(socket.assigns.selected_status)
       )
 
+    subscribe_dag_runs(socket, dag)
+
     socket
     |> stream(:runs, dag.runs, reset: true)
   end
+
+  defp subscribe_dag_runs(socket, dag) do
+    if connected?(socket) do
+      PubSub.subscribe_runs_for_dag(dag.id)
+      Enum.each(dag.runs, fn %{id: id} -> PubSub.subscribe_run(id) end)
+    end
+  end
+
+  defp refresh_run_list(socket, opts \\ []) do
+    socket
+    |> maybe_clear_selection(Keyword.get(opts, :clear_selection?, true))
+    |> refresh_stream_runs()
+    |> refresh_runs_count()
+  end
+
+  defp maybe_clear_selection(socket, true) do
+    socket
+    |> assign(:selected_run_ids, [])
+    |> assign(:all_selected?, false)
+  end
+
+  defp maybe_clear_selection(socket, false), do: socket
 
   defp runs_path(name, page_size, page, ""),
     do: ~g"/dags/#{name}/runs?page_size=#{page_size}&page=#{page}"

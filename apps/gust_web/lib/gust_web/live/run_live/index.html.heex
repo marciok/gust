@@ -40,7 +40,10 @@
                 id="select-all-runs"
                 class="checkbox checkbox-sm"
               />
-              <span>Select runs</span>
+              <span>
+                Select runs
+                <span :if={@selected_run_ids != []}>({length(@selected_run_ids)})</span>
+              </span>
             </label>
 
             <details class="dropdown">
@@ -48,6 +51,21 @@
                 <.icon name="hero-chevron-down" class="h-4 w-4" /> Actions
               </summary>
               <ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-56 p-2 shadow-sm">
+                <li>
+                  <button
+                    id="batch-restart-runs"
+                    type="button"
+                    phx-click="batch_restart"
+                    disabled={@selected_run_ids == []}
+                    data-confirm="Are you sure you want to restart the selected runs?"
+                    class={[
+                      "btn btn-sm btn-soft justify-start",
+                      @selected_run_ids == [] && "btn-disabled"
+                    ]}
+                  >
+                    <.icon name="hero-arrow-path" class="h-4 w-4" /> Restart selected
+                  </button>
+                </li>
                 <li>
                   <button
                     id="batch-delete-runs"
@@ -61,7 +79,6 @@
                     ]}
                   >
                     <.icon name="hero-trash" class="h-4 w-4" /> Delete selected
-                    <span :if={@selected_run_ids != []}>({length(@selected_run_ids)})</span>
                   </button>
                 </li>
               </ul>

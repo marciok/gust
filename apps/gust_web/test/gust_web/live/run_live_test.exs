@@ -181,6 +181,46 @@ defmodule GustWeb.RunLiveTest do
       assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(second_run.id) end
     end
 
+    test "batch restarts selected runs in listing", %{conn: conn, dag: dag, run: first_run} do
+      second_run = run_fixture(%{dag_id: dag.id})
+      other_dag = dag_fixture(%{name: "other_dag_with_restart_run"})
+      other_dag_run = run_fixture(%{dag_id: other_dag.id})
+      parent = self()
+
+      GustWeb.DAGRunTriggerMock
+      |> expect(:reset_run, 2, fn %Flows.Run{dag_id: dag_id} = run ->
+        assert dag_id == dag.id
+        send(parent, {:restarted_run, run.id})
+        run
+      end)
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      selected_params = %{
+        "run_ids" => [
+          to_string(first_run.id),
+          to_string(second_run.id),
+          to_string(other_dag_run.id)
+        ]
+      }
+
+      index_live
+      |> element("#run-batch-form")
+      |> render_change(selected_params)
+
+      assert index_live
+             |> element("#batch-restart-runs")
+             |> render_click() =~ "2 runs restarted"
+
+      first_run_id = first_run.id
+      second_run_id = second_run.id
+      other_dag_run_id = other_dag_run.id
+
+      assert_received {:restarted_run, ^first_run_id}
+      assert_received {:restarted_run, ^second_run_id}
+      refute_received {:restarted_run, ^other_dag_run_id}
+    end
+
     test "selects all visible runs for batch delete", %{conn: conn, dag: dag, run: first_run} do
       second_run = run_fixture(%{dag_id: dag.id})
       third_run = run_fixture(%{dag_id: dag.id})

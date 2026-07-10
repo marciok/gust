@@ -498,6 +498,17 @@ defmodule Gust.Flows do
     |> Repo.aggregate(:count)
   end
 
+  @doc """
+  Gets runs by ID that belong to the given DAG.
+  """
+  def get_runs_on_dag(dag_id, run_ids) when is_list(run_ids) do
+    run_ids = Enum.uniq(run_ids)
+
+    Run
+    |> where([run], run.dag_id == ^dag_id and run.id in ^run_ids)
+    |> Repo.all()
+  end
+
   defp maybe_filter_run_status(query, nil), do: query
 
   defp maybe_filter_run_status(query, status) do

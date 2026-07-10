@@ -53,6 +53,18 @@ defmodule FlowsTest do
       assert [^ignored_run] = Flows.get_dag_with_runs!(other_dag.id).runs
     end
 
+    test "get_runs_on_dag/2 returns only matching runs for the given dag" do
+      dag = dag_fixture(%{name: "get_runs_on_dag"})
+      other_dag = dag_fixture(%{name: "get_runs_on_other_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+      other_run = run_fixture(%{dag_id: dag.id})
+      ignored_run = run_fixture(%{dag_id: other_dag.id})
+
+      runs = Flows.get_runs_on_dag(dag.id, [run.id, other_run.id, ignored_run.id])
+
+      assert Enum.map(runs, & &1.id) |> Enum.sort() == [run.id, other_run.id]
+    end
+
     test "delete_dag!/1 delete dag" do
       name = "my_name"
       dag = dag_fixture(%{name: name})
