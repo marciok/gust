@@ -15,6 +15,13 @@ config :gust,
 
 config :gust, Gust.Repo, migration_source: "gust_schema_migrations"
 
+# Use Gust.Run.Pooler to periodically claim queued runs, or Gust.PGNotifier.Worker
+# to use PostgreSQL LISTEN/NOTIFY. The latter reuses Gust.Repo's connection settings;
+# connection-specific overrides can be set with config :gust, :pg_notifications.
+# Connection and reconnection ordering are managed by Gust, so sync_connect and
+# auto_reconnect overrides are intentionally ignored.
+config :gust, run_dispatcher: Gust.PGNotifier.Worker
+
 config :gust_web,
   ecto_repos: [Gust.Repo],
   generators: [context_app: :gust]

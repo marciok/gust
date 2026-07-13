@@ -15,6 +15,7 @@ Mox.defmock(Gust.DAGTaskExpanderMock, for: Gust.DAG.TaskExpander)
 Mox.defmock(Gust.DBLockerMock, for: Gust.DBLocker)
 Mox.defmock(Gust.RunClaimMock, for: Gust.Run.Claim)
 Mox.defmock(Gust.RuntimeAdapterMock, for: Gust.DAG.Runtime.Adapter)
+Mox.defmock(Gust.PGNotifierMock, for: Gust.PGNotifier)
 
 Application.put_env(:gust, :dag_parser, Gust.DAGParserMock)
 Application.put_env(:gust, :dag_loader, Gust.DAGLoaderMock)
