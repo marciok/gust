@@ -155,7 +155,8 @@ defmodule GustWeb.RunLiveTest do
     end
 
     test "batch deletes selected runs in listing", %{conn: conn, dag: dag, run: first_run} do
-      second_run = run_fixture(%{dag_id: dag.id})
+      {:ok, first_run} = Flows.update_run_status(first_run, :succeeded)
+      second_run = run_fixture(%{dag_id: dag.id, status: :failed})
       kept_run = run_fixture(%{dag_id: dag.id})
       other_dag = dag_fixture(%{name: "other_dag_with_runs"})
       other_dag_run = run_fixture(%{dag_id: other_dag.id})
@@ -181,6 +182,32 @@ defmodule GustWeb.RunLiveTest do
       assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(second_run.id) end
     end
 
+    test "batch delete skips active runs and reports the result", %{
+      conn: conn,
+      dag: dag,
+      run: created_run
+    } do
+      succeeded_run = run_fixture(%{dag_id: dag.id, status: :succeeded})
+      running_run = run_fixture(%{dag_id: dag.id, status: :running})
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      index_live
+      |> element("#run-batch-form")
+      |> render_change(%{
+        "run_ids" => Enum.map([succeeded_run, running_run, created_run], &to_string(&1.id))
+      })
+
+      html = index_live |> element("#batch-delete-runs") |> render_click()
+
+      assert html =~
+               "1 run deleted; 2 runs skipped: Created runs cannot be deleted. Running runs cannot be deleted."
+
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(succeeded_run.id) end
+      assert Flows.get_run!(running_run.id)
+      assert Flows.get_run!(created_run.id)
+    end
+
     test "batch delete with no selected runs does nothing", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
@@ -193,7 +220,8 @@ defmodule GustWeb.RunLiveTest do
     end
 
     test "batch restarts selected runs in listing", %{conn: conn, dag: dag, run: first_run} do
-      second_run = run_fixture(%{dag_id: dag.id})
+      {:ok, first_run} = Flows.update_run_status(first_run, :succeeded)
+      second_run = run_fixture(%{dag_id: dag.id, status: :failed})
       other_dag = dag_fixture(%{name: "other_dag_with_restart_run"})
       other_dag_run = run_fixture(%{dag_id: other_dag.id})
       parent = self()
@@ -232,6 +260,40 @@ defmodule GustWeb.RunLiveTest do
       refute_received {:restarted_run, ^other_dag_run_id}
     end
 
+    test "batch restart skips active runs and reports the result", %{
+      conn: conn,
+      dag: dag,
+      run: running_run
+    } do
+      {:ok, running_run} = Flows.update_run_status(running_run, :running)
+      failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+      parent = self()
+
+      GustWeb.DAGRunTriggerMock
+      |> expect(:reset_run, fn %Flows.Run{id: run_id} = run ->
+        send(parent, {:restarted_run, run_id})
+        run
+      end)
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      index_live
+      |> element("#run-batch-form")
+      |> render_change(%{
+        "run_ids" => Enum.map([failed_run, running_run], &to_string(&1.id))
+      })
+
+      html = index_live |> element("#batch-restart-runs") |> render_click()
+
+      assert html =~
+               "1 run restarted; 1 run skipped: Running runs cannot be restarted."
+
+      failed_run_id = failed_run.id
+      running_run_id = running_run.id
+      assert_received {:restarted_run, ^failed_run_id}
+      refute_received {:restarted_run, ^running_run_id}
+    end
+
     test "batch restart with no selected runs does nothing", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
@@ -244,8 +306,9 @@ defmodule GustWeb.RunLiveTest do
     end
 
     test "selects all visible runs for batch delete", %{conn: conn, dag: dag, run: first_run} do
-      second_run = run_fixture(%{dag_id: dag.id})
-      third_run = run_fixture(%{dag_id: dag.id})
+      {:ok, first_run} = Flows.update_run_status(first_run, :succeeded)
+      second_run = run_fixture(%{dag_id: dag.id, status: :failed})
+      third_run = run_fixture(%{dag_id: dag.id, status: :succeeded})
 
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 

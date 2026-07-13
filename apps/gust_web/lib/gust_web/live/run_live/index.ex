@@ -4,6 +4,8 @@ defmodule GustWeb.RunLive.Index do
   alias Gust.PubSub
   use GustWeb, :live_view
 
+  @completed_run_statuses [:failed, :succeeded]
+
   defguardp selected_runs_empty?(socket) when socket.assigns.selected_run_ids == []
 
   @impl true
@@ -104,13 +106,15 @@ defmodule GustWeb.RunLive.Index do
   end
 
   def handle_event("batch_delete", _params, socket) do
+    {eligible_runs, skipped_runs} = socket |> selected_runs_on_dag() |> partition_batch_runs()
+
     {:ok, deleted_runs} =
-      Flows.delete_runs_on_dag(socket.assigns.dag_id, socket.assigns.selected_run_ids)
+      Flows.delete_runs_on_dag(socket.assigns.dag_id, Enum.map(eligible_runs, & &1.id))
 
     {:noreply,
      socket
      |> refresh_run_list()
-     |> put_flash(:info, "#{length(deleted_runs)} runs deleted")}
+     |> put_flash(:info, batch_summary(:deleted, deleted_runs, skipped_runs))}
   end
 
   @impl true
@@ -119,12 +123,13 @@ defmodule GustWeb.RunLive.Index do
   end
 
   def handle_event("batch_restart", _params, socket) do
-    restarted_runs = socket |> selected_runs_on_dag() |> Enum.map(&Trigger.reset_run/1)
+    {eligible_runs, skipped_runs} = socket |> selected_runs_on_dag() |> partition_batch_runs()
+    restarted_runs = Enum.map(eligible_runs, &Trigger.reset_run/1)
 
     {:noreply,
      socket
      |> refresh_run_list()
-     |> put_flash(:info, "#{length(restarted_runs)} runs restarted")}
+     |> put_flash(:info, batch_summary(:restarted, restarted_runs, skipped_runs))}
   end
 
   @impl true
@@ -201,6 +206,38 @@ defmodule GustWeb.RunLive.Index do
 
   defp selected_runs_on_dag(socket) do
     Flows.get_runs_on_dag(socket.assigns.dag_id, socket.assigns.selected_run_ids)
+  end
+
+  defp partition_batch_runs(runs) do
+    Enum.split_with(runs, &(&1.status in @completed_run_statuses))
+  end
+
+  defp batch_summary(action, processed_runs, []) do
+    processed_runs |> length() |> processed_summary(action)
+  end
+
+  defp batch_summary(action, processed_runs, skipped_runs) do
+    processed = processed_runs |> length() |> processed_summary(action)
+    skipped = skipped_runs |> length() |> run_count("skipped")
+
+    reasons =
+      skipped_runs
+      |> Enum.map(& &1.status)
+      |> Enum.uniq()
+      |> Enum.sort()
+      |> Enum.map_join(" ", &skip_reason(&1, action))
+
+    "#{processed}; #{skipped}: #{reasons}"
+  end
+
+  defp processed_summary(count, action), do: run_count(count, to_string(action))
+
+  defp run_count(1, action), do: "1 run #{action}"
+  defp run_count(count, action), do: "#{count} runs #{action}"
+
+  defp skip_reason(status, action) do
+    status = status |> to_string() |> String.capitalize()
+    "#{status} runs cannot be #{action}."
   end
 
   defp status_param(nil), do: ""
