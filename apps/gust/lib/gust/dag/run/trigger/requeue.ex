@@ -10,7 +10,7 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   alias Gust.DAG.Graph
   alias Gust.DAG.TaskExpander
   alias Gust.Flows
-  alias Gust.PubSub
+  alias Gust.Run.Dispatcher
 
   @behaviour Gust.DAG.Run.Trigger
 
@@ -64,18 +64,13 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   end
 
   defp update_broadcast(run) do
-    {:ok, run} = Flows.update_run_status(run, :enqueued)
-    PubSub.broadcast_run_status(run.id, :enqueued)
-    run
+    Dispatcher.enqueue(run)
   end
 
   @impl true
   def dispatch_all_runs(dag_id) do
     Flows.get_running_runs_by_dag([dag_id], [:created])
-    |> Enum.map(fn run ->
-      {:ok, run} = Flows.update_run_status(run, :enqueued)
-      run
-    end)
+    |> Enum.map(&Dispatcher.enqueue/1)
   end
 
   @impl true
@@ -86,9 +81,7 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   defp maybe_dispatch_enabled_dag(run, %Flows.Dag{enabled: false}), do: run
 
   defp maybe_dispatch_enabled_dag(run, %Flows.Dag{enabled: true}) do
-    run = update_broadcast(run)
-    PubSub.broadcast_run_dispatch(run.id)
-    run
+    update_broadcast(run)
   end
 
   defp set_created!(task) do

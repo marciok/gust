@@ -334,6 +334,31 @@ GUST_ROLE=console iex -S mix
 
 If you do not pass anything, Gust runs as `single`, which enables both the `core` and `web` behavior in the same node.
 
+### Run dispatcher
+
+Choose the dispatch strategy by module. Use `Gust.Run.Pooler` for periodic
+polling, or `Gust.PGNotifier.Worker` for PostgreSQL `LISTEN`/`NOTIFY`:
+
+```elixir
+config :gust, run_dispatcher: Gust.Run.Pooler
+
+# Or, without periodic polling:
+config :gust, run_dispatcher: Gust.PGNotifier.Worker
+```
+
+The notification connection reuses `Gust.Repo`'s database settings. Optional
+connection-specific settings can be supplied separately, for example:
+
+```elixir
+config :gust, :pg_notifications, reconnect_backoff: 2_000
+```
+
+Gust manages notification reconnection through its supervision tree, so
+`:sync_connect` and `:auto_reconnect` overrides are ignored. Enqueuing and
+notification happen in the same database transaction, and the claimer checks
+the durable run queue once after every successful subscription. The PostgreSQL
+dispatcher does not periodically poll the database.
+
 You can find a full example [here](https://github.com/marciok/gust/tree/main/examples/docker).
 
 ## How to Run Tests Locally

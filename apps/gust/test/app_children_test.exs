@@ -7,8 +7,7 @@ defmodule AppChildrenTest do
   describe "for_role/3" do
     setup do
       children = [
-        Gust.Run.Pooler,
-        Gust.DAG.Terminator.Worker,
+        Gust.Run.DispatcherSupervisor,
         {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}},
         {Gust.FileMonitor.Worker,
          %{dags_folder: @dags_folder, loader: Application.get_env(:gust, :dag_loader)}},
@@ -37,7 +36,21 @@ defmodule AppChildrenTest do
                AppChildren.for_role("web", "dev", @dags_folder)
     end
 
-    test "skips pooler and terminator for console role outside test" do
+    test "starts the run dispatcher supervisor only for execution roles" do
+      previous_dispatcher = Application.get_env(:gust, :run_dispatcher)
+      Application.put_env(:gust, :run_dispatcher, Gust.PGNotifier.Worker)
+
+      on_exit(fn -> restore_env(:run_dispatcher, previous_dispatcher) end)
+
+      assert [Gust.Run.DispatcherSupervisor | _children] =
+               AppChildren.for_role("core", "dev", @dags_folder)
+
+      refute Gust.Run.DispatcherSupervisor in AppChildren.for_role("web", "dev", @dags_folder)
+
+      refute Gust.Run.DispatcherSupervisor in AppChildren.for_role("console", "dev", @dags_folder)
+    end
+
+    test "skips dispatcher and terminator for console role outside test" do
       dev_children = [
         {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}}
       ]
@@ -72,8 +85,7 @@ defmodule AppChildrenTest do
       mix_env = "prod"
 
       children = [
-        Gust.Run.Pooler,
-        Gust.DAG.Terminator.Worker,
+        Gust.Run.DispatcherSupervisor,
         {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}},
         Gust.Leader,
         {DynamicSupervisor, [strategy: :one_for_one, name: Gust.LeaderOnlySupervisor]},
@@ -92,4 +104,7 @@ defmodule AppChildrenTest do
                AppChildren.for_role("web", mix_env, @dags_folder)
     end
   end
+
+  defp restore_env(key, nil), do: Application.delete_env(:gust, key)
+  defp restore_env(key, value), do: Application.put_env(:gust, key, value)
 end
