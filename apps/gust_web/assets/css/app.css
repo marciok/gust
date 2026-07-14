@@ -234,10 +234,6 @@
     @apply px-4 pt-4;
   }
 
-  .dag-card__run-history-label {
-    @apply mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500;
-  }
-
   .dag-card__run-history-line {
     @apply flex h-2 w-full gap-px overflow-hidden rounded-full bg-slate-200;
   }
