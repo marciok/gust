@@ -41,6 +41,7 @@ defmodule GustWeb.DashboardRouter do
           live "/dags", GustWeb.DagLive.Index, :index
           live "/dags/:name/dashboard", GustWeb.DagLive.Dashboard, :dashboard
           live "/dags/:name/runs", GustWeb.RunLive.Index, :index
+          live "/system", GustWeb.SystemLive, :show
           live "/secrets", GustWeb.SecretLive.Index, :index
           live "/secrets/new", GustWeb.SecretLive.Index, :new
           live "/secrets/:id/edit", GustWeb.SecretLive.Index, :edit
