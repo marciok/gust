@@ -10,6 +10,7 @@ defmodule GustWeb.DashboardRouterTest do
     "/dags",
     "/dags/:name/dashboard",
     "/dags/:name/runs",
+    "/system",
     "/secrets",
     "/secrets/new",
     "/secrets/:id/edit"

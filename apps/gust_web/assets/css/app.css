@@ -266,6 +266,58 @@
     @apply flex flex-wrap gap-2 justify-end;
   }
 
+  .system-page {
+    @apply space-y-6;
+  }
+
+  .system-panel {
+    @apply rounded-xl border border-slate-200/80 bg-white shadow-sm;
+  }
+
+  .system-panel__header {
+    @apply border-b border-slate-200/70 px-5 py-4;
+  }
+
+  .system-panel__header--split {
+    @apply flex items-center justify-between;
+  }
+
+  .system-panel__title {
+    @apply text-lg font-semibold text-slate-900;
+  }
+
+  .system-panel__body {
+    @apply space-y-4 p-5;
+  }
+
+  .system-runtime-grid {
+    @apply grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .system-stat {
+    @apply rounded-lg bg-slate-50 p-4;
+  }
+
+  .system-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .system-value {
+    @apply mt-1 font-mono text-sm text-slate-900;
+  }
+
+  .system-empty {
+    @apply rounded-lg bg-slate-50 p-4 text-sm text-slate-600;
+  }
+
+  .system-node-list {
+    @apply space-y-2;
+  }
+
+  .system-node {
+    @apply rounded-lg bg-slate-50 px-4 py-3 font-mono text-sm text-slate-900;
+  }
+
   .sidebar {
     @apply w-64 bg-white border-r border-slate-300 shadow-sm flex flex-col;
   }

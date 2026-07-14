@@ -1,0 +1,64 @@
+<Layouts.app flash={@flash}>
+  <div id="system-page" class="system-page">
+    <section id="runtime-config" class="system-panel">
+      <div class="system-panel__header">
+        <h2 class="system-panel__title">Runtime</h2>
+      </div>
+      <dl class="system-runtime-grid">
+        <div id="system-environment" class="system-stat">
+          <dt class="system-label">Environment</dt>
+          <dd class="system-value">{@system.environment}</dd>
+        </div>
+        <div id="system-role" class="system-stat">
+          <dt class="system-label">GUST_ROLE</dt>
+          <dd class="system-value">{@system.role}</dd>
+        </div>
+        <div id="system-uptime" class="system-stat">
+          <dt class="system-label">VM uptime</dt>
+          <dd class="system-value">
+            {format_uptime(@system.uptime_seconds)}
+          </dd>
+        </div>
+        <div id="system-gust-version" class="system-stat">
+          <dt class="system-label">Gust version</dt>
+          <dd class="system-value">{@system.gust_version}</dd>
+        </div>
+        <div id="system-web-version" class="system-stat">
+          <dt class="system-label">Gust Web version</dt>
+          <dd class="system-value">{@system.gust_web_version}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section id="cluster-config" class="system-panel">
+      <div class={["system-panel__header", "system-panel__header--split"]}>
+        <h2 class="system-panel__title">Nodes connected</h2>
+        <span id="connected-node-count" class="badge badge-outline">
+          {length(@system.connected_nodes)}
+        </span>
+      </div>
+      <div class="system-panel__body">
+        <div>
+          <div class="system-label">Current node</div>
+          <div id="current-node" class="system-value">
+            {@system.current_node}
+          </div>
+        </div>
+
+        <p
+          :if={@system.connected_nodes == []}
+          id="connected-nodes-empty"
+          class="system-empty"
+        >
+          No remote nodes are connected.
+        </p>
+
+        <ul :if={@system.connected_nodes != []} id="connected-nodes" class="system-node-list">
+          <li :for={node <- @system.connected_nodes} class="system-node">
+            {node}
+          </li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</Layouts.app>
