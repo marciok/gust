@@ -130,6 +130,46 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Gets the requested DAGs with their most recent runs preloaded.
+
+  Runs are ordered from oldest to newest so they can be displayed as a
+  chronological history. A lateral join limits the runs per DAG while keeping
+  the operation to one database query.
+  """
+
+  def get_dags_with_recent_runs(dag_ids, limit \\ 10) when is_integer(limit) and limit > 0 do
+    limit
+    |> dags_with_recent_runs_query()
+    |> where([dag], dag.id in ^dag_ids)
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a DAG by name with its most recent runs preloaded.
+  """
+  def get_dag_with_recent_runs(name, limit \\ 10) do
+    limit
+    |> dags_with_recent_runs_query()
+    |> where([dag], dag.name == ^name)
+    |> Repo.one()
+  end
+
+  defp dags_with_recent_runs_query(limit) do
+    recent_runs =
+      from run in Run,
+        where: run.dag_id == parent_as(:dag).id,
+        order_by: [desc: run.inserted_at, desc: run.id],
+        limit: ^limit
+
+    from dag in Dag,
+      as: :dag,
+      left_lateral_join: run in subquery(recent_runs),
+      on: true,
+      order_by: [asc: dag.id, asc: run.inserted_at, asc: run.id],
+      preload: [runs: run]
+  end
+
+  @doc """
   Gets a single log.
 
   Raises `Ecto.NoResultsError` if the Log does not exist.
