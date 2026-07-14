@@ -11,15 +11,21 @@ defmodule GustWeb.DagLive.Index do
 
     dag_defs = Loader.get_definitions()
 
+    dags_by_id =
+      dag_defs
+      |> Map.keys()
+      |> Flows.get_dags_with_recent_runs()
+      |> Map.new(&{&1.id, &1})
+
     dags =
       for {dag_id, {:ok, dag_def}} <- dag_defs do
-        dag = Flows.get_dag!(dag_id)
-        %{id: dag.name, dag: dag, dag_def: dag_def}
+        dag = Map.fetch!(dags_by_id, dag_id)
+        %{id: dag.name, dag: dag, dag_def: dag_def, recent_runs: dag.runs}
       end
 
     broken_dags =
       for {dag_id, {:error, error}} <- dag_defs do
-        dag = Flows.get_dag!(dag_id)
+        dag = Map.fetch!(dags_by_id, dag_id)
         %{id: dag.name, dag: dag, error: error}
       end
 
@@ -66,13 +72,18 @@ defmodule GustWeb.DagLive.Index do
         socket
       ) do
     name = dag_def.name
-    dag = Flows.get_dag_by_name(name)
+    dag = Flows.get_dag_with_recent_runs(name)
     socket = insert_dag(socket, dag, dag_def)
     socket = stream_delete(socket, :broken_dags, %{id: dag.name})
     {:noreply, socket}
   end
 
   defp insert_dag(socket, dag, dag_def) do
-    stream_insert(socket, :dags, %{id: dag.name, dag: dag, dag_def: dag_def})
+    stream_insert(socket, :dags, %{
+      id: dag.name,
+      dag: dag,
+      dag_def: dag_def,
+      recent_runs: dag.runs
+    })
   end
 end

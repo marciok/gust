@@ -230,6 +230,22 @@
     @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4;
   }
 
+  .dag-card__run-history {
+    @apply px-4 pt-4;
+  }
+
+  .dag-card__run-history-label {
+    @apply mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .dag-card__run-history-line {
+    @apply flex h-2 w-full gap-px overflow-hidden rounded-full bg-slate-200;
+  }
+
+  .dag-card__run-history-segment {
+    @apply min-w-2 flex-1 transition-opacity hover:opacity-75;
+  }
+
   .dag-card__meta-item {
     @apply bg-white rounded-lg border border-slate-200/70 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)];
   }
