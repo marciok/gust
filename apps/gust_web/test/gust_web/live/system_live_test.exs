@@ -32,6 +32,18 @@ defmodule GustWeb.SystemLiveTest do
     assert view |> element("#system-role") |> render() =~ "single"
   end
 
+  test "shows the configured run dispatcher", %{conn: conn} do
+    previous_dispatcher = Application.get_env(:gust, :run_dispatcher)
+    Application.put_env(:gust, :run_dispatcher, Gust.PGNotifier.Worker)
+
+    on_exit(fn -> restore_application_env(:gust, :run_dispatcher, previous_dispatcher) end)
+
+    {:ok, view, _html} = live(conn, ~g"/system")
+
+    assert view |> element("#system-run-dispatcher") |> render() =~
+             to_string(Gust.PGNotifier.Worker)
+  end
+
   test "format_uptime/1 presents minutes, hours, and days compactly" do
     assert GustWeb.SystemLive.format_uptime(59) == "0m"
     assert GustWeb.SystemLive.format_uptime(3_660) == "1h 1m"
@@ -40,4 +52,10 @@ defmodule GustWeb.SystemLiveTest do
 
   defp restore_env(name, nil), do: System.delete_env(name)
   defp restore_env(name, value), do: System.put_env(name, value)
+
+  defp restore_application_env(application, key, nil),
+    do: Application.delete_env(application, key)
+
+  defp restore_application_env(application, key, value),
+    do: Application.put_env(application, key, value)
 end

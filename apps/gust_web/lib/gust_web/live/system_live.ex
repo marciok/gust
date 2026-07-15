@@ -34,6 +34,7 @@ defmodule GustWeb.SystemLive do
       environment: @environment,
       gust_version: application_version(:gust),
       gust_web_version: application_version(:gust_web),
+      run_dispatcher: Application.get_env(:gust, :run_dispatcher),
       role: System.get_env("GUST_ROLE", "single"),
       uptime_seconds: div(uptime_ms, 1_000)
     }
