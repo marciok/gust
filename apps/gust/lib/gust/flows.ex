@@ -432,8 +432,6 @@ defmodule Gust.Flows do
   @doc """
   Updates the status of multiple runs in one database statement.
   """
-  def update_runs_status([], _status), do: []
-
   def update_runs_status(runs, status) do
     run_ids = Enum.map(runs, & &1.id)
     now = DateTime.utc_now() |> DateTime.truncate(:second)
