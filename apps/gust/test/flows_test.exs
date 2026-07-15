@@ -38,6 +38,33 @@ defmodule FlowsTest do
       assert [] = Flows.get_dag_with_runs!(dag.id).runs
     end
 
+    test "delete_runs_on_dag/2 deletes only matching runs for the given dag" do
+      dag = dag_fixture(%{name: "batch_delete_runs"})
+      other_dag = dag_fixture(%{name: "batch_delete_other_runs"})
+      run = run_fixture(%{dag_id: dag.id})
+      other_run = run_fixture(%{dag_id: dag.id})
+      ignored_run = run_fixture(%{dag_id: other_dag.id})
+
+      assert {:ok, deleted_runs} =
+               Flows.delete_runs_on_dag(dag.id, [run.id, other_run.id, ignored_run.id])
+
+      assert Enum.map(deleted_runs, & &1.id) |> Enum.sort() == [run.id, other_run.id]
+      assert [] = Flows.get_dag_with_runs!(dag.id).runs
+      assert [^ignored_run] = Flows.get_dag_with_runs!(other_dag.id).runs
+    end
+
+    test "get_runs_on_dag/2 returns only matching runs for the given dag" do
+      dag = dag_fixture(%{name: "get_runs_on_dag"})
+      other_dag = dag_fixture(%{name: "get_runs_on_other_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+      other_run = run_fixture(%{dag_id: dag.id})
+      ignored_run = run_fixture(%{dag_id: other_dag.id})
+
+      runs = Flows.get_runs_on_dag(dag.id, [run.id, other_run.id, ignored_run.id])
+
+      assert Enum.map(runs, & &1.id) |> Enum.sort() == [run.id, other_run.id]
+    end
+
     test "delete_dag!/1 delete dag" do
       name = "my_name"
       dag = dag_fixture(%{name: name})
@@ -63,6 +90,66 @@ defmodule FlowsTest do
       run = run_fixture(%{dag_id: dag.id})
 
       assert [^run] = Flows.get_dag_with_runs!(dag.id).runs
+    end
+
+    test "get_dags_with_recent_runs/2 loads each dag and its limited chronological runs" do
+      dag = dag_fixture(%{name: "recent_runs"})
+      other_dag = dag_fixture(%{name: "other_recent_runs"})
+
+      oldest =
+        run_fixture(%{dag_id: dag.id, status: :failed, inserted_at: ~N[2024-01-01 00:00:00]})
+
+      middle =
+        run_fixture(%{
+          dag_id: dag.id,
+          status: :succeeded,
+          inserted_at: ~N[2024-01-02 00:00:00]
+        })
+
+      newest =
+        run_fixture(%{dag_id: dag.id, status: :running, inserted_at: ~N[2024-01-03 00:00:00]})
+
+      other_run = run_fixture(%{dag_id: other_dag.id, status: :enqueued})
+
+      dags = Flows.get_dags_with_recent_runs([dag.id, other_dag.id], 2)
+      loaded_dag = Enum.find(dags, &(&1.id == dag.id))
+      loaded_other_dag = Enum.find(dags, &(&1.id == other_dag.id))
+
+      assert Enum.map(loaded_dag.runs, & &1.id) == [middle.id, newest.id]
+      assert Enum.map(loaded_dag.runs, & &1.status) == [:succeeded, :running]
+      assert Enum.map(loaded_other_dag.runs, & &1.id) == [other_run.id]
+      refute Enum.any?(loaded_dag.runs, &(&1.id == oldest.id))
+    end
+
+    test "get_dag_with_recent_runs/2 loads the named dag with limited chronological runs" do
+      dag = dag_fixture(%{name: "named_recent_runs"})
+      other_dag = dag_fixture(%{name: "other_named_recent_runs"})
+
+      oldest =
+        run_fixture(%{dag_id: dag.id, status: :failed, inserted_at: ~N[2024-01-01 00:00:00]})
+
+      middle =
+        run_fixture(%{
+          dag_id: dag.id,
+          status: :succeeded,
+          inserted_at: ~N[2024-01-02 00:00:00]
+        })
+
+      newest =
+        run_fixture(%{dag_id: dag.id, status: :running, inserted_at: ~N[2024-01-03 00:00:00]})
+
+      _other_run = run_fixture(%{dag_id: other_dag.id, status: :enqueued})
+
+      loaded_dag = Flows.get_dag_with_recent_runs(dag.name, 2)
+
+      assert loaded_dag.id == dag.id
+      assert Enum.map(loaded_dag.runs, & &1.id) == [middle.id, newest.id]
+      assert Enum.map(loaded_dag.runs, & &1.status) == [:succeeded, :running]
+      refute Enum.any?(loaded_dag.runs, &(&1.id == oldest.id))
+    end
+
+    test "get_dag_with_recent_runs/2 returns nil for an unknown name" do
+      assert Flows.get_dag_with_recent_runs("missing_dag") == nil
     end
 
     test "delete_not_found_ids/1 with empty list returns {:ok, 0}" do
@@ -212,6 +299,22 @@ defmodule FlowsTest do
       run = run_fixture(%{dag_id: dag.id})
       {:ok, %Run{status: status}} = Flows.update_run_status(run, new_status)
       assert status == new_status
+    end
+
+    test "update_runs_status/2 updates all runs and preserves their order" do
+      dag = dag_fixture(%{name: "update_runs_status"})
+      first_run = run_fixture(%{dag_id: dag.id})
+      second_run = run_fixture(%{dag_id: dag.id})
+
+      assert [
+               %Run{id: first_id, status: :enqueued},
+               %Run{id: second_id, status: :enqueued}
+             ] = Flows.update_runs_status([first_run, second_run], :enqueued)
+
+      assert first_id == first_run.id
+      assert second_id == second_run.id
+      assert Flows.get_run!(first_run.id).status == :enqueued
+      assert Flows.get_run!(second_run.id).status == :enqueued
     end
 
     test "get_run!/1 returns the run by id" do

@@ -449,7 +449,6 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   defp cancelable?(_item, _status), do: false
-
   defp cancellable_status?(status), do: status in [:running, :retrying, :waiting]
 
   defp restartable?([%Task{} | _tail], status), do: status in [:failed, :succeeded]

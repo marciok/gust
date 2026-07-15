@@ -33,7 +33,7 @@ defmodule Gust.DAG.TaskWaiterTest do
       })
 
     PubSub.subscribe_run(run.id)
-    PubSub.subscribe_runs_pool()
+    PubSub.subscribe_run_dispatch()
 
     Gust.DAGRunTriggerMock
     |> expect(:dispatch_run, fn %Flows.Run{id: run_id} when run_id == run.id ->
@@ -69,7 +69,7 @@ defmodule Gust.DAG.TaskWaiterTest do
     assert_receive {:dag, :run_status, %{run_id: run_id, status: :enqueued}}
                    when run_id == run.id
 
-    assert_receive {:run_pool, :dispatch_run, %{run_id: run_id}} when run_id == run.id
+    assert_receive {:run_dispatch, :wake}
   end
 
   test "resume/2 without run_id resumes all tasks waiting on the key" do
@@ -158,7 +158,7 @@ defmodule Gust.DAG.TaskWaiterTest do
       })
 
     PubSub.subscribe_run(run.id)
-    PubSub.subscribe_runs_pool()
+    PubSub.subscribe_run_dispatch()
 
     Gust.DAGRunTriggerMock
     |> expect(:dispatch_run, fn %Flows.Run{id: run_id} when run_id == run.id ->
@@ -182,6 +182,6 @@ defmodule Gust.DAG.TaskWaiterTest do
     assert_receive {:dag, :run_status, %{run_id: run_id, status: :enqueued}}
                    when run_id == run.id
 
-    assert_receive {:run_pool, :dispatch_run, %{run_id: run_id}} when run_id == run.id
+    assert_receive {:run_dispatch, :wake}
   end
 end

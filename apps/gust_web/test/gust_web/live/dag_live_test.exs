@@ -31,6 +31,35 @@ defmodule GustWeb.DagLiveTest do
       assert html =~ broken_dag.name
     end
 
+    test "shows the statuses of the ten most recent runs", %{conn: conn, dag: dag} do
+      runs =
+        for index <- 1..12 do
+          status = if rem(index, 2) == 0, do: :succeeded, else: :failed
+
+          run_fixture(%{
+            dag_id: dag.id,
+            status: status,
+            inserted_at: NaiveDateTime.add(~N[2024-01-01 00:00:00], index, :day)
+          })
+        end
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
+
+      assert has_element?(index_live, "#dag-run-history-#{dag.id}")
+
+      runs
+      |> Enum.drop(2)
+      |> Enum.each(fn run ->
+        assert has_element?(index_live, "#dag-#{dag.id}-run-#{run.id}.status-#{run.status}")
+      end)
+
+      runs
+      |> Enum.take(2)
+      |> Enum.each(fn run ->
+        refute has_element?(index_live, "#dag-#{dag.id}-run-#{run.id}")
+      end)
+    end
+
     test "dag file was reloaded", %{conn: conn, dag: dag, broken_dag: broken_dag} do
       {:ok, index_live, _html} = live(conn, ~g"/dags")
       dag_name = dag.name

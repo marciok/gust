@@ -130,6 +130,46 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Gets the requested DAGs with their most recent runs preloaded.
+
+  Runs are ordered from oldest to newest so they can be displayed as a
+  chronological history. A lateral join limits the runs per DAG while keeping
+  the operation to one database query.
+  """
+
+  def get_dags_with_recent_runs(dag_ids, limit \\ 10) when is_integer(limit) and limit > 0 do
+    limit
+    |> dags_with_recent_runs_query()
+    |> where([dag], dag.id in ^dag_ids)
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a DAG by name with its most recent runs preloaded.
+  """
+  def get_dag_with_recent_runs(name, limit \\ 10) do
+    limit
+    |> dags_with_recent_runs_query()
+    |> where([dag], dag.name == ^name)
+    |> Repo.one()
+  end
+
+  defp dags_with_recent_runs_query(limit) do
+    recent_runs =
+      from run in Run,
+        where: run.dag_id == parent_as(:dag).id,
+        order_by: [desc: run.inserted_at, desc: run.id],
+        limit: ^limit
+
+    from dag in Dag,
+      as: :dag,
+      left_lateral_join: run in subquery(recent_runs),
+      on: true,
+      order_by: [asc: dag.id, asc: run.inserted_at, asc: run.id],
+      preload: [runs: run]
+  end
+
+  @doc """
   Gets a single log.
 
   Raises `Ecto.NoResultsError` if the Log does not exist.
@@ -390,6 +430,23 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Updates the status of multiple runs in one database statement.
+  """
+  def update_runs_status(runs, status) do
+    run_ids = Enum.map(runs, & &1.id)
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {_count, updated_runs} =
+      Run
+      |> where([run], run.id in ^run_ids)
+      |> select([run], run)
+      |> Repo.update_all(set: [status: status, updated_at: now])
+
+    updated_runs_by_id = Map.new(updated_runs, &{&1.id, &1})
+    Enum.map(runs, &Map.fetch!(updated_runs_by_id, &1.id))
+  end
+
+  @doc """
   Toggles the enabled status of a DAG.
   """
   def toggle_enabled(dag) do
@@ -498,6 +555,17 @@ defmodule Gust.Flows do
     |> Repo.aggregate(:count)
   end
 
+  @doc """
+  Gets runs by ID that belong to the given DAG.
+  """
+  def get_runs_on_dag(dag_id, run_ids) when is_list(run_ids) do
+    run_ids = Enum.uniq(run_ids)
+
+    Run
+    |> where([run], run.dag_id == ^dag_id and run.id in ^run_ids)
+    |> Repo.all()
+  end
+
   defp maybe_filter_run_status(query, nil), do: query
 
   defp maybe_filter_run_status(query, status) do
@@ -566,6 +634,33 @@ defmodule Gust.Flows do
   """
   def delete_run(%Run{} = run) do
     Repo.delete(run)
+  end
+
+  @doc """
+  Deletes runs that belong to the given DAG.
+
+  Returns the deleted run structs so callers can update LiveView streams.
+  """
+
+  def delete_runs_on_dag(dag_id, run_ids) when is_list(run_ids) do
+    run_ids = Enum.uniq(run_ids)
+
+    Repo.transaction(fn ->
+      runs =
+        Run
+        |> where([run], run.dag_id == ^dag_id and run.id in ^run_ids)
+        |> Repo.all()
+
+      ids = Enum.map(runs, & &1.id)
+
+      if ids != [] do
+        Run
+        |> where([run], run.dag_id == ^dag_id and run.id in ^ids)
+        |> Repo.delete_all()
+      end
+
+      runs
+    end)
   end
 
   def delete_task!(%Task{} = task) do

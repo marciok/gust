@@ -62,6 +62,11 @@ defmodule GustWeb.Layouts do
               <.icon name="hero-lock-closed" class="h-5 w-5 text-sky-600" />
               <span>Secrets</span>
             </.link>
+
+            <.link navigate={~g"/system"} class="sidebar__link">
+              <.icon name="hero-server-stack" class="h-5 w-5 text-sky-600" />
+              <span>System</span>
+            </.link>
           </nav>
         </aside>
 
@@ -74,30 +79,8 @@ defmodule GustWeb.Layouts do
         </main>
       </div>
 
-      <footer class="app-footer w-full">
-        <div class="app-footer__content">
-          <div class="app-footer__meta">
-            <.node_selector />
-            <span class="app-footer__value">{System.get_env("MIX_ENV")}</span>
-          </div>
-        </div>
-      </footer>
-
       <.flash_group flash={@flash} />
     </div>
-    """
-  end
-
-  attr :nodes, :list, default: nil
-
-  def node_selector(assigns) do
-    assigns = assign(assigns, :nodes, assigns.nodes || Node.list())
-
-    ~H"""
-    <select id="node-selector" class="select">
-      <option disabled selected>Nodes Connected</option>
-      <option :for={node <- @nodes}>{node}</option>
-    </select>
     """
   end
 

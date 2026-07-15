@@ -171,25 +171,25 @@ defmodule DAG.Run.RequeueTest do
       Flows.toggle_enabled(dag)
 
       PubSub.subscribe_run(run_id)
-      PubSub.subscribe_runs_pool()
+      PubSub.subscribe_run_dispatch()
 
       run = Trigger.dispatch_run(run)
 
       assert %{status: :created} = run
 
-      refute_receive {:run_pool, :dispatch_run, %{run_id: ^run_id}}
+      refute_receive {:run_dispatch, :wake}
     end
 
-    test "update run to enqueued and notify pooler", %{run_id: run_id, run: run} do
+    test "updates run to enqueued and notifies dispatcher", %{run_id: run_id, run: run} do
       PubSub.subscribe_run(run_id)
-      PubSub.subscribe_runs_pool()
+      PubSub.subscribe_run_dispatch()
 
       run = Trigger.dispatch_run(run)
 
       assert %{status: :enqueued} = run
 
       assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued}}
-      assert_receive {:run_pool, :dispatch_run, %{run_id: ^run_id}}
+      assert_receive {:run_dispatch, :wake}
     end
   end
 end

@@ -13,6 +13,8 @@ config :gust, Gust.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
+config :gust, run_dispatcher: Gust.Run.Pooler
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :gust_web, GustWeb.Endpoint,

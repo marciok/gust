@@ -1,103 +1,84 @@
-defmodule Run.PoolerTest do
-  alias Gust.Flows
-  alias Gust.PubSub
-  use Gust.DataCase
-
-  import ExUnit.CaptureLog
+defmodule Gust.Run.PoolerTest do
+  use Gust.DataCase, async: false
 
   import Gust.FlowsFixtures
-  import Mox
 
+  alias Gust.Flows
+  alias Gust.PubSub
+  alias Gust.Run.Dispatcher
   alias Gust.Run.Pooler
 
-  setup :verify_on_exit!
-  setup :set_mox_from_context
-
   setup do
+    previous_tick = Application.get_env(:gust, :claim_runs_tick)
     Application.put_env(:gust, :claim_runs_tick, 9_999_999)
+
+    on_exit(fn -> restore_env(:claim_runs_tick, previous_tick) end)
+
+    :ok
   end
 
-  describe "handle_info/2 when message is :pool_runs" do
-    test "claim enqueued runs" do
-      dag = dag_fixture(%{name: "restart_me"})
-      sec_dag = dag_fixture(%{name: "other_dag"})
+  test "enqueues a run and broadcasts its status and dispatch" do
+    dag = dag_fixture(%{name: "pooler_enqueue"})
+    run = run_fixture(%{dag_id: dag.id})
 
-      restart_run = run_fixture(%{dag_id: dag.id, status: :enqueued})
-      restart_run_2 = run_fixture(%{dag_id: dag.id, status: :enqueued})
-      restart_run_with_error = run_fixture(%{dag_id: sec_dag.id, status: :enqueued})
+    PubSub.subscribe_run(run.id)
+    PubSub.subscribe_run_dispatch()
 
-      dag_def = %Gust.DAG.Definition{name: dag.name}
-      dag_def_error = %Gust.DAG.Definition{name: sec_dag.name, error: %{name: "Ops.."}}
+    assert %{id: run_id, status: :enqueued} = Dispatcher.enqueue(run)
+    assert run_id == run.id
+    assert %{status: :enqueued} = Flows.get_run!(run.id)
 
-      dag_id = dag.id
-      sec_dag_id = sec_dag.id
-
-      Gust.DAGLoaderMock
-      |> expect(:get_definition, fn ^dag_id -> {:ok, dag_def} end)
-      |> expect(:get_definition, fn ^dag_id -> {:ok, dag_def} end)
-      |> expect(:get_definition, fn ^sec_dag_id -> {:ok, dag_def_error} end)
-
-      Gust.RunClaimMock
-      |> expect(:next_run, fn -> restart_run end)
-      |> expect(:next_run, fn -> restart_run_2 end)
-      |> expect(:next_run, fn -> restart_run_with_error end)
-      |> expect(:next_run, fn -> nil end)
-
-      Gust.DAGRunnerSupervisorMock
-      |> expect(:start_child, 2, fn %Flows.Run{dag_id: ^dag_id} = run, ^dag_def ->
-        Flows.update_run_status(run, :running)
-        {:ok, spawn(fn -> :ok end)}
-      end)
-
-      {_, logs} =
-        with_log(fn ->
-          PubSub.subscribe_runs_claimed()
-
-          start_link_supervised!(Pooler)
-
-          assert_receive {:runs_claimed, %{node: _node}}, 200
-        end)
-
-      assert logs =~ "Not starting DAG: #{sec_dag.name} because contains errors"
-      assert logs =~ "Runs claimed: 3"
-    end
+    assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued}}
+    assert_receive {:run_dispatch, :wake}
   end
 
-  describe "handle_info/2 when message is :pool_now" do
-    test "claim enqueued runs" do
-      dag = dag_fixture(%{name: "restart_me"})
+  test "enqueues a batch with one dispatch wake" do
+    dag = dag_fixture(%{name: "pooler_enqueue_batch"})
+    runs = [run_fixture(%{dag_id: dag.id}), run_fixture(%{dag_id: dag.id})]
 
-      run = run_fixture(%{dag_id: dag.id, status: :created})
+    Enum.each(runs, &PubSub.subscribe_run(&1.id))
+    PubSub.subscribe_run_dispatch()
 
-      Gust.RunClaimMock |> expect(:next_run, fn -> run end)
-      Gust.RunClaimMock |> expect(:next_run, fn -> nil end)
+    assert [%{status: :enqueued}, %{status: :enqueued}] = Pooler.enqueue_all(runs)
 
-      dag_def = %Gust.DAG.Definition{name: dag.name}
-      dag_id = dag.id
+    Enum.each(runs, fn run ->
+      assert %{status: :enqueued} = Flows.get_run!(run.id)
+      assert_receive {:dag, :run_status, %{run_id: run_id, status: :enqueued}}
+      assert run_id in Enum.map(runs, & &1.id)
+    end)
 
-      Gust.DAGLoaderMock
-      |> expect(:get_definition, fn ^dag_id ->
-        {:ok, dag_def}
-      end)
-
-      Gust.DAGRunnerSupervisorMock
-      |> expect(:start_child, 1, fn %Flows.Run{dag_id: ^dag_id} = run, ^dag_def ->
-        Flows.update_run_status(run, :running)
-        {:ok, spawn(fn -> :ok end)}
-      end)
-
-      {_, logs} =
-        with_log(fn ->
-          PubSub.subscribe_runs_claimed()
-
-          start_link_supervised!(Pooler)
-          Process.sleep(200)
-          Gust.PubSub.broadcast_run_dispatch(run.id)
-
-          assert_receive {:runs_claimed, %{node: _node}}, 200
-        end)
-
-      assert logs =~ "Runs claimed: 1"
-    end
+    assert_receive {:run_dispatch, :wake}
+    refute_receive {:run_dispatch, :wake}, 50
   end
+
+  test "dispatcher ignores empty batches" do
+    PubSub.subscribe_run_dispatch()
+
+    assert [] = Dispatcher.enqueue_all([])
+    refute_receive {:run_dispatch, :wake}, 50
+  end
+
+  test "polls safely before setup and wakes the registered claimer afterward" do
+    start_supervised!(Pooler)
+
+    send(Pooler, :poll_runs)
+    PubSub.broadcast_run_dispatch_wake()
+    refute_receive :claim_runs
+
+    assert :ok = Pooler.setup()
+    send(Pooler, :poll_runs)
+    assert_receive :claim_runs
+  end
+
+  test "forwards PubSub dispatch events to the registered claimer" do
+    start_supervised!(Pooler)
+    assert :ok = Pooler.setup()
+
+    PubSub.broadcast_run_dispatch_wake()
+
+    assert_receive :claim_runs
+  end
+
+  defp restore_env(key, nil), do: Application.delete_env(:gust, key)
+  defp restore_env(key, value), do: Application.put_env(:gust, key, value)
 end

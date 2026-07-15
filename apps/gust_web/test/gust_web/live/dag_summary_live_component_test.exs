@@ -1,4 +1,3 @@
-# TODO: test schedule change
 defmodule GustWeb.DagSummaryLiveComponentTest do
   use GustWeb.ConnCase
   import Phoenix.LiveViewTest

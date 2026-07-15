@@ -5,6 +5,15 @@ defmodule GustWeb.DagSummaryComponent do
   alias Gust.Flows
 
   @impl true
+  def update(assigns, socket) do
+    {:ok,
+     socket
+     |> assign(assigns)
+     |> assign(:show_run_history?, Map.has_key?(assigns, :recent_runs))
+     |> assign_new(:recent_runs, fn -> [] end)}
+  end
+
+  @impl true
   def handle_event("toggle_enabled", %{"id" => dag_id}, socket) do
     {:ok, dag} = Flows.get_dag!(dag_id) |> Flows.toggle_enabled()
 
@@ -79,6 +88,26 @@ defmodule GustWeb.DagSummaryComponent do
               Trigger
             </button>
           </div>
+        </div>
+      </section>
+
+      <section
+        :if={@show_run_history?}
+        id={"dag-run-history-#{@dag.id}"}
+        class="dag-card__run-history"
+        aria-label={"Last #{length(@recent_runs)} runs for #{@dag.name}"}
+      >
+        <div class="dag-card__run-history-line">
+          <.link
+            :for={run <- @recent_runs}
+            id={"dag-#{@dag.id}-run-#{run.id}"}
+            navigate={~g"/dags/#{@dag.name}/dashboard?run_id=#{run.id}"}
+            class={["dag-card__run-history-segment", "status-#{run.status}"]}
+            title={"Run #{run.id}: #{run.status}"}
+            aria-label={"Run #{run.id}: #{run.status}"}
+          >
+            <span class="sr-only">Run {run.id}: {run.status}</span>
+          </.link>
         </div>
       </section>
 
