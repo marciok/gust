@@ -69,7 +69,7 @@ defmodule Gust.DAG.TaskWaiterTest do
     assert_receive {:dag, :run_status, %{run_id: run_id, status: :enqueued}}
                    when run_id == run.id
 
-    assert_receive {:run_dispatch, :dispatch_run, %{run_id: run_id}} when run_id == run.id
+    assert_receive {:run_dispatch, :wake}
   end
 
   test "resume/2 without run_id resumes all tasks waiting on the key" do
@@ -182,6 +182,6 @@ defmodule Gust.DAG.TaskWaiterTest do
     assert_receive {:dag, :run_status, %{run_id: run_id, status: :enqueued}}
                    when run_id == run.id
 
-    assert_receive {:run_dispatch, :dispatch_run, %{run_id: run_id}} when run_id == run.id
+    assert_receive {:run_dispatch, :wake}
   end
 end

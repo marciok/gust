@@ -301,6 +301,22 @@ defmodule FlowsTest do
       assert status == new_status
     end
 
+    test "update_runs_status/2 updates all runs and preserves their order" do
+      dag = dag_fixture(%{name: "update_runs_status"})
+      first_run = run_fixture(%{dag_id: dag.id})
+      second_run = run_fixture(%{dag_id: dag.id})
+
+      assert [
+               %Run{id: first_id, status: :enqueued},
+               %Run{id: second_id, status: :enqueued}
+             ] = Flows.update_runs_status([first_run, second_run], :enqueued)
+
+      assert first_id == first_run.id
+      assert second_id == second_run.id
+      assert Flows.get_run!(first_run.id).status == :enqueued
+      assert Flows.get_run!(second_run.id).status == :enqueued
+    end
+
     test "get_run!/1 returns the run by id" do
       dag = dag_fixture(%{name: "some_name"})
       %Run{id: id} = run_fixture(%{dag_id: dag.id})

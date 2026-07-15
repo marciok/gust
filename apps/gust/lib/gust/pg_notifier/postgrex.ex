@@ -16,16 +16,16 @@ defmodule Gust.PGNotifier.Postgrex do
   def listen(server, channel), do: Postgrex.Notifications.listen(server, channel)
 
   @impl true
-  def enqueue(run) do
-    {:ok, run} =
+  def enqueue_all(runs) do
+    {:ok, runs} =
       Repo.transaction(fn ->
-        {:ok, run} = Flows.update_run_status(run, :enqueued)
-        Repo |> SQL.query!("SELECT pg_notify($1, $2)", [@channel, to_string(run.id)])
+        runs = Flows.update_runs_status(runs, :enqueued)
+        Repo |> SQL.query!("SELECT pg_notify($1, $2)", [@channel, "work_available"])
 
-        run
+        runs
       end)
 
-    PubSub.broadcast_run_status(run.id, :enqueued)
-    run
+    Enum.each(runs, &PubSub.broadcast_run_status(&1.id, :enqueued))
+    runs
   end
 end

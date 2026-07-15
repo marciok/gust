@@ -16,6 +16,7 @@ defmodule Gust.Run.ClaimerTest do
   setup do
     previous_dispatcher = Application.get_env(:gust, :run_dispatcher)
     previous_tick = Application.get_env(:gust, :claim_runs_tick)
+    previous_batch_size = Application.get_env(:gust, :claim_runs_batch_size)
 
     Application.put_env(:gust, :run_dispatcher, Gust.Run.Pooler)
     Application.put_env(:gust, :claim_runs_tick, 9_999_999)
@@ -25,6 +26,7 @@ defmodule Gust.Run.ClaimerTest do
     on_exit(fn ->
       restore_env(:run_dispatcher, previous_dispatcher)
       restore_env(:claim_runs_tick, previous_tick)
+      restore_env(:claim_runs_batch_size, previous_batch_size)
     end)
 
     :ok
@@ -105,12 +107,40 @@ defmodule Gust.Run.ClaimerTest do
 
           start_link_supervised!(Claimer)
           Process.sleep(200)
-          Gust.PubSub.broadcast_run_dispatch(run.id)
+          Gust.PubSub.broadcast_run_dispatch_wake()
 
           assert_receive {:runs_claimed, %{node: _node}}, 200
         end)
 
       assert logs =~ "Runs claimed: 1"
+    end
+
+    test "continues claiming when a batch is full" do
+      Application.put_env(:gust, :claim_runs_batch_size, 2)
+
+      dag = dag_fixture(%{name: "drain_full_batch"})
+      runs = Enum.map(1..3, fn _ -> run_fixture(%{dag_id: dag.id, status: :enqueued}) end)
+      dag_def = %Gust.DAG.Definition{name: dag.name}
+
+      Gust.RunClaimMock
+      |> expect(:next_run, fn -> Enum.at(runs, 0) end)
+      |> expect(:next_run, fn -> Enum.at(runs, 1) end)
+      |> expect(:next_run, fn -> Enum.at(runs, 2) end)
+      |> expect(:next_run, fn -> nil end)
+
+      Gust.DAGLoaderMock
+      |> expect(:get_definition, 3, fn _dag_id -> {:ok, dag_def} end)
+
+      Gust.DAGRunnerSupervisorMock
+      |> expect(:start_child, 3, fn _run, ^dag_def ->
+        {:ok, spawn(fn -> :ok end)}
+      end)
+
+      PubSub.subscribe_runs_claimed()
+      start_link_supervised!(Claimer)
+
+      assert_receive {:runs_claimed, %{node: _node}}, 200
+      assert_receive {:runs_claimed, %{node: _node}}, 200
     end
   end
 

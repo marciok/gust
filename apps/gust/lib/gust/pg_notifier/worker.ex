@@ -32,7 +32,7 @@ defmodule Gust.PGNotifier.Worker do
   ]
 
   @impl Gust.Run.Dispatcher
-  def enqueue(run), do: PGNotifier.enqueue(run)
+  def enqueue_all(runs), do: PGNotifier.enqueue_all(runs)
 
   @impl Gust.Run.Dispatcher
   def setup do

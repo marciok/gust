@@ -70,7 +70,7 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   @impl true
   def dispatch_all_runs(dag_id) do
     Flows.get_running_runs_by_dag([dag_id], [:created])
-    |> Enum.map(&Dispatcher.enqueue/1)
+    |> Dispatcher.enqueue_all()
   end
 
   @impl true

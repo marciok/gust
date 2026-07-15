@@ -177,7 +177,7 @@ defmodule DAG.Run.RequeueTest do
 
       assert %{status: :created} = run
 
-      refute_receive {:run_dispatch, :dispatch_run, %{run_id: ^run_id}}
+      refute_receive {:run_dispatch, :wake}
     end
 
     test "updates run to enqueued and notifies dispatcher", %{run_id: run_id, run: run} do
@@ -189,7 +189,7 @@ defmodule DAG.Run.RequeueTest do
       assert %{status: :enqueued} = run
 
       assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued}}
-      assert_receive {:run_dispatch, :dispatch_run, %{run_id: ^run_id}}
+      assert_receive {:run_dispatch, :wake}
     end
   end
 end

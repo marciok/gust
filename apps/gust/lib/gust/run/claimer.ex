@@ -29,13 +29,17 @@ defmodule Gust.Run.Claimer do
 
   @impl true
   def handle_info(:claim_runs, state) do
-    claim_runs()
+    batch_size = batch_size()
+    claimed = claim_runs(batch_size)
+
+    if claimed == batch_size do
+      send(self(), :claim_runs)
+    end
+
     {:noreply, state}
   end
 
-  defp claim_runs do
-    batch_size = Application.get_env(:gust, :claim_runs_batch_size, 50)
-
+  defp claim_runs(batch_size) do
     Logger.info("Claiming runs at #{Node.self()}")
 
     claimed =
@@ -54,7 +58,10 @@ defmodule Gust.Run.Claimer do
     Logger.warning("Node list: #{inspect(Node.list())}")
 
     PubSub.broadcast_runs_claimed(Node.self())
+    claimed
   end
+
+  defp batch_size, do: Application.get_env(:gust, :claim_runs_batch_size, 50)
 
   defp maybe_start(run) do
     with {:ok, dag_def} <- Loader.get_definition(run.dag_id),
