@@ -7,10 +7,12 @@ defmodule Gust.Run.Dispatcher do
   receive `:claim_runs` messages.
   """
 
-  @callback enqueue(term()) :: term()
+  @callback enqueue_all([term()]) :: [term()]
   @callback setup() :: :ok
 
-  def enqueue(run), do: impl().enqueue(run)
+  def enqueue(run), do: enqueue_all([run]) |> List.first()
+  def enqueue_all([]), do: []
+  def enqueue_all(runs), do: impl().enqueue_all(runs)
   def setup, do: impl().setup()
 
   def impl do

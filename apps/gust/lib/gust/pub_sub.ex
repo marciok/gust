@@ -12,7 +12,7 @@ defmodule Gust.PubSub do
   @event_run_started :run_started
   @event_run_status :run_status
   @event_file_update :file_updated
-  @dispatch_run :dispatch_run
+  @dispatch_wake :wake
 
   ## Broadcasts
   #
@@ -25,11 +25,11 @@ defmodule Gust.PubSub do
     )
   end
 
-  def broadcast_run_dispatch(run_id) do
+  def broadcast_run_dispatch_wake do
     Phoenix.PubSub.broadcast(
       __MODULE__,
       @run_dispatch,
-      {:run_dispatch, @dispatch_run, %{run_id: run_id}}
+      {:run_dispatch, @dispatch_wake}
     )
   end
 

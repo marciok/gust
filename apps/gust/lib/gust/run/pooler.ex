@@ -13,11 +13,12 @@ defmodule Gust.Run.Pooler do
   end
 
   @impl Gust.Run.Dispatcher
-  def enqueue(run) do
-    {:ok, run} = Flows.update_run_status(run, :enqueued)
-    PubSub.broadcast_run_status(run.id, :enqueued)
-    PubSub.broadcast_run_dispatch(run.id)
-    run
+  def enqueue_all(runs) do
+    runs = Flows.update_runs_status(runs, :enqueued)
+
+    Enum.each(runs, &PubSub.broadcast_run_status(&1.id, :enqueued))
+    PubSub.broadcast_run_dispatch_wake()
+    runs
   end
 
   @impl Gust.Run.Dispatcher
@@ -39,18 +40,18 @@ defmodule Gust.Run.Pooler do
 
   @impl true
   def handle_info(:poll_runs, state) do
-    notify_claimer(state)
+    message_claimer(state)
     schedule_poll()
     {:noreply, state}
   end
 
-  def handle_info({:run_dispatch, :dispatch_run, %{run_id: _run_id}}, state) do
-    notify_claimer(state)
+  def handle_info({:run_dispatch, :wake}, state) do
+    message_claimer(state)
     {:noreply, state}
   end
 
-  defp notify_claimer(%{claimer: nil}), do: :ok
-  defp notify_claimer(%{claimer: claimer}), do: send(claimer, :claim_runs)
+  defp message_claimer(%{claimer: nil}), do: :ok
+  defp message_claimer(%{claimer: claimer}), do: send(claimer, :claim_runs)
 
   defp schedule_poll do
     tick = Application.get_env(:gust, :claim_runs_tick, 2_000)

@@ -28,11 +28,15 @@ defmodule Gust.PGNotifierTest do
     :ok
   end
 
-  test "worker delegates enqueue to the configured notifier" do
-    run = %{id: 42}
-    expect(Gust.PGNotifierMock, :enqueue, fn ^run -> :enqueued end)
+  test "worker delegates batch enqueue to the configured notifier" do
+    runs = [%{id: 42}, %{id: 43}]
+    expect(Gust.PGNotifierMock, :enqueue_all, fn ^runs -> runs end)
 
-    assert :enqueued = Worker.enqueue(run)
+    assert ^runs = Worker.enqueue_all(runs)
+  end
+
+  test "empty batches do not invoke the configured notifier" do
+    assert [] = Gust.PGNotifier.enqueue_all([])
   end
 
   test "Postgrex implementation enqueues and notifies in one transaction" do
@@ -41,11 +45,28 @@ defmodule Gust.PGNotifierTest do
 
     PubSub.subscribe_run(run.id)
 
-    assert %{id: run_id, status: :enqueued} = Postgrex.enqueue(run)
+    assert [%{id: run_id, status: :enqueued}] = Postgrex.enqueue_all([run])
     assert run_id == run.id
     assert %{status: :enqueued} = Flows.get_run!(run.id)
 
     assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued, task_id: nil}}
+  end
+
+  test "Postgrex implementation enqueues a batch" do
+    dag = dag_fixture(%{name: "pg_notifier_enqueue_batch"})
+    runs = [run_fixture(%{dag_id: dag.id}), run_fixture(%{dag_id: dag.id})]
+
+    Enum.each(runs, &PubSub.subscribe_run(&1.id))
+
+    assert [%{status: :enqueued}, %{status: :enqueued}] = Postgrex.enqueue_all(runs)
+
+    Enum.each(runs, fn run ->
+      assert %{status: :enqueued} = Flows.get_run!(run.id)
+
+      assert_receive {:dag, :run_status, %{run_id: run_id, status: :enqueued, task_id: nil}}
+
+      assert run_id in Enum.map(runs, & &1.id)
+    end)
   end
 
   test "worker sets up the listener and forwards notifications" do

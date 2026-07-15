@@ -430,6 +430,23 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Updates the status of multiple runs in one database statement.
+  """
+  def update_runs_status(runs, status) do
+    run_ids = Enum.map(runs, & &1.id)
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {_count, updated_runs} =
+      Run
+      |> where([run], run.id in ^run_ids)
+      |> select([run], run)
+      |> Repo.update_all(set: [status: status, updated_at: now])
+
+    updated_runs_by_id = Map.new(updated_runs, &{&1.id, &1})
+    Enum.map(runs, &Map.fetch!(updated_runs_by_id, &1.id))
+  end
+
+  @doc """
   Toggles the enabled status of a DAG.
   """
   def toggle_enabled(dag) do
