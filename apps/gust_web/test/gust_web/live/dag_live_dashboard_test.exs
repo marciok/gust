@@ -856,12 +856,21 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
       dag_id = dag.id
 
-      GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
+      GustWeb.DAGRunTriggerMock
+      |> expect(:dispatch_run, fn new_run ->
+        {:ok, _run} = Flows.update_run_status(new_run, :enqueued)
+        Flows.get_run!(new_run.id)
+      end)
 
       triggered_flash = dashboard_live |> element("#trigger-dag-run-#{dag.id}") |> render_click()
       last_run = Flows.get_dag_with_runs!(dag_id).runs |> List.last()
 
       assert triggered_flash =~ "Run #{last_run.id} triggered"
+
+      assert has_element?(
+               dashboard_live,
+               "#run-status-cell-#{last_run.id}.status-enqueued"
+             )
     end
 
     test "display run params when present", %{

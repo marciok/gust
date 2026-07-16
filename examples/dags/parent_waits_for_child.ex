@@ -22,10 +22,7 @@ defmodule ParentWaitsForChild do
         }
       })
 
-    child_run =
-      child_run.id
-      |> Flows.get_run_with_tasks!()
-      |> Trigger.dispatch_run()
+    Trigger.dispatch_run(child_run)
 
     Logger.info("Triggered child run #{child_run.id} for parent run #{run_id}")
 

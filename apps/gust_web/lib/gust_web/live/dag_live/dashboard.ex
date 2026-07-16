@@ -297,7 +297,8 @@ defmodule GustWeb.DagLive.Dashboard do
     dag_id = String.to_integer(id)
     {:ok, run} = Flows.create_run(%{dag_id: dag_id})
 
-    run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
+    Trigger.dispatch_run(run)
+    run = Flows.get_run_with_tasks!(run.id)
 
     {:noreply, socket |> stream_insert(:runs, run) |> put_flash(:info, "Run #{run.id} triggered")}
   end
