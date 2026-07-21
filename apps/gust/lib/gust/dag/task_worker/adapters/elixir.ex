@@ -2,7 +2,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
   @moduledoc false
 
   use Gust.DAG.TaskWorker
-  alias Gust.DAG.Logger
+  alias Gust.DAG.{Logger, NonRecError}
 
   defp try_skip_cond(nil, _mod, _args), do: false
 
@@ -15,7 +15,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
         raise(":skip_if returned #{inspect(invalid_skip)} but requires a boolean")
     end
   rescue
-    error -> {:error, error_with_stacktrace(error, __STACKTRACE__)}
+    error -> error_result(error, __STACKTRACE__)
   end
 
   @impl true
@@ -42,8 +42,8 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
         true ->
           {:skipped, %{}}
 
-        {:error, error} ->
-          {:error, error}
+        {status, error} when status in [:error, :non_recoverable_error] ->
+          {status, error}
       end
 
     Logger.unset()
@@ -58,7 +58,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
     |> apply_and_validate(fn_name, args, store_result)
     |> maybe_linked_exit_error()
   rescue
-    error -> {:error, error_with_stacktrace(error, __STACKTRACE__)}
+    error -> error_result(error, __STACKTRACE__)
   end
 
   defp maybe_linked_exit_error(result) do
@@ -102,6 +102,12 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
 
   defp error_with_stacktrace(error, stacktrace),
     do: {:error_with_stacktrace, error, stacktrace}
+
+  defp error_result(%NonRecError{} = error, stacktrace),
+    do: {:non_recoverable_error, error_with_stacktrace(error, stacktrace)}
+
+  defp error_result(error, stacktrace),
+    do: {:error, error_with_stacktrace(error, stacktrace)}
 
   defp task_context(task),
     do: %{run_id: task.run_id, params: task.params}

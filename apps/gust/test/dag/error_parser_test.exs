@@ -12,6 +12,15 @@ defmodule Dag.ErrorParser do
            }
   end
 
+  test "parse/1 parses non-recoverable errors" do
+    error = %Gust.DAG.NonRecError{message: "invalid input"}
+
+    assert parse(error) == %{
+             type: "Gust.DAG.NonRecError",
+             message: "invalid input"
+           }
+  end
+
   test "parse/1 includes a JSON-safe stacktrace when provided" do
     error = %RuntimeError{message: "ops"}
 

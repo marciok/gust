@@ -43,6 +43,27 @@ defmodule DSLTest do
     :code.delete(mod)
   end
 
+  test "DAG code can raise a non-recoverable error" do
+    dag_code = """
+      defmodule NonRecoverableDag do
+        use Gust.DSL
+
+        task :hi do
+          raise Gust.DAG.NonRecError, "invalid input"
+        end
+      end
+    """
+
+    [{mod, _bin}] = Code.compile_string(dag_code)
+
+    assert_raise Gust.DAG.NonRecError, "invalid input", fn ->
+      mod.hi(%{run_id: 123})
+    end
+
+    :code.purge(mod)
+    :code.delete(mod)
+  end
+
   test "task macro with context option" do
     run_id = 1234
     ctx = %{run_id: 1234}

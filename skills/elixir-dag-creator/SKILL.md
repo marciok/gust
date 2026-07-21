@@ -124,6 +124,24 @@ Gust.DAG.TaskWaiter.resume("payment_received",
 
 Omit `run_id` only when you intentionally want to resume every waiting task with the same key.
 
+## Non-recoverable task errors
+
+Ordinary exceptions follow Gust's retry behavior. When retrying cannot succeed—for example,
+because input is permanently invalid—raise `Gust.DAG.NonRecError` from the DAG task:
+
+```elixir
+task :validate_order, ctx: %{params: params} do
+  if is_nil(params["order_id"]) do
+    raise Gust.DAG.NonRecError, "order_id is required"
+  end
+
+  :ok
+end
+```
+
+Gust marks the task and run as failed without scheduling another attempt. The exception message
+and stacktrace are persisted and displayed on the dashboard like other task errors.
+
 ## Validation
 
 For example, if the file is `dags/hello_world.ex`, confirm that the `hello_world` DAG is valid.
