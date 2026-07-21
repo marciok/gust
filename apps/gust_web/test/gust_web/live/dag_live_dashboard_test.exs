@@ -179,12 +179,11 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       assert has_element?(dashboard_live, "#logs-empty-state")
-      assert has_element?(dashboard_live, "#logs-empty-state .hero-document-text")
+      refute has_element?(dashboard_live, "#logs-empty-state svg")
       assert has_element?(dashboard_live, "#log-filter")
       assert has_element?(dashboard_live, "#log-list")
 
       empty_state_html = render(element(dashboard_live, "#logs-empty-state"))
-      assert empty_state_html =~ "No logs for this item"
       assert empty_state_html =~ "The selected item has not emitted any logs yet."
     end
 
@@ -341,8 +340,45 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       task_error_html = element(dashboard_live, "#task-error") |> render()
 
+      assert has_element?(dashboard_live, "#task-error.alert.alert-error")
+      refute has_element?(dashboard_live, "#task-error svg")
+      assert task_error_html =~ to_string(error[:type])
       assert task_error_html =~ error[:value]
       assert task_error_html =~ error_msg
+      refute has_element?(dashboard_live, "#task-error-stacktrace")
+    end
+
+    test "display task error stacktrace", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      error = %{
+        type: "RuntimeError",
+        message: "ops...",
+        stacktrace: [
+          %{
+            module: "FailingTask",
+            function: "run",
+            arity: 1,
+            file: "lib/failing_task.ex",
+            line: 17,
+            column: 5
+          }
+        ]
+      }
+
+      Flows.update_task_error(task, error)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(dashboard_live, "#task-error-stacktrace")
+
+      stacktrace_html = dashboard_live |> element("#task-error-stacktrace") |> render()
+      assert stacktrace_html =~ "lib/failing_task.ex:17:5"
+      assert stacktrace_html =~ "FailingTask.run/1"
     end
 
     test "display mermaid chart", %{

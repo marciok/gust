@@ -443,6 +443,19 @@ defmodule GustWeb.DagLive.Dashboard do
     dag_def.tasks[task_name][:map_over] != nil
   end
 
+  defp format_stacktrace(stacktrace) do
+    Enum.map_join(stacktrace, "\n", fn frame ->
+      call = "#{frame["module"]}.#{frame["function"]}/#{frame["arity"]}"
+
+      location =
+        [frame["file"], frame["line"], frame["column"]]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.join(":")
+
+      if location == "", do: call, else: "#{location} #{call}"
+    end)
+  end
+
   defp cancelable?(%Task{}, status), do: cancellable_status?(status)
 
   defp cancelable?([%Task{} | _tasks] = tasks, _status) do
