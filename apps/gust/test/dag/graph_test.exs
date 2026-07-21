@@ -69,7 +69,7 @@ defmodule Dag.GraphTest do
           }
         }
 
-      assert {:error, %Graph.CycleDection{message: "Possible cycle detected"}} ==
+      assert {:error, %Graph.CycleDetectionError{message: "Possible cycle detected"}} ==
                Graph.to_stages(graph)
     end
   end
