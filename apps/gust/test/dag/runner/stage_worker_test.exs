@@ -732,15 +732,28 @@ defmodule Dag.Runner.StageWorkerTest do
       ref = Process.monitor(runner_pid)
       error_msg = "ops"
       error = %Ecto.Query.CastError{message: error_msg}
+      stacktrace = [{FailingTask, :run, 1, [file: ~c"lib/failing_task.ex", line: 17]}]
 
-      send(runner_pid, {:task_result, error, task_id, :error})
+      send(
+        runner_pid,
+        {:task_result, {:error_with_stacktrace, error, stacktrace}, task_id, :error}
+      )
 
       assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :failed}}, 400
       assert Flows.get_task!(task_id).status == :failed
 
       assert Flows.get_task!(task_id).error == %{
                "message" => error_msg,
-               "type" => "Ecto.Query.CastError"
+               "type" => "Ecto.Query.CastError",
+               "stacktrace" => [
+                 %{
+                   "module" => "FailingTask",
+                   "function" => "run",
+                   "arity" => 1,
+                   "file" => "lib/failing_task.ex",
+                   "line" => 17
+                 }
+               ]
              }
 
       refute_receive {:stage_completed, :ok}, 400

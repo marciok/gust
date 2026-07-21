@@ -15,7 +15,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
         raise(":skip_if returned #{inspect(invalid_skip)} but requires a boolean")
     end
   rescue
-    e -> {:error, e}
+    error -> {:error, error_with_stacktrace(error, __STACKTRACE__)}
   end
 
   @impl true
@@ -35,7 +35,8 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
             try_run(dag_def.mod, fn_name, args, opts[:store_result])
           catch
             :exit, reason ->
-              {:error, %RuntimeError{message: inspect(reason)}}
+              error = %RuntimeError{message: inspect(reason)}
+              {:error, error_with_stacktrace(error, __STACKTRACE__)}
           end
 
         true ->
@@ -57,7 +58,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
     |> apply_and_validate(fn_name, args, store_result)
     |> maybe_linked_exit_error()
   rescue
-    e -> {:error, e}
+    error -> {:error, error_with_stacktrace(error, __STACKTRACE__)}
   end
 
   defp maybe_linked_exit_error(result) do
@@ -98,6 +99,9 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
         )
     end
   end
+
+  defp error_with_stacktrace(error, stacktrace),
+    do: {:error_with_stacktrace, error, stacktrace}
 
   defp task_context(task),
     do: %{run_id: task.run_id, params: task.params}

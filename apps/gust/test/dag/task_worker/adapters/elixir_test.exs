@@ -51,6 +51,16 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
     assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
   end
 
+  defp assert_worker_error(ref, task_id, error) do
+    assert_receive {:task_result, {:error_with_stacktrace, ^error, stacktrace}, ^task_id, :error},
+                   200
+
+    assert stacktrace != []
+    assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+
+    stacktrace
+  end
+
   describe "handle_continue/2 when :run is given" do
     test "run task with context", %{task: task} do
       dag_content = """
@@ -169,7 +179,11 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       ref = start_worker_and_monitor!(task, mod, %{store_result: false})
       result = %RuntimeError{message: error_message, __exception__: true}
 
-      assert_worker_result(ref, task.id, result, :error)
+      stacktrace = assert_worker_error(ref, task.id, result)
+
+      assert [{^mod, :hi, 1, location} | _rest] = stacktrace
+      assert location[:file] == ~c"nofile"
+      assert is_integer(location[:line])
     end
 
     test "run catches task exits", %{task: task} do
@@ -187,7 +201,11 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       ref = start_worker_and_monitor!(task, mod, %{store_result: false})
       result = %RuntimeError{message: ":bad_exit", __exception__: true}
 
-      assert_worker_result(ref, task.id, result, :error)
+      stacktrace = assert_worker_error(ref, task.id, result)
+
+      assert [{^mod, :hi, 1, location} | _rest] = stacktrace
+      assert location[:file] == ~c"nofile"
+      assert is_integer(location[:line])
     end
 
     test "run catches linked process exits", %{task: task} do
@@ -298,7 +316,7 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       ref = start_worker_and_monitor!(task, mod, %{skip_if: skip_if_fn})
       result = %RuntimeError{message: error_message, __exception__: true}
 
-      assert_worker_result(ref, task.id, result, :error)
+      assert_worker_error(ref, task.id, result)
     end
 
     test "skip_if is set but function call fails", %{task: task} do
@@ -322,7 +340,7 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       ref = start_worker_and_monitor!(task, mod, %{skip_if: skip_if_fn})
       result = %RuntimeError{message: error_message, __exception__: true}
 
-      assert_worker_result(ref, task.id, result, :error)
+      assert_worker_error(ref, task.id, result)
     end
 
     test "store result is set but type is not map", %{task: task} do
@@ -343,7 +361,7 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       ref = start_worker_and_monitor!(task, mod, %{store_result: true})
       result = %RuntimeError{message: error_message, __exception__: true}
 
-      assert_worker_result(ref, task.id, result, :error)
+      assert_worker_error(ref, task.id, result)
     end
 
     test "store result is a map but contains a non-serializable value", %{task: task} do
@@ -361,9 +379,14 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       mod = compile_dag!(dag_content)
       ref = start_worker_and_monitor!(task, mod, %{store_result: true})
 
-      assert_receive {:task_result, %RuntimeError{message: message}, task_id, :error}, 200
+      assert_receive {:task_result,
+                      {:error_with_stacktrace, %RuntimeError{message: message}, stacktrace},
+                      task_id, :error},
+                     200
+
       assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
       assert task_id == task.id
+      assert stacktrace != []
       assert message =~ "Task result is not JSON-serializable"
       assert message =~ "{:name, \"marcio\"}"
     end
