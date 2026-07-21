@@ -51,8 +51,9 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
     assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
   end
 
-  defp assert_worker_error(ref, task_id, error) do
-    assert_receive {:task_result, {:error_with_stacktrace, ^error, stacktrace}, ^task_id, :error},
+  defp assert_worker_error(ref, task_id, error, status \\ :error) do
+    assert_receive {:task_result, {:error_with_stacktrace, ^error, stacktrace}, ^task_id,
+                    ^status},
                    200
 
     assert stacktrace != []
@@ -180,6 +181,30 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       result = %RuntimeError{message: error_message, __exception__: true}
 
       stacktrace = assert_worker_error(ref, task.id, result)
+
+      assert [{^mod, :hi, 1, location} | _rest] = stacktrace
+      assert location[:file] == ~c"nofile"
+      assert is_integer(location[:line])
+    end
+
+    test "run fails without retrying when task raises a non-recoverable error", %{task: task} do
+      error_message = "invalid input"
+
+      dag_content = """
+        defmodule NonRecoverableTaskDag do
+          use Gust.DSL
+
+          task :#{task.name} do
+            raise Gust.DAG.NonRecError, "#{error_message}"
+          end
+        end
+      """
+
+      mod = compile_dag!(dag_content)
+      ref = start_worker_and_monitor!(task, mod, %{store_result: false})
+      error = %Gust.DAG.NonRecError{message: error_message}
+
+      stacktrace = assert_worker_error(ref, task.id, error, :non_recoverable_error)
 
       assert [{^mod, :hi, 1, location} | _rest] = stacktrace
       assert location[:file] == ~c"nofile"
