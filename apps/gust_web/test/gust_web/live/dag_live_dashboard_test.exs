@@ -179,12 +179,11 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       assert has_element?(dashboard_live, "#logs-empty-state")
-      assert has_element?(dashboard_live, "#logs-empty-state .hero-document-text")
+      refute has_element?(dashboard_live, "#logs-empty-state svg")
       assert has_element?(dashboard_live, "#log-filter")
       assert has_element?(dashboard_live, "#log-list")
 
       empty_state_html = render(element(dashboard_live, "#logs-empty-state"))
-      assert empty_state_html =~ "No logs for this item"
       assert empty_state_html =~ "The selected item has not emitted any logs yet."
     end
 
@@ -318,6 +317,8 @@ defmodule GustWeb.DagLiveDashboardTest do
       refute dashboard_live |> element("#task-error") |> has_element?()
       assert task_result_html =~ result |> Map.values() |> Enum.join()
       assert task_result_html =~ result |> Map.keys() |> Enum.join()
+      assert has_element?(dashboard_live, "#task-result-title")
+      assert has_element?(dashboard_live, "#task-result-code[phx-hook='CodeHighlight']")
     end
 
     test "display task error", %{
@@ -341,8 +342,45 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       task_error_html = element(dashboard_live, "#task-error") |> render()
 
+      assert has_element?(dashboard_live, "#task-error.alert.alert-error")
+      refute has_element?(dashboard_live, "#task-error svg")
+      assert task_error_html =~ to_string(error[:type])
       assert task_error_html =~ error[:value]
       assert task_error_html =~ error_msg
+      refute has_element?(dashboard_live, "#task-error-stacktrace")
+    end
+
+    test "display task error stacktrace", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      error = %{
+        type: "RuntimeError",
+        message: "ops...",
+        stacktrace: [
+          %{
+            module: "FailingTask",
+            function: "run",
+            arity: 1,
+            file: "lib/failing_task.ex",
+            line: 17,
+            column: 5
+          }
+        ]
+      }
+
+      Flows.update_task_error(task, error)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(dashboard_live, "#task-error-stacktrace")
+
+      stacktrace_html = dashboard_live |> element("#task-error-stacktrace") |> render()
+      assert stacktrace_html =~ "lib/failing_task.ex:17:5"
+      assert stacktrace_html =~ "FailingTask.run/1"
     end
 
     test "display mermaid chart", %{
@@ -357,6 +395,40 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       mermaid_html = render(element(dashboard_live, "#mermaid-chart"))
       assert mermaid_html =~ GustWeb.Mermaid.chart(@tasks) |> String.replace("-->", "--&gt;")
+      refute mermaid_source(dashboard_live) =~ "\nclass "
+    end
+
+    test "matches the selected run task statuses on the mermaid graph", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, task} = Flows.update_task_status(task, :running)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
+
+      assert mermaid_source(dashboard_live) =~ "class #{task.name} status-running"
+      refute mermaid_source(dashboard_live) =~ "selected-task"
+
+      {:ok, _task} = Flows.update_task_status(task, :succeeded)
+      Gust.PubSub.broadcast_run_status(run.id, :running, task.id)
+
+      assert mermaid_source(dashboard_live) =~ "class #{task.name} status-succeeded"
+      refute mermaid_source(dashboard_live) =~ "class #{task.name} status-running"
+    end
+
+    test "marks the selected task on the mermaid graph", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert mermaid_source(dashboard_live) =~ "class #{task.name} selected-task"
     end
 
     test "display dag code", %{
@@ -856,12 +928,21 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
       dag_id = dag.id
 
-      GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
+      GustWeb.DAGRunTriggerMock
+      |> expect(:dispatch_run, fn new_run ->
+        {:ok, _run} = Flows.update_run_status(new_run, :enqueued)
+        Flows.get_run!(new_run.id)
+      end)
 
       triggered_flash = dashboard_live |> element("#trigger-dag-run-#{dag.id}") |> render_click()
       last_run = Flows.get_dag_with_runs!(dag_id).runs |> List.last()
 
       assert triggered_flash =~ "Run #{last_run.id} triggered"
+
+      assert has_element?(
+               dashboard_live,
+               "#run-status-cell-#{last_run.id}.status-enqueued"
+             )
     end
 
     test "display run params when present", %{
@@ -880,6 +961,8 @@ defmodule GustWeb.DagLiveDashboardTest do
       params_html = dashboard_live |> element("#run-params") |> render()
       assert params_html =~ "ford"
       assert params_html =~ "ranger"
+      assert has_element?(dashboard_live, "#run-params-title")
+      assert has_element?(dashboard_live, "#run-params-code[phx-hook='CodeHighlight']")
     end
 
     test "hide run params section when params are empty", %{
@@ -970,6 +1053,7 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
 
       assert render(element(dashboard_live, "##{task_name}-map-badge")) =~ "[]"
+      assert mermaid_source(dashboard_live) =~ ~s(#{task_name}["#{task_name} []"])
       assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "failed"
       assert has_element?(dashboard_live, "#mapped-task-runs")
       assert has_element?(dashboard_live, "#mapped-task-run-#{task.id}")
@@ -1185,6 +1269,80 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert render(element(dashboard_live, "[data-testid='status-badge']")) =~
                "upstream_failed"
+
+      assert mermaid_source(dashboard_live) =~
+               "class #{task_name} status-upstream_failed"
+
+      assert mermaid_source(dashboard_live) =~ "class #{task_name} selected-task"
+    end
+
+    test "uses mapped task statuses when the selected run is outside the current page", %{
+      conn: conn
+    } do
+      dag_name = "off_page_mapped_status_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      task_fixture(%{
+        run_id: run.id,
+        name: task_name,
+        status: :succeeded,
+        map_index: 0
+      })
+
+      task_fixture(%{
+        run_id: run.id,
+        name: task_name,
+        status: :failed,
+        map_index: 1
+      })
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      for seconds <- 1..30 do
+        run_fixture(%{
+          dag_id: dag.id,
+          inserted_at: DateTime.add(now, seconds, :second)
+        })
+      end
+
+      dag_file = Path.join(System.tmp_dir!(), "off_page_mapped_status_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      refute has_element?(dashboard_live, "#run-status-cell-#{run.id}")
+
+      assert mermaid_source(dashboard_live) =~
+               "class #{task_name} status-failed"
+
+      assert mermaid_source(dashboard_live) =~ "class #{task_name} selected-task"
     end
 
     test "restarts the selected mapped task instance from the indexed view", %{conn: conn} do
@@ -1253,5 +1411,13 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert dashboard_live |> element("#restart") |> render_click() =~
                "Task: #{mapped_task.name} [1] was restarted"
     end
+  end
+
+  defp mermaid_source(view) do
+    view
+    |> element("#mermaid-chart")
+    |> render()
+    |> LazyHTML.from_fragment()
+    |> LazyHTML.text()
   end
 end

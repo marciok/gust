@@ -49,12 +49,34 @@ defmodule Gust.DSL do
 
           Logger.info(task.result)
         end
+
+        task :validate_input, ctx: %{params: params} do
+          if params == %{} do
+            raise Gust.DAG.NonRecError, "input is required"
+          end
+        end
       end
 
   ## Parameters
 
     * `schedule` - A valid cron expression string.
     * `on_finished_callback` - The name of the function to be called.
+
+  ## Non-recoverable task errors
+
+  Ordinary exceptions follow Gust's retry behavior. When retrying cannot succeed, raise
+  `Gust.DAG.NonRecError` from the task:
+
+      task :validate_order, ctx: %{params: params} do
+        if is_nil(params["order_id"]) do
+          raise Gust.DAG.NonRecError, "order_id is required"
+        end
+
+        :ok
+      end
+
+  Gust marks the task and run as failed without scheduling another attempt. The exception
+  message and stacktrace are persisted and displayed on the dashboard like other task errors.
   """
 
   @task_opts [:downstream, :store_result, :ctx, :skip_if, :map_over, :wait_for]
@@ -103,6 +125,14 @@ defmodule Gust.DSL do
       unchanged. Other values are wrapped as `%{"item" => value}`.
     * `:wait_for` — A durable external event key. When reached, the task and run are marked
       as `:waiting` until `Gust.DAG.TaskWaiter.resume/2` receives the matching key.
+
+  ## Non-recoverable errors
+
+  Raise `Gust.DAG.NonRecError` when a task failure is permanent and should not be retried:
+
+      task :validate_input do
+        raise Gust.DAG.NonRecError, "input is invalid"
+      end
 
   ## Example
 

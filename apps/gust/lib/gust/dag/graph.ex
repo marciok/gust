@@ -15,8 +15,8 @@ defmodule Gust.DAG.Graph do
   def to_stages(tasks) do
     {:ok, sort(tasks)}
   rescue
-    e in Gust.DAG.Graph.CycleDection ->
-      {:error, e}
+    error in Gust.DAG.Graph.CycleDetectionError ->
+      {:error, error}
   end
 
   def link_tasks(task_list) do
@@ -63,7 +63,7 @@ defmodule Gust.DAG.Graph do
         {k, %{v | upstream: removed_up}}
       end)
 
-    if map_size(current_task_layer) == 0, do: raise(Gust.DAG.Graph.CycleDection)
+    if map_size(current_task_layer) == 0, do: raise(Gust.DAG.Graph.CycleDetectionError)
 
     sort(next_tasks, sorted ++ [layer_keys])
   end

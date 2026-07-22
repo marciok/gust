@@ -173,41 +173,62 @@
     </section>
 
     <section :if={@item_params && map_size(@item_params) > 0} class="dag-card__body">
-      <h4 class="text-sm font-semibold text-slate-700">Params</h4>
-      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
-        <pre
+      <h4 id="run-params-title" class="text-sm font-semibold text-slate-700">Params</h4>
+      <div class="mt-2">
+        <.json_viewer
           id="run-params"
+          value={@item_params}
           data-testid="run-params"
-          class="language-json rounded-md overflow-x-auto"
-        >
-<%= pretty_json!(@item_params) %>
-        </pre>
+        />
       </div>
     </section>
 
     <section :if={@item_error && map_size(@item_error) > 0} class="dag-card__body">
-      <h4 class="text-sm font-semibold text-rose-600">Error</h4>
-      <div class="alert overflow-auto mt-2">
-        <pre
-          id="task-error"
-          class="mt-1 whitespace-pre-wrap text-sm"
-        >
-<%= pretty_json!(@item_error) %>
-        </pre>
+      <div
+        id="task-error"
+        role="alert"
+        class={["alert", "alert-error", "items-start", "px-4", "py-3"]}
+      >
+        <div class="min-w-0">
+          <p class={["text-sm", "font-semibold", "leading-5"]}>
+            {@item_error["type"] || "Task error"}
+          </p>
+          <p :if={@item_error["value"]} class={["mt-1", "break-words", "text-sm"]}>
+            {@item_error["value"]}
+          </p>
+          <pre class={["mt-1", "overflow-auto", "whitespace-pre-wrap", "text-sm", "leading-5"]}>{@item_error["message"]}</pre>
+          <div
+            :if={@item_error["stacktrace"] not in [nil, []]}
+            class={["mt-3", "border-t", "border-current/20", "pt-3"]}
+          >
+            <p class={["text-xs", "font-semibold", "uppercase", "tracking-wide", "opacity-75"]}>
+              Stacktrace
+            </p>
+            <pre
+              id="task-error-stacktrace"
+              class={[
+                "mt-1",
+                "overflow-x-auto",
+                "whitespace-pre-wrap",
+                "break-words",
+                "font-mono",
+                "text-xs",
+                "leading-5"
+              ]}
+            >{format_stacktrace(@item_error["stacktrace"])}</pre>
+          </div>
+        </div>
       </div>
     </section>
 
     <section :if={@item_result && map_size(@item_result) > 0} class="dag-card__body">
-      <h4 class="text-sm font-semibold text-slate-700">Result</h4>
-
-      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
-        <pre
+      <h4 id="task-result-title" class="text-sm font-semibold text-slate-700">Result</h4>
+      <div class="mt-2">
+        <.json_viewer
           id="task-result"
+          value={@item_result}
           data-testid="task-result"
-          class="language-json rounded-md overflow-x-auto"
-        >
-     <%= pretty_json!(@item_result) %> 
-      </pre>
+        />
       </div>
     </section>
 
@@ -301,11 +322,7 @@
         id="logs-empty-state"
         class="flex items-start gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5"
       >
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-500 ring-1 ring-slate-200">
-          <.icon name="hero-document-text" class="h-5 w-5" />
-        </div>
         <div class="min-w-0">
-          <h4 class="text-sm font-semibold text-slate-900">No logs for this item</h4>
           <p class="mt-1 text-sm text-slate-600">
             The selected item has not emitted any logs yet.
           </p>
@@ -408,7 +425,7 @@ config:
     secondaryColor: '#c7e8ff'
     tertiaryColor: '#f8fafc'
 ---
-    #{mermaid_chart(@dag_def.tasks)}
+    #{mermaid_chart(@dag_def.tasks, @mermaid_task_statuses, @selected_item)}
 """}
        </pre>
       </div>

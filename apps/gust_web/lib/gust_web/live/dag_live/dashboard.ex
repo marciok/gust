@@ -73,6 +73,7 @@ defmodule GustWeb.DagLive.Dashboard do
 
   defp mount_success(socket, %Dag{runs: runs} = dag, dag_def, params, page) do
     selected_item = load_selected_item(params)
+    mermaid_task_statuses = run_task_statuses(runs, selected_item)
     expanded_items = get_expanded_items(selected_item)
     logs = get_logs(selected_item)
 
@@ -85,6 +86,7 @@ defmodule GustWeb.DagLive.Dashboard do
      |> assign(:error, {})
      |> assign(:dag, dag)
      |> assign(:selected_item, selected_item)
+     |> assign(:mermaid_task_statuses, mermaid_task_statuses)
      |> assign(:item_name, get_name(selected_item))
      |> assign(:item_id, get_id(selected_item))
      |> assign_item_attrs(selected_item)
@@ -237,7 +239,42 @@ defmodule GustWeb.DagLive.Dashboard do
 
   def time, do: DateTime.utc_now() |> strftime()
 
-  defp mermaid_chart(tasks), do: Mermaid.chart(tasks)
+  defp mermaid_chart(tasks, nil, _selected_item), do: Mermaid.chart(tasks)
+
+  defp mermaid_chart(tasks, selected_run_statuses, selected_item) do
+    task_statuses =
+      Map.new(tasks, fn {name, _task} ->
+        {name, Map.get(selected_run_statuses, name, :none)}
+      end)
+
+    Mermaid.chart(tasks, task_statuses, selected_task_names(selected_item))
+  end
+
+  defp selected_task_names(%Task{name: name}), do: [name]
+  defp selected_task_names([%Task{name: name} | _tail]), do: [name]
+  defp selected_task_names(_selected_item), do: []
+
+  defp run_task_statuses(_runs, nil), do: nil
+
+  defp run_task_statuses(_runs, %Run{tasks: tasks}) do
+    task_statuses(tasks)
+  end
+
+  defp run_task_statuses(runs, selected_item) do
+    case Enum.find(runs, &(&1.id == selected_run_id(selected_item))) do
+      %Run{tasks: tasks} -> task_statuses(tasks)
+      nil -> selected_task_statuses(selected_item)
+    end
+  end
+
+  defp selected_task_statuses(%Task{name: name, status: status}), do: %{name => status}
+  defp selected_task_statuses(tasks) when is_list(tasks), do: task_statuses(tasks)
+
+  defp task_statuses(tasks) do
+    tasks
+    |> Enum.group_by(& &1.name)
+    |> Map.new(fn {name, task_instances} -> {name, get_status(task_instances)} end)
+  end
 
   defp read_code({file_path, _reload_time}), do: File.read!(file_path)
   defp reload_time({_file_path, reload_time}), do: reload_time
@@ -297,7 +334,8 @@ defmodule GustWeb.DagLive.Dashboard do
     dag_id = String.to_integer(id)
     {:ok, run} = Flows.create_run(%{dag_id: dag_id})
 
-    run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
+    Trigger.dispatch_run(run)
+    run = Flows.get_run_with_tasks!(run.id)
 
     {:noreply, socket |> stream_insert(:runs, run) |> put_flash(:info, "Run #{run.id} triggered")}
   end
@@ -369,6 +407,13 @@ defmodule GustWeb.DagLive.Dashboard do
         assign_run_reload(socket, run)
       end
 
+    socket =
+      if selected_run_id(socket.assigns.selected_item) == run.id do
+        assign(socket, :mermaid_task_statuses, task_statuses(run.tasks))
+      else
+        socket
+      end
+
     {:noreply, socket |> stream_insert(:runs, run)}
   end
 
@@ -425,10 +470,6 @@ defmodule GustWeb.DagLive.Dashboard do
     end
   end
 
-  defp pretty_json!(value) do
-    Jason.encode_to_iodata!(value, pretty: true, escape_html: true)
-  end
-
   defp selected_run_class(run_id, selected_item) do
     if run_id == selected_run_id(selected_item), do: "selected-run", else: ""
   end
@@ -440,6 +481,19 @@ defmodule GustWeb.DagLive.Dashboard do
 
   defp mapped_task?(dag_def, task_name) do
     dag_def.tasks[task_name][:map_over] != nil
+  end
+
+  defp format_stacktrace(stacktrace) do
+    Enum.map_join(stacktrace, "\n", fn frame ->
+      call = "#{frame["module"]}.#{frame["function"]}/#{frame["arity"]}"
+
+      location =
+        [frame["file"], frame["line"], frame["column"]]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.join(":")
+
+      if location == "", do: call, else: "#{location} #{call}"
+    end)
   end
 
   defp cancelable?(%Task{}, status), do: cancellable_status?(status)
