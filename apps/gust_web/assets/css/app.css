@@ -289,6 +289,14 @@
     @apply p-4;
   }
 
+  .json-viewer__code[class*="language-"] {
+    @apply m-0 max-h-96 overflow-auto rounded-lg border border-slate-700/90 bg-slate-950 p-4 text-xs leading-relaxed shadow-sm;
+  }
+
+  .json-viewer__code code[class*="language-"] {
+    @apply block min-w-max text-xs leading-relaxed;
+  }
+
   .dag-card__footer {
     @apply flex justify-between items-center gap-3 p-4 border-t border-slate-200/70 bg-slate-50;
   }

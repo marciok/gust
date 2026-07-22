@@ -470,10 +470,6 @@ defmodule GustWeb.DagLive.Dashboard do
     end
   end
 
-  defp pretty_json!(value) do
-    Jason.encode_to_iodata!(value, pretty: true, escape_html: true)
-  end
-
   defp selected_run_class(run_id, selected_item) do
     if run_id == selected_run_id(selected_item), do: "selected-run", else: ""
   end

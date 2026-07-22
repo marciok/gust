@@ -96,4 +96,25 @@ defmodule GustWeb.DagRunComponents do
       """
     end
   end
+
+  attr :id, :string, required: true
+  attr :value, :any, required: true
+  attr :rest, :global, doc: "data-testid, etc."
+
+  def json_viewer(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :json,
+        Jason.encode_to_iodata!(assigns.value, pretty: true, escape_html: true)
+      )
+
+    ~H"""
+    <pre id={@id} class={["json-viewer__code", "language-json"]} {@rest}><code
+        id={"#{@id}-code"}
+        class="language-json"
+        phx-hook="CodeHighlight"
+      >{@json}</code></pre>
+    """
+  end
 end
