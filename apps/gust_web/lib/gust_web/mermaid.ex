@@ -1,18 +1,7 @@
 defmodule GustWeb.Mermaid do
   @moduledoc false
 
-  @task_statuses [
-    :none,
-    :created,
-    :enqueued,
-    :running,
-    :retrying,
-    :waiting,
-    :failed,
-    :upstream_failed,
-    :skipped,
-    :succeeded
-  ]
+  @task_statuses [:none | Ecto.Enum.values(Gust.Flows.Task, :status)]
 
   def chart(tasks, task_statuses \\ %{}, selected_tasks \\ []) do
     task_names = tasks |> Enum.map(fn {name, _task} -> name end) |> MapSet.new()
