@@ -35,16 +35,18 @@ import "prismjs/plugins/line-highlight/prism-line-highlight.js"
 let Hooks = {}
 
 Hooks.Mermaid = {
-
   mounted() {
-    this.initializeMermaid()
+    this.renderDiagram()
   },
   updated() {
-    this.initializeMermaid()
+    this.renderDiagram()
   },
 
-  initializeMermaid() {
-    mermaid.contentLoaded()
+  renderDiagram() {
+    this.el.removeAttribute("data-processed")
+    mermaid.run({ nodes: [this.el] }).catch(error => {
+      console.error("Mermaid failed to render", error)
+    })
   },
 }
 
@@ -112,4 +114,3 @@ if (process.env.NODE_ENV === "development") {
     window.liveReloader = reloader
   })
 }
-

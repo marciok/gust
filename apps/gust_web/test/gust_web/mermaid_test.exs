@@ -69,4 +69,33 @@ defmodule GustWeb.MermaidTest do
 
     assert edges_from_chart(chart) == expected_edges
   end
+
+  test "chart/3 assigns task status and selection classes" do
+    tasks = %{
+      "A" => %{downstream: MapSet.new(["B"]), upstream: MapSet.new()},
+      "B" => %{downstream: MapSet.new(), upstream: MapSet.new(["A"])}
+    }
+
+    chart =
+      Mermaid.chart(
+        tasks,
+        %{
+          "A" => :running,
+          "B" => :none,
+          "removed_task" => :failed
+        },
+        ["A", "removed_task"]
+      )
+
+    assert chart =~ "class A status-running"
+    assert chart =~ "class B status-none"
+    assert chart =~ "class A selected-task"
+    refute chart =~ "removed_task"
+  end
+
+  test "chart/2 ignores unsupported statuses" do
+    tasks = %{"A" => %{downstream: MapSet.new(), upstream: MapSet.new()}}
+
+    refute Mermaid.chart(tasks, %{"A" => :unknown}) =~ "class A"
+  end
 end
