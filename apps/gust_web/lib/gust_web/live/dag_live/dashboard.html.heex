@@ -430,7 +430,7 @@ config:
     secondaryColor: '#c7e8ff'
     tertiaryColor: '#f8fafc'
 ---
-    #{mermaid_chart(@dag_def.tasks)}
+    #{mermaid_chart(@dag_def.tasks, @mermaid_task_statuses, @selected_item)}
 """}
        </pre>
       </div>

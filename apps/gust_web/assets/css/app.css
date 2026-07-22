@@ -140,42 +140,73 @@
 
 @layer components {
   .status-none {
+    --task-status-color: var(--color-slate-300);
+    --task-status-text-color: var(--color-slate-900);
     @apply bg-slate-300;
   }
   .status-running {
+    --task-status-color: var(--color-sky-600);
     @apply bg-sky-600;
   }
 
   .status-failed {
+    --task-status-color: var(--color-rose-600);
     @apply bg-rose-600;
   }
 
   .status-skipped {
+    --task-status-color: var(--color-pink-600);
     @apply bg-pink-600;
   }
 
   .status-enqueued {
+    --task-status-color: var(--color-slate-600);
     @apply bg-slate-600;
   }
 
   .status-succeeded {
+    --task-status-color: var(--color-emerald-700);
     @apply bg-emerald-700;
   }
 
   .status-created {
+    --task-status-color: var(--color-cyan-600);
     @apply bg-cyan-600;
   }
 
   .status-retrying {
+    --task-status-color: var(--color-amber-400);
+    --task-status-text-color: var(--color-slate-900);
     @apply bg-amber-400;
   }
 
   .status-waiting {
+    --task-status-color: var(--color-gray-500);
     @apply bg-gray-500;
   }
 
   .status-upstream_failed {
+    --task-status-color: var(--color-orange-600);
     @apply bg-orange-600;
+  }
+
+  .mermaid .node > rect {
+    rx: 8px;
+    ry: 8px;
+  }
+
+  .mermaid [class*="status-"] > rect {
+    fill: var(--task-status-color) !important;
+    stroke: var(--task-status-color) !important;
+  }
+
+  .mermaid [class*="status-"] .nodeLabel {
+    color: var(--task-status-text-color, white) !important;
+  }
+
+  .mermaid .selected-task > rect {
+    stroke: oklch(82.8% 0.111 230.318) !important;
+    stroke-width: 4px !important;
   }
 
   .dag-card {
