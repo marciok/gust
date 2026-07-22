@@ -1049,6 +1049,7 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
 
       assert render(element(dashboard_live, "##{task_name}-map-badge")) =~ "[]"
+      assert mermaid_source(dashboard_live) =~ ~s(#{task_name}["#{task_name} []"])
       assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "failed"
       assert has_element?(dashboard_live, "#mapped-task-runs")
       assert has_element?(dashboard_live, "#mapped-task-run-#{task.id}")

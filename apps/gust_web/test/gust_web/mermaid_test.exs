@@ -70,6 +70,22 @@ defmodule GustWeb.MermaidTest do
     assert edges_from_chart(chart) == expected_edges
   end
 
+  test "chart/1 appends [] to the label of mapped tasks" do
+    tasks = %{
+      "source" => %{downstream: MapSet.new(["mapped"]), upstream: MapSet.new()},
+      "mapped" => %{
+        downstream: MapSet.new(),
+        upstream: MapSet.new(["source"]),
+        map_over: :source
+      }
+    }
+
+    chart = Mermaid.chart(tasks)
+
+    assert chart =~ ~s(source --> mapped["mapped []"])
+    refute chart =~ ~s(source["source[]"])
+  end
+
   test "chart/3 assigns task status and selection classes" do
     tasks = %{
       "A" => %{downstream: MapSet.new(["B"]), upstream: MapSet.new()},

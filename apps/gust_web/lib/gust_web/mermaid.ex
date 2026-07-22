@@ -7,8 +7,9 @@ defmodule GustWeb.Mermaid do
     task_names = tasks |> Enum.map(fn {name, _task} -> name end) |> MapSet.new()
 
     flowchart =
-      Enum.reduce(tasks, "flowchart LR\n ", fn {name, %{upstream: upstream}}, flow_description ->
-        lines = build_lines(name, MapSet.to_list(upstream))
+      Enum.reduce(tasks, "flowchart LR\n ", fn {name, %{upstream: upstream} = task},
+                                               flow_description ->
+        lines = node_name(name, task) |> build_lines(MapSet.to_list(upstream))
 
         "#{flow_description}#{lines}"
       end)
@@ -16,6 +17,10 @@ defmodule GustWeb.Mermaid do
     flowchart <>
       build_status_classes(task_statuses, task_names) <>
       build_selected_classes(selected_tasks, task_names)
+  end
+
+  defp node_name(name, task) do
+    if task[:map_over], do: ~s(#{name}["#{name} []"]), else: name
   end
 
   defp build_lines(name, []) do
