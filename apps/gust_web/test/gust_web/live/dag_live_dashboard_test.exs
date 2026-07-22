@@ -317,6 +317,8 @@ defmodule GustWeb.DagLiveDashboardTest do
       refute dashboard_live |> element("#task-error") |> has_element?()
       assert task_result_html =~ result |> Map.values() |> Enum.join()
       assert task_result_html =~ result |> Map.keys() |> Enum.join()
+      assert has_element?(dashboard_live, "#task-result-title")
+      assert has_element?(dashboard_live, "#task-result-code[phx-hook='CodeHighlight']")
     end
 
     test "display task error", %{
@@ -959,6 +961,8 @@ defmodule GustWeb.DagLiveDashboardTest do
       params_html = dashboard_live |> element("#run-params") |> render()
       assert params_html =~ "ford"
       assert params_html =~ "ranger"
+      assert has_element?(dashboard_live, "#run-params-title")
+      assert has_element?(dashboard_live, "#run-params-code[phx-hook='CodeHighlight']")
     end
 
     test "hide run params section when params are empty", %{

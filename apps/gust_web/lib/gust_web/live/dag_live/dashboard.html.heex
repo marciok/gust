@@ -173,15 +173,13 @@
     </section>
 
     <section :if={@item_params && map_size(@item_params) > 0} class="dag-card__body">
-      <h4 class="text-sm font-semibold text-slate-700">Params</h4>
-      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
-        <pre
+      <h4 id="run-params-title" class="text-sm font-semibold text-slate-700">Params</h4>
+      <div class="mt-2">
+        <.json_viewer
           id="run-params"
+          value={@item_params}
           data-testid="run-params"
-          class="language-json rounded-md overflow-x-auto"
-        >
-<%= pretty_json!(@item_params) %>
-        </pre>
+        />
       </div>
     </section>
 
@@ -224,16 +222,13 @@
     </section>
 
     <section :if={@item_result && map_size(@item_result) > 0} class="dag-card__body">
-      <h4 class="text-sm font-semibold text-slate-700">Result</h4>
-
-      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
-        <pre
+      <h4 id="task-result-title" class="text-sm font-semibold text-slate-700">Result</h4>
+      <div class="mt-2">
+        <.json_viewer
           id="task-result"
+          value={@item_result}
           data-testid="task-result"
-          class="language-json rounded-md overflow-x-auto"
-        >
-     <%= pretty_json!(@item_result) %> 
-      </pre>
+        />
       </div>
     </section>
 
