@@ -62,9 +62,8 @@ https://github.com/user-attachments/assets/250ec668-4275-4aa5-a022-b3ba758c515c
 ### DAG Code Example
 ```elixir
 defmodule HelloWorld do
+  @moduledoc false
   # `schedule` and `on_finished_callback` are optional.
-  # You can use special expressions provided by the quantum package, ex: @daily, @hourly, and etc..
-  # https://hexdocs.pm/quantum/crontab-format.html
   use Gust.DSL, schedule: "* * * * *", on_finished_callback: :notify_something
 
   # Gust logs are stored and displayed through GustWeb via Logger.
@@ -73,69 +72,61 @@ defmodule HelloWorld do
   # Gust.Flows is used to query Dag, Run, and Task.
   alias Gust.Flows
 
-  # Defining a callback for when run is done.
   def notify_something(status, run) do
     dag = Flows.get_dag!(run.dag_id)
     message = "DAG: #{dag.name}; completed with status: #{status}"
     Logger.info(message)
   end
 
-  # Optional skip conditions receive the same task context.
-  # They must return true or false.
   def skip_first_task?(%{run_id: run_id}) do
     run = Flows.get_run!(run_id)
     Map.get(run.params, "skip_first_task", false)
   end
 
-  # Declaring "first_task" task; setting a downstream task and telling Gust to store its result.
-  task :first_task,
-       downstream: [:second_task],
-       save: true,
-       ctx: %{run_id: run_id},
-       skip_if: :skip_first_task? do
-    # You can read parameters passed to this run
-    run = Flows.get_run!(run_id)
-    name = Map.get(run.params, "name", "stranger")
-
-    greetings = "Hi #{name} from first_task"
+  task :first_task, downstream: [:second_task], save: true, skip_if: :skip_first_task? do
+    greetings = "Hi from first_task"
     Logger.info(greetings)
+    greetings = ["Hello!", "Olá!", "¡Hola!", "Bonjour!"]
 
     # You can get secrets created on the Web UI
     secret = Flows.get_secret_by_name("SUPER_SECRET")
-    Logger.warning("I know your secret: #{secret.value}")
 
-    # The return value must be a map when `save` is true.
-    %{result: greetings}
-  end
-  
-  # Declaring "second_task" task; using context to fetch another task result.
-  task :second_task, ctx: %{run_id: run_id} do
+    if secret do
+      Logger.warning("I know your secret: #{secret.value}")
+    end
 
-    # Getting "first_task"'s result
-    task = Flows.get_task_by_name_run("first_task", run_id)
-
-    Logger.info(task.result)
+    # The return value must be a map or a list when `save` is true.
+    greetings
   end
 
-  # Declaring a task that stores a list for `map_over`.
-  task :list_names, downstream: [:mapped_greeting], ctx: %{run_id: run_id}, save: true do
-    run = Flows.get_run!(run_id)
-    Map.get(run.params, "names", ["Ana", "Bruno", "Carla"])
+  task :second_task,
+    downstream: [:final_task],
+    ctx: %{params: params},
+    map_over: :first_task,
+    save: true do
+    message = "#{params["item"]} World!"
+    Logger.warning(message)
+    %{greeting: message}
   end
 
-  # Gust creates one "mapped_greeting" task instance for each item returned by "list_names".
-  task :mapped_greeting, map_over: :list_names, ctx: %{params: %{"item" => name}} do
-    Logger.info("Hi #{name} from mapped_greeting")
+  task :final_task, ctx: %{run_id: run_id} do
+    # Getting tasks results
+    second_tasks = Flows.get_tasks_by_name("second_task", run_id)
+
+    Enum.each(second_tasks, fn task ->
+      Logger.warning(inspect(task.result))
+    end)
   end
 end
 
 ```
-
 ### Web Interface
 
-![ss-1](https://gust-github.s3.us-east-1.amazonaws.com/gust-ss-1.png)
+![ss-1](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-01.png)
+![ss-2](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-02.png)
+![ss-3](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-03.png)
+![ss-4](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-04.png)
 
-![ss2](https://gust-github.s3.us-east-1.amazonaws.com/gust-ss-2.png)
 
 --- 
 
