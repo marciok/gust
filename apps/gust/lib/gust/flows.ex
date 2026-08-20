@@ -212,8 +212,23 @@ defmodule Gust.Flows do
 
   Raises `Ecto.NoResultsError` if the Task does not exist.
   """
-  def get_task(id), do: Repo.get(Task, id)
   def get_task!(id), do: Repo.get!(Task, id)
+
+  def get_task(id), do: Repo.get(Task, id)
+
+  @doc """
+  Gets task statuses for the given task IDs.
+  """
+  def get_task_statuses([]), do: []
+
+  def get_task_statuses(task_ids) do
+    task_ids = Enum.to_list(task_ids)
+
+    Task
+    |> where([task], task.id in ^task_ids)
+    |> select([task], task.status)
+    |> Repo.all()
+  end
 
   @doc """
   Gets a single secret.

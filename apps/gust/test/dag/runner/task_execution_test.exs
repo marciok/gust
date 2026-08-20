@@ -206,6 +206,36 @@ defmodule Gust.DAG.Runner.TaskExecutionTest do
     end)
   end
 
+  test "loads all task statuses in one query", %{run: run} do
+    task_ids =
+      Enum.map(1..3, fn index ->
+        task_fixture(%{
+          run_id: run.id,
+          name: "bulk_status_#{index}",
+          status: :succeeded
+        }).id
+      end)
+
+    handler_id = {__MODULE__, self(), make_ref()}
+    caller = self()
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:gust, :repo, :query],
+        fn _event, _measurements, _metadata, {test_pid, query_caller} ->
+          if self() == query_caller, do: send(test_pid, :task_status_query)
+        end,
+        {self(), caller}
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    assert TaskExecution.aggregate_status(task_ids) == :ok
+    assert_receive :task_status_query
+    refute_receive :task_status_query, 20
+  end
+
   defp definition(task_name, task_opts \\ %{store_result: false}) do
     %Definition{adapter: :elixir, tasks: %{task_name => task_opts}}
   end

@@ -549,6 +549,20 @@ defmodule FlowsTest do
                MapSet.new([:succeeded, :failed])
     end
 
+    test "get_task_statuses/1 returns statuses for the requested task IDs" do
+      dag = dag_fixture(%{name: "task_statuses_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+
+      succeeded = task_fixture(%{run_id: run.id, name: "first", status: :succeeded})
+      failed = task_fixture(%{run_id: run.id, name: "second", status: :failed})
+      _other = task_fixture(%{run_id: run.id, name: "other", status: :running})
+
+      assert Flows.get_task_statuses(MapSet.new([succeeded.id, failed.id])) |> MapSet.new() ==
+               MapSet.new([:succeeded, :failed])
+
+      assert Flows.get_task_statuses([]) == []
+    end
+
     test "reconcile_run_tasks/2 preserves requested and mapped-instance order" do
       dag = dag_fixture(%{name: "ordered_reconcile_run_tasks_dag"})
       run = run_fixture(%{dag_id: dag.id})

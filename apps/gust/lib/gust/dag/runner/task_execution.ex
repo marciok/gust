@@ -64,7 +64,7 @@ defmodule Gust.DAG.Runner.TaskExecution do
   end
 
   def aggregate_status(task_ids) do
-    statuses = Enum.map(task_ids, &Flows.get_task!(&1).status)
+    statuses = Flows.get_task_statuses(task_ids)
 
     cond do
       Enum.any?(statuses, &(&1 == :failed)) -> :error
