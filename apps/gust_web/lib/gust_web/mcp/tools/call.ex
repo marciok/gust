@@ -1,7 +1,7 @@
 defmodule GustWeb.MCP.Tools.Call do
   @moduledoc false
 
-  alias Gust.DAG.{Definition, Loader, TaskWaiter, Terminator}
+  alias Gust.DAG.{Definition, Loader, TaskStatus, TaskWaiter, Terminator}
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias GustWeb.MCP.{Content, Tool, Tools}
@@ -116,13 +116,13 @@ defmodule GustWeb.MCP.Tools.Call do
   def handle(%Tool{name: :cancel_task}, %{"task_id" => task_id}) do
     task = Flows.get_task!(task_id)
 
-    if task.status in [:running, :retrying, :waiting] do
+    if TaskStatus.cancellable?(task.status) do
       cancel_task_reply(task)
     else
       {false,
        [
          content(
-           "Task: #{task.name} cannot be cancelled from status #{inspect(task.status)}. Only :running, :retrying, and :waiting tasks can be cancelled."
+           "Task: #{task.name} cannot be cancelled from status #{inspect(task.status)}. Only statuses in #{inspect(TaskStatus.cancellable_statuses())} can be cancelled."
          )
        ]}
     end

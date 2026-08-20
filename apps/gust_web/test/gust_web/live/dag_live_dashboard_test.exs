@@ -671,6 +671,31 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "failed"
     end
 
+    test "shows an error when a running task cannot be cancelled", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, running_task} = Gust.Flows.update_task_status(task, :running)
+
+      {:ok, dashboard_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{running_task.name}"
+        )
+
+      GustWeb.DAGTerminatorMock
+      |> expect(:cancel, fn ^running_task -> {:error, :run_owner_unavailable} end)
+
+      dashboard_live |> element("#cancel") |> render_click()
+
+      assert has_element?(dashboard_live, "#flash-error .alert-error")
+
+      assert render(element(dashboard_live, "#flash-error")) =~
+               "Task: #{running_task.name} could not be cancelled: run_owner_unavailable"
+    end
+
     test "click on all runs", %{
       conn: conn,
       dag: dag
@@ -808,7 +833,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       |> expect(:cancel, fn ^running_task -> {:ok, running_task} end)
 
       assert dashboard_live |> element("#cancel") |> render_click() =~
-               "Task: #{running_task.name} retrying cancelled"
+               "Task: #{running_task.name} was cancelled"
 
       refute has_element?(dashboard_live, "#cancel[disabled]")
     end
@@ -831,7 +856,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       |> expect(:cancel, fn ^waiting_task -> {:ok, waiting_task} end)
 
       assert dashboard_live |> element("#cancel") |> render_click() =~
-               "Task: #{waiting_task.name} waiting cancelled"
+               "Task: #{waiting_task.name} was cancelled"
 
       refute has_element?(dashboard_live, "#cancel[disabled]")
     end
@@ -1220,6 +1245,9 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       GustWeb.DAGTerminatorMock
       |> expect(:cancel, fn %Flows.Task{id: ^running_task_id} = task -> {:ok, task} end)
+      |> expect(:cancel, fn %Flows.Task{id: ^running_task_id} ->
+        {:error, :run_owner_unavailable}
+      end)
 
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
@@ -1228,6 +1256,11 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert dashboard_live |> element("#cancel") |> render_click() =~
                "All #{task_name} tasks are being cancelled"
+
+      assert dashboard_live |> element("#cancel") |> render_click() =~
+               "Task: #{task_name} could not be cancelled: run_owner_unavailable"
+
+      assert has_element?(dashboard_live, "#flash-error .alert-error")
     end
 
     test "uses deterministic precedence for tied mapped task statuses", %{conn: conn} do

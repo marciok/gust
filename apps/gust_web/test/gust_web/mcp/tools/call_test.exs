@@ -397,7 +397,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
     assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
 
     assert text_list(contents) == [
-             "Task: #{task.name} cannot be cancelled from status :failed. Only :running, :retrying, and :waiting tasks can be cancelled."
+             "Task: #{task.name} cannot be cancelled from status :failed. Only statuses in [:running, :retrying, :waiting] can be cancelled."
            ]
   end
 

@@ -2,7 +2,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
   @moduledoc false
   use GenServer
 
-  alias Gust.DAG.{Adapter, Definition}
+  alias Gust.DAG.{Adapter, Definition, TaskStatus}
   alias Gust.DAG.Runner.{StageBuilder, TaskExecution}
   alias Gust.DAG.StageCoordinator, as: Coord
   alias Gust.Flows
@@ -27,9 +27,6 @@ defmodule Gust.DAG.Runner.DAGWorker do
     non_recoverable_error: :failed,
     cancelled: :failed
   }
-
-  @restartable_statuses [:failed, :succeeded]
-  @cancelable_statuses [:running, :retrying, :waiting]
 
   def child_spec(args) do
     %{
@@ -299,7 +296,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
     cond do
       is_nil(task.map_index) -> {:error, :task_not_mapped}
       not MapSet.member?(task_ids, task.id) -> {:error, :task_not_on_current_stage}
-      task.status not in @restartable_statuses -> {:error, :task_not_restartable}
+      not TaskStatus.restartable?(task.status) -> {:error, :task_not_restartable}
       true -> :ok
     end
   end
@@ -307,7 +304,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
   defp validate_cancel(%State{current_task_ids: task_ids}, task) do
     cond do
       not MapSet.member?(task_ids, task.id) -> {:error, :task_not_on_current_stage}
-      task.status not in @cancelable_statuses -> {:error, :task_not_cancellable}
+      not TaskStatus.cancellable?(task.status) -> {:error, :task_not_cancellable}
       true -> :ok
     end
   end
