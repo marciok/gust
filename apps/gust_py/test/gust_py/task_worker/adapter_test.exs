@@ -14,7 +14,7 @@ defmodule GustPy.TaskWorker.AdapterTest do
     state = %{
       task: %Task{id: 100, run_id: 200, attempt: 1, name: "task_alpha"},
       dag_def: %Definition{name: "demo_dag", file_path: "/tmp/demo.py"},
-      stage_pid: self()
+      owner_pid: self()
     }
 
     %{state: state}

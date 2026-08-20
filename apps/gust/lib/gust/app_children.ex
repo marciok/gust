@@ -11,8 +11,7 @@ defmodule Gust.AppChildren do
   In practice, roles are used with the broader release like this:
 
   * `"console"` loads DAG definitions and supporting runtime pieces, but does
-    not execute DAG dispatch because `Gust.Run.Claimer` and
-    `Gust.DAG.Terminator.Worker` are not started
+    not execute DAG dispatch because `Gust.Run.Claimer` is not started
   * `"web"` is intended for the web-facing runtime: it loads DAG definitions for
     the UI, while DAG pooling remains disabled
   * `"core"` loads DAGs, skips the web application, and dispatches DAG runs
@@ -76,7 +75,7 @@ defmodule Gust.AppChildren do
   end
 
   defp runners do
-    [:dag_runner_supervisor, :dag_stage_runner_supervisor, :dag_task_runner_supervisor]
+    [:dag_runner_supervisor, :dag_task_runner_supervisor]
     |> Enum.map(fn supervisor ->
       {DynamicSupervisor, strategy: :one_for_one, name: Application.get_env(:gust, supervisor)}
     end)

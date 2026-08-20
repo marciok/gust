@@ -65,11 +65,9 @@ if Code.ensure_loaded?(Igniter) do
         {:gust, [:file_reload_delay], 1_000},
         {:gust, [:dag_runner_supervisor], Gust.DAG.RunnerSupervisor.DynamicSupervisor},
         {:gust, [:dag_task_runner_supervisor], Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor},
-        {:gust, [:dag_stage_runner_supervisor], Gust.DAG.StageRunnerSupervisor.DynamicSupervisor},
         {:gust, [:dag_cron_reload], true},
         {:gust, [:dag_scheduler], Gust.DAG.Scheduler.Worker},
         {:gust, [:dag_loader], Gust.DAG.Loader.Worker},
-        {:gust, [:dag_stage_runner], Gust.DAG.Runner.StageWorker},
         {:gust_web, [:dashboard_path], "/gust"}
       ])
     end

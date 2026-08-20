@@ -1,5 +1,5 @@
 defmodule GustWeb.DagLive.Dashboard do
-  alias Gust.DAG.{Adapter, Loader, Terminator}
+  alias Gust.DAG.{Loader, Terminator}
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.Flows.Dag
@@ -284,12 +284,12 @@ defmodule GustWeb.DagLive.Dashboard do
     flash_msg =
       case socket.assigns.selected_item do
         %Task{} = task ->
-          handle_task_cancel(socket, reload_task(task))
+          handle_task_cancel(reload_task(task))
 
         [%Task{name: name} | _tail] = tasks ->
           tasks
           |> Enum.map(&reload_task/1)
-          |> Enum.each(fn task -> handle_task_cancel(socket, task) end)
+          |> Enum.each(&handle_task_cancel/1)
 
           "All #{name} tasks are being cancelled"
       end
@@ -299,27 +299,22 @@ defmodule GustWeb.DagLive.Dashboard do
 
   @impl true
   def handle_event("restart", _params, socket) do
-    flash_msg =
+    {flash_kind, flash_msg} =
       case socket.assigns.selected_item do
         %Task{map_index: map_index} = task ->
-          Trigger.reset_task(socket.assigns.dag_def.tasks, task, map_index)
+          result = Trigger.reset_task(socket.assigns.dag_def.tasks, task)
+          restart_flash(result, task, map_index)
 
-          if map_index do
-            "Task: #{task.name} [#{map_index}] was restarted"
-          else
-            "Task: #{task.name} was restarted"
-          end
-
-        [%Task{} = task | _tail] ->
-          Trigger.reset_task(socket.assigns.dag_def.tasks, task, nil)
-          "Task: #{task.name} was restarted"
+        [%Task{} = task | _tail] = tasks ->
+          result = Trigger.reset_task(socket.assigns.dag_def.tasks, tasks)
+          restart_flash(result, task, nil)
 
         %Run{} = run ->
           run = Trigger.reset_run(run)
-          "Run: #{run.id} was restarted"
+          {:info, "Run: #{run.id} was restarted"}
       end
 
-    {:noreply, socket |> put_flash(:info, flash_msg)}
+    {:noreply, socket |> put_flash(flash_kind, flash_msg)}
   end
 
   @impl true
@@ -417,21 +412,19 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply, socket |> stream_insert(:runs, run)}
   end
 
-  defp handle_task_cancel(socket, %Task{name: name, status: status} = task) do
+  defp handle_task_cancel(%Task{name: name, status: status} = task) do
     msg =
       case status do
         :running ->
-          dag_def = socket.assigns.dag_def
-          runtime = Adapter.impl!(dag_def.adapter, :runtime)
-          Terminator.kill_task(task, :cancelled, runtime)
+          Terminator.cancel(task)
           "was cancelled"
 
         :waiting ->
-          Terminator.cancel_waiting(task)
+          Terminator.cancel(task)
           "waiting cancelled"
 
         :retrying ->
-          Terminator.cancel_timer(task, :cancelled)
+          Terminator.cancel(task)
           "retrying cancelled"
 
         _status ->
@@ -507,6 +500,15 @@ defmodule GustWeb.DagLive.Dashboard do
 
   defp restartable?([%Task{} | _tail], status), do: status in [:failed, :succeeded]
   defp restartable?(_item, status), do: status in [:failed, :succeeded]
+
+  defp restart_flash({:error, reason}, task, _map_index) do
+    {:error, "Task: #{task.name} could not be restarted: #{reason}"}
+  end
+
+  defp restart_flash(_result, task, nil), do: {:info, "Task: #{task.name} was restarted"}
+
+  defp restart_flash(_result, task, map_index),
+    do: {:info, "Task: #{task.name} [#{map_index}] was restarted"}
 
   defp assign_item_attrs(socket, selected_item) do
     {inserted_at, updated_at} = get_timestamps(selected_item)

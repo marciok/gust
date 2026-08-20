@@ -650,17 +650,8 @@ defmodule GustWeb.DagLiveDashboardTest do
           ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{running_task.name}"
         )
 
-      previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
-
-      on_exit(fn ->
-        Application.put_env(:gust, :dag_adapter, previous_dag_adapter)
-      end)
-
-      Application.put_env(:gust, :dag_adapter, elixir: %{runtime: Gust.RuntimeAdapterMock})
-      runtime = Gust.RuntimeAdapterMock
-
       GustWeb.DAGTerminatorMock
-      |> expect(:kill_task, fn ^running_task, :cancelled, ^runtime -> nil end)
+      |> expect(:cancel, fn ^running_task -> {:ok, running_task} end)
 
       assert dashboard_live |> element("#cancel") |> render_click() =~
                "Task: #{running_task.name} was cancelled"
@@ -814,7 +805,7 @@ defmodule GustWeb.DagLiveDashboardTest do
         )
 
       GustWeb.DAGTerminatorMock
-      |> expect(:cancel_timer, fn ^running_task, :cancelled -> nil end)
+      |> expect(:cancel, fn ^running_task -> {:ok, running_task} end)
 
       assert dashboard_live |> element("#cancel") |> render_click() =~
                "Task: #{running_task.name} retrying cancelled"
@@ -837,7 +828,7 @@ defmodule GustWeb.DagLiveDashboardTest do
         )
 
       GustWeb.DAGTerminatorMock
-      |> expect(:cancel_waiting, fn ^waiting_task -> nil end)
+      |> expect(:cancel, fn ^waiting_task -> {:ok, waiting_task} end)
 
       assert dashboard_live |> element("#cancel") |> render_click() =~
                "Task: #{waiting_task.name} waiting cancelled"
@@ -874,7 +865,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, succeeded_task} = Gust.Flows.update_task_status(task, :succeeded)
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn _tasks, ^succeeded_task, nil -> run end)
+      |> expect(:reset_task, fn _tasks, ^succeeded_task -> run end)
 
       {:ok, dashboard_live, _html} =
         live(
@@ -884,6 +875,33 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert dashboard_live |> element("#restart") |> render_click() =~
                "Task: #{succeeded_task.name} was restarted"
+    end
+
+    test "shows an error when a task cannot be restarted", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, succeeded_task} = Gust.Flows.update_task_status(task, :succeeded)
+
+      GustWeb.DAGRunTriggerMock
+      |> expect(:reset_task, fn _tasks, ^succeeded_task ->
+        {:error, :run_owner_unavailable}
+      end)
+
+      {:ok, dashboard_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{succeeded_task.name}"
+        )
+
+      dashboard_live |> element("#restart") |> render_click()
+
+      assert has_element?(dashboard_live, "#flash-error .alert-error")
+
+      assert render(element(dashboard_live, "#flash-error")) =~
+               "Task: #{succeeded_task.name} could not be restarted: run_owner_unavailable"
     end
 
     test "click restart task on running task", %{
@@ -1133,9 +1151,10 @@ defmodule GustWeb.DagLiveDashboardTest do
       end)
 
       tasks_graph = dag_def.tasks
+      task_id = task.id
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn ^tasks_graph, ^task, nil -> [] end)
+      |> expect(:reset_task, fn ^tasks_graph, [%Flows.Task{id: ^task_id} | _tasks] -> [] end)
 
       on_exit(fn -> File.rm_rf!(dag_file) end)
 
@@ -1193,20 +1212,14 @@ defmodule GustWeb.DagLiveDashboardTest do
         {:ok, dag_def}
       end)
 
-      previous_dag_adapter = Application.get_env(:gust, :dag_adapter)
-
       on_exit(fn ->
-        Application.put_env(:gust, :dag_adapter, previous_dag_adapter)
         File.rm_rf!(dag_file)
       end)
-
-      Application.put_env(:gust, :dag_adapter, elixir: %{runtime: Gust.RuntimeAdapterMock})
-      runtime = Gust.RuntimeAdapterMock
 
       running_task_id = running_task.id
 
       GustWeb.DAGTerminatorMock
-      |> expect(:kill_task, fn %Flows.Task{id: ^running_task_id}, :cancelled, ^runtime -> nil end)
+      |> expect(:cancel, fn %Flows.Task{id: ^running_task_id} = task -> {:ok, task} end)
 
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
@@ -1396,7 +1409,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       mapped_task_id = mapped_task.id
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^mapped_task_id, map_index: 1}, 1 ->
+      |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^mapped_task_id, map_index: 1} ->
         []
       end)
 

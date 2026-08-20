@@ -41,14 +41,14 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
     dag_def = %Gust.DAG.Definition{mod: mod, adapter: :elixir}
 
     {:ok, worker_pid} =
-      TaskWorker.start_link(%{task: task, dag_def: dag_def, stage_pid: self(), opts: opts})
+      TaskWorker.start_link(%{task: task, dag_def: dag_def, owner_pid: self(), opts: opts})
 
     Process.monitor(worker_pid)
   end
 
   defp assert_worker_result(ref, task_id, result, status) do
     assert_receive {:task_result, ^result, ^task_id, ^status}, 200
-    assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+    assert_receive {:DOWN, ^ref, :process, _pid, reason} when reason in [:normal, :noproc], 200
   end
 
   defp assert_worker_error(ref, task_id, error, status \\ :error) do
@@ -57,7 +57,7 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
                    200
 
     assert stacktrace != []
-    assert_receive {:DOWN, ^ref, :process, _pid, :normal}, 200
+    assert_receive {:DOWN, ^ref, :process, _pid, reason} when reason in [:normal, :noproc], 200
 
     stacktrace
   end

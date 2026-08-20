@@ -8,8 +8,10 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
 
   defstruct running: MapSet.new(), retrying: %{}, waiting: MapSet.new()
 
+  @impl true
   def new(pending_task_ids), do: %Coord{running: MapSet.new(pending_task_ids)}
 
+  @impl true
   def update_restart_timer(%{retrying: retrying} = coord, %{id: task_id}, ref) do
     updated_retrying =
       Map.update!(retrying, task_id, &Map.put(&1, :restart_timer, ref))
@@ -17,6 +19,7 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
     %{coord | retrying: updated_retrying}
   end
 
+  @impl true
   def process_task(
         %{
           status: :created,
@@ -59,10 +62,27 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
       when status in [:succeeded, :failed, :upstream_failed, :skipped],
       do: :already_processed
 
+  @impl true
   def put_running(%{running: running} = coord, task_id) do
     %{coord | running: MapSet.put(running, task_id)}
   end
 
+  @impl true
+  def restart_task(%Coord{} = coord, task_id) do
+    if active?(coord, task_id) do
+      {:error, :already_active}
+    else
+      {:ok,
+       %{
+         coord
+         | running: MapSet.put(coord.running, task_id),
+           retrying: Map.delete(coord.retrying, task_id),
+           waiting: MapSet.delete(coord.waiting, task_id)
+       }}
+    end
+  end
+
+  @impl true
   def put_waiting(%{running: running, waiting: waiting} = coord, task_id) do
     coord
     |> Map.put(:running, MapSet.delete(running, task_id))
@@ -70,6 +90,7 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
     |> coord_status()
   end
 
+  @impl true
   def apply_task_result(coord, task, status)
       when status in [
              :skipped,
@@ -99,12 +120,16 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
     end
   end
 
-  defp remove_pending_task(%Coord{running: running, retrying: retrying} = coord, task) do
+  defp remove_pending_task(
+         %Coord{running: running, retrying: retrying, waiting: waiting} = coord,
+         task
+       ) do
     task_id = task.id
 
     coord
     |> Map.put(:running, MapSet.delete(running, task_id))
     |> Map.put(:retrying, Map.delete(retrying, task_id))
+    |> Map.put(:waiting, MapSet.delete(waiting, task_id))
     |> coord_status()
   end
 
@@ -166,4 +191,10 @@ defmodule Gust.DAG.StageCoordinator.RetryingTask do
   end
 
   defp any_waiting?(%Coord{waiting: waiting}), do: not Enum.empty?(waiting)
+
+  defp active?(%Coord{} = coord, task_id) do
+    MapSet.member?(coord.running, task_id) or
+      Map.has_key?(coord.retrying, task_id) or
+      MapSet.member?(coord.waiting, task_id)
+  end
 end

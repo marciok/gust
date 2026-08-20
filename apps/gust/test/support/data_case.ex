@@ -24,6 +24,7 @@ defmodule Gust.DataCase do
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
+      import Gust.ApplicationEnvHelpers
       import Gust.DataCase
     end
   end

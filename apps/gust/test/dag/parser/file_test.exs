@@ -1,7 +1,9 @@
 defmodule DAG.Parser.FileTest do
   use Gust.DataCase, async: false
+
   import Gust.FSHelpers
   import Mox
+
   alias Gust.DAG.Parser.File, as: Parser
 
   setup :verify_on_exit!
@@ -9,12 +11,9 @@ defmodule DAG.Parser.FileTest do
 
   setup do
     dir = make_rand_dir!("dags")
-    previous_adapters = Application.get_env(:gust, :dag_adapter, [])
+    replace_env(:dag_adapter, [])
 
-    on_exit(fn ->
-      File.rm_rf!(dir)
-      Application.put_env(:gust, :dag_adapter, previous_adapters)
-    end)
+    on_exit(fn -> File.rm_rf!(dir) end)
 
     {:ok, tmp_dir: dir}
   end

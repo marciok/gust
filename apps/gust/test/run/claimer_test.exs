@@ -14,20 +14,11 @@ defmodule Gust.Run.ClaimerTest do
   setup :set_mox_from_context
 
   setup do
-    previous_dispatcher = Application.get_env(:gust, :run_dispatcher)
-    previous_tick = Application.get_env(:gust, :claim_runs_tick)
-    previous_batch_size = Application.get_env(:gust, :claim_runs_batch_size)
-
-    Application.put_env(:gust, :run_dispatcher, Gust.Run.Pooler)
-    Application.put_env(:gust, :claim_runs_tick, 9_999_999)
+    replace_env(:run_dispatcher, Gust.Run.Pooler)
+    replace_env(:claim_runs_tick, 9_999_999)
+    replace_env(:claim_runs_batch_size, 50)
 
     start_supervised!(Gust.Run.Pooler)
-
-    on_exit(fn ->
-      restore_env(:run_dispatcher, previous_dispatcher)
-      restore_env(:claim_runs_tick, previous_tick)
-      restore_env(:claim_runs_batch_size, previous_batch_size)
-    end)
 
     :ok
   end
@@ -143,7 +134,4 @@ defmodule Gust.Run.ClaimerTest do
       assert_receive {:runs_claimed, %{node: _node}}, 200
     end
   end
-
-  defp restore_env(key, nil), do: Application.delete_env(:gust, key)
-  defp restore_env(key, value), do: Application.put_env(:gust, key, value)
 end

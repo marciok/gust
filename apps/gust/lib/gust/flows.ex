@@ -212,6 +212,7 @@ defmodule Gust.Flows do
 
   Raises `Ecto.NoResultsError` if the Task does not exist.
   """
+  def get_task(id), do: Repo.get(Task, id)
   def get_task!(id), do: Repo.get!(Task, id)
 
   @doc """
@@ -342,6 +343,25 @@ defmodule Gust.Flows do
   """
   def update_task_status(task, status) do
     Task.changeset(task, %{status: status})
+    |> Repo.update()
+  end
+
+  @doc """
+  Clears execution state before manually restarting a terminal task instance.
+
+  Mapping identity and persisted params are intentionally preserved so a mapped
+  task can be restarted without rebuilding or collapsing its sibling instances.
+  """
+  def prepare_task_restart(%Task{} = task) do
+    task
+    |> Task.changeset(%{
+      status: :created,
+      result: %{},
+      error: %{},
+      attempt: 1,
+      waiting_for: nil,
+      wait_satisfied_at: nil
+    })
     |> Repo.update()
   end
 

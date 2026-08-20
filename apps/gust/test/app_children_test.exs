@@ -16,8 +16,6 @@ defmodule AppChildrenTest do
         {DynamicSupervisor,
          strategy: :one_for_one, name: Application.get_env(:gust, :dag_runner_supervisor)},
         {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_stage_runner_supervisor)},
-        {DynamicSupervisor,
          strategy: :one_for_one, name: Application.get_env(:gust, :dag_task_runner_supervisor)}
       ]
 
@@ -37,10 +35,7 @@ defmodule AppChildrenTest do
     end
 
     test "starts the run dispatcher supervisor only for execution roles" do
-      previous_dispatcher = Application.get_env(:gust, :run_dispatcher)
-      Application.put_env(:gust, :run_dispatcher, Gust.PGNotifier.Worker)
-
-      on_exit(fn -> restore_env(:run_dispatcher, previous_dispatcher) end)
+      replace_env(:run_dispatcher, Gust.PGNotifier.Worker)
 
       assert [Gust.Run.DispatcherSupervisor | _children] =
                AppChildren.for_role("core", "dev", @dags_folder)
@@ -50,7 +45,7 @@ defmodule AppChildrenTest do
       refute Gust.Run.DispatcherSupervisor in AppChildren.for_role("console", "dev", @dags_folder)
     end
 
-    test "skips dispatcher and terminator for console role outside test" do
+    test "skips the dispatcher for the console role outside test" do
       dev_children = [
         {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}}
       ]
@@ -69,8 +64,6 @@ defmodule AppChildrenTest do
       children = [
         {DynamicSupervisor,
          strategy: :one_for_one, name: Application.get_env(:gust, :dag_runner_supervisor)},
-        {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_stage_runner_supervisor)},
         {DynamicSupervisor,
          strategy: :one_for_one, name: Application.get_env(:gust, :dag_task_runner_supervisor)}
       ]
@@ -92,8 +85,6 @@ defmodule AppChildrenTest do
         {DynamicSupervisor,
          strategy: :one_for_one, name: Application.get_env(:gust, :dag_runner_supervisor)},
         {DynamicSupervisor,
-         strategy: :one_for_one, name: Application.get_env(:gust, :dag_stage_runner_supervisor)},
-        {DynamicSupervisor,
          strategy: :one_for_one, name: Application.get_env(:gust, :dag_task_runner_supervisor)}
       ]
 
@@ -104,7 +95,4 @@ defmodule AppChildrenTest do
                AppChildren.for_role("web", mix_env, @dags_folder)
     end
   end
-
-  defp restore_env(key, nil), do: Application.delete_env(:gust, key)
-  defp restore_env(key, value), do: Application.put_env(:gust, key, value)
 end
