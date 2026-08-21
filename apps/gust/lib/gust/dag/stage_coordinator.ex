@@ -9,6 +9,8 @@ defmodule Gust.DAG.StageCoordinator do
 
   @callback new(list(task_id)) :: stage_spec
   @callback put_running(stage_spec, task_id) :: stage_spec
+  @callback restart_task(stage_spec, task_id) ::
+              {:ok, stage_spec} | {:error, :already_active}
   @callback put_waiting(stage_spec, task_id) :: {:continue, stage_spec} | {:waiting, stage_spec}
   @callback apply_task_result(stage_spec, task, atom()) ::
               {:continue, stage_spec}
@@ -27,6 +29,8 @@ defmodule Gust.DAG.StageCoordinator do
               | {:already_expanded, term()}
 
   def put_running(stage_spec, task_id), do: impl().put_running(stage_spec, task_id)
+
+  def restart_task(stage_spec, task_id), do: impl().restart_task(stage_spec, task_id)
 
   def put_waiting(stage_spec, task_id), do: impl().put_waiting(stage_spec, task_id)
 

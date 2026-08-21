@@ -1,5 +1,5 @@
 defmodule GustWeb.DagLive.Dashboard do
-  alias Gust.DAG.{Adapter, Loader, Terminator}
+  alias Gust.DAG.{Loader, TaskStatus, Terminator}
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.Flows.Dag
@@ -24,14 +24,15 @@ defmodule GustWeb.DagLive.Dashboard do
 
   @impl true
   def mount(params, _session, socket) do
-    page = parse_page(params["page"])
-    dag = load_dag(page, params["name"])
+    pinned_run_id = params["pinned_run_id"]
+    page = if pinned_run_id, do: 1, else: parse_page(params["page"])
+    dag = load_dag(page, params["name"], pinned_run_id)
 
     dag_def = Loader.get_definition(dag.id)
 
     case dag_def do
       {:ok, dag_def} ->
-        mount_success(socket, dag, dag_def, params, page)
+        mount_success(socket, dag, dag_def, params, page, pinned_run_id)
 
       {:error, _error} ->
         mount_error(socket, dag)
@@ -65,13 +66,20 @@ defmodule GustWeb.DagLive.Dashboard do
     Enum.any?(tasks, &(&1.run_id == run_id and &1.name == name))
   end
 
-  defp load_dag(page, name) do
+  defp load_dag(page, name, nil) do
     offset = (page - 1) * @page_size
 
     Flows.get_dag_with_runs_and_tasks!(name, limit: @page_size, offset: offset)
   end
 
-  defp mount_success(socket, %Dag{runs: runs} = dag, dag_def, params, page) do
+  defp load_dag(_page, name, pinned_run_id) do
+    Flows.get_dag_with_runs_and_tasks!(name,
+      limit: @page_size,
+      pinned_run_id: pinned_run_id
+    )
+  end
+
+  defp mount_success(socket, %Dag{runs: runs} = dag, dag_def, params, page, pinned_run_id) do
     selected_item = load_selected_item(params)
     mermaid_task_statuses = run_task_statuses(runs, selected_item)
     expanded_items = get_expanded_items(selected_item)
@@ -83,6 +91,7 @@ defmodule GustWeb.DagLive.Dashboard do
      socket
      |> assign(:dag_def, dag_def)
      |> assign(:page, page)
+     |> assign(:pinned_run_id, pinned_run_id)
      |> assign(:error, {})
      |> assign(:dag, dag)
      |> assign(:selected_item, selected_item)
@@ -281,45 +290,44 @@ defmodule GustWeb.DagLive.Dashboard do
 
   @impl true
   def handle_event("cancel", _params, socket) do
-    flash_msg =
+    {flash_kind, flash_msg} =
       case socket.assigns.selected_item do
         %Task{} = task ->
-          handle_task_cancel(socket, reload_task(task))
+          handle_task_cancel(reload_task(task))
 
         [%Task{name: name} | _tail] = tasks ->
-          tasks
-          |> Enum.map(&reload_task/1)
-          |> Enum.each(fn task -> handle_task_cancel(socket, task) end)
+          results =
+            tasks
+            |> Enum.map(&reload_task/1)
+            |> Enum.map(&handle_task_cancel/1)
 
-          "All #{name} tasks are being cancelled"
+          Enum.find(results, {:info, "All #{name} tasks are being cancelled"}, fn
+            {:error, _message} -> true
+            {:info, _message} -> false
+          end)
       end
 
-    {:noreply, socket |> put_flash(:info, flash_msg)}
+    {:noreply, socket |> put_flash(flash_kind, flash_msg)}
   end
 
   @impl true
   def handle_event("restart", _params, socket) do
-    flash_msg =
+    {flash_kind, flash_msg} =
       case socket.assigns.selected_item do
         %Task{map_index: map_index} = task ->
-          Trigger.reset_task(socket.assigns.dag_def.tasks, task, map_index)
+          result = Trigger.reset_task(socket.assigns.dag_def.tasks, task)
+          restart_flash(result, task, map_index)
 
-          if map_index do
-            "Task: #{task.name} [#{map_index}] was restarted"
-          else
-            "Task: #{task.name} was restarted"
-          end
-
-        [%Task{} = task | _tail] ->
-          Trigger.reset_task(socket.assigns.dag_def.tasks, task, nil)
-          "Task: #{task.name} was restarted"
+        [%Task{} = task | _tail] = tasks ->
+          result = Trigger.reset_task(socket.assigns.dag_def.tasks, tasks)
+          restart_flash(result, task, nil)
 
         %Run{} = run ->
           run = Trigger.reset_run(run)
-          "Run: #{run.id} was restarted"
+          {:info, "Run: #{run.id} was restarted"}
       end
 
-    {:noreply, socket |> put_flash(:info, flash_msg)}
+    {:noreply, socket |> put_flash(flash_kind, flash_msg)}
   end
 
   @impl true
@@ -337,7 +345,20 @@ defmodule GustWeb.DagLive.Dashboard do
     Trigger.dispatch_run(run)
     run = Flows.get_run_with_tasks!(run.id)
 
-    {:noreply, socket |> stream_insert(:runs, run) |> put_flash(:info, "Run #{run.id} triggered")}
+    socket =
+      if socket.assigns.pinned_run_id do
+        put_flash(
+          socket,
+          :warning,
+          "Run #{run.id} triggered. Unpin your history to view it."
+        )
+      else
+        socket
+        |> stream_insert(:runs, run)
+        |> put_flash(:info, "Run #{run.id} triggered")
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -384,6 +405,14 @@ defmodule GustWeb.DagLive.Dashboard do
 
   @impl true
   def handle_info(
+        {:dag, :run_started, %{run_id: _run_id}},
+        %{assigns: %{pinned_run_id: pinned_run_id}} = socket
+      )
+      when not is_nil(pinned_run_id) do
+    {:noreply, socket}
+  end
+
+  def handle_info(
         {:dag, :run_started, %{run_id: run_id}},
         socket
       ) do
@@ -417,28 +446,15 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply, socket |> stream_insert(:runs, run)}
   end
 
-  defp handle_task_cancel(socket, %Task{name: name, status: status} = task) do
-    msg =
-      case status do
-        :running ->
-          dag_def = socket.assigns.dag_def
-          runtime = Adapter.impl!(dag_def.adapter, :runtime)
-          Terminator.kill_task(task, :cancelled, runtime)
-          "was cancelled"
-
-        :waiting ->
-          Terminator.cancel_waiting(task)
-          "waiting cancelled"
-
-        :retrying ->
-          Terminator.cancel_timer(task, :cancelled)
-          "retrying cancelled"
-
-        _status ->
-          "is not running"
+  defp handle_task_cancel(%Task{name: name, status: status} = task) do
+    if TaskStatus.cancellable?(status) do
+      case Terminator.cancel(task) do
+        {:ok, _task} -> {:info, "Task: #{name} was cancelled"}
+        {:error, reason} -> {:error, "Task: #{name} could not be cancelled: #{reason}"}
       end
-
-    "Task: #{name} #{msg}"
+    else
+      {:info, "Task: #{name} is not running"}
+    end
   end
 
   defp reload_task(%Task{id: id}), do: Flows.get_task!(id)
@@ -479,6 +495,18 @@ defmodule GustWeb.DagLive.Dashboard do
   defp selected_run_id(%Task{run_id: run_id}), do: run_id
   defp selected_run_id([%Task{run_id: run_id} | _tail]), do: run_id
 
+  defp dashboard_item_path(name, run_id, page, pinned_run_id, extra_params \\ []) do
+    query_params =
+      [{"run_id", run_id}] ++
+        extra_params ++ history_position_params(page, pinned_run_id)
+
+    query = URI.encode_query(query_params)
+    ~g"/dags/#{name}/dashboard?#{query}"
+  end
+
+  defp history_position_params(page, nil), do: [{"page", page}]
+  defp history_position_params(_page, pinned_run_id), do: [{"pinned_run_id", pinned_run_id}]
+
   defp mapped_task?(dag_def, task_name) do
     dag_def.tasks[task_name][:map_over] != nil
   end
@@ -503,10 +531,18 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   defp cancelable?(_item, _status), do: false
-  defp cancellable_status?(status), do: status in [:running, :retrying, :waiting]
+  defp cancellable_status?(status), do: TaskStatus.cancellable?(status)
 
-  defp restartable?([%Task{} | _tail], status), do: status in [:failed, :succeeded]
-  defp restartable?(_item, status), do: status in [:failed, :succeeded]
+  defp restartable?(_item, status), do: TaskStatus.restartable?(status)
+
+  defp restart_flash({:error, reason}, task, _map_index) do
+    {:error, "Task: #{task.name} could not be restarted: #{reason}"}
+  end
+
+  defp restart_flash(_result, task, nil), do: {:info, "Task: #{task.name} was restarted"}
+
+  defp restart_flash(_result, task, map_index),
+    do: {:info, "Task: #{task.name} [#{map_index}] was restarted"}
 
   defp assign_item_attrs(socket, selected_item) do
     {inserted_at, updated_at} = get_timestamps(selected_item)

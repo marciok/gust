@@ -1,16 +1,14 @@
 defmodule FileMonitor.WorkerTest do
   use Gust.DataCase, async: false
-  import Mox
+
   import Gust.FSHelpers
+  import Mox
 
   setup do
     dir = make_rand_dir!("dags")
-    previous_adapters = Application.get_env(:gust, :dag_adapter, [])
+    replace_env(:dag_adapter, [])
 
-    on_exit(fn ->
-      File.rm_rf!(dir)
-      Application.put_env(:gust, :dag_adapter, previous_adapters)
-    end)
+    on_exit(fn -> File.rm_rf!(dir) end)
 
     {:ok, tmp_dir: dir}
   end
@@ -56,9 +54,7 @@ defmodule FileMonitor.WorkerTest do
     File.write!(event_file_path, "")
 
     delay = 200
-    original_delay = Application.get_env(:gust, :file_reload_delay)
-    Application.put_env(:gust, :file_reload_delay, delay)
-    on_exit(fn -> Application.put_env(:gust, :file_reload_delay, original_delay) end)
+    replace_env(:file_reload_delay, delay)
     dag_def = %Gust.DAG.Definition{name: name}
 
     Gust.DAGParserMock

@@ -213,6 +213,33 @@ defmodule FlowsTest do
       assert full_task.error == %{"large" => "error"}
     end
 
+    test "get_dag_with_runs_and_tasks!/2 loads an pinned run window" do
+      dag = dag_fixture(%{name: "pinned_runs"})
+      other_dag = dag_fixture(%{name: "other_pinned_runs"})
+
+      older = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2024-01-01 00:00:00]})
+      same_time_older = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2024-01-02 00:00:00]})
+      pinn = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2024-01-02 00:00:00]})
+      newer = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2024-01-03 00:00:00]})
+      other_pinn = run_fixture(%{dag_id: other_dag.id})
+
+      loaded_dag =
+        Flows.get_dag_with_runs_and_tasks!(dag.name,
+          limit: 3,
+          pinned_run_id: pinn.id
+        )
+
+      assert Enum.map(loaded_dag.runs, & &1.id) == [pinn.id, same_time_older.id, older.id]
+      refute Enum.any?(loaded_dag.runs, &(&1.id == newer.id))
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Flows.get_dag_with_runs_and_tasks!(dag.name,
+          limit: 3,
+          pinned_run_id: other_pinn.id
+        )
+      end
+    end
+
     test "get_dag_by_name_with_runs!/1 returns dag with runs honoring pagination" do
       dag = dag_fixture(%{name: "paginated"})
       other_dag = dag_fixture(%{name: "other"})
@@ -407,6 +434,50 @@ defmodule FlowsTest do
       assert status == new_status
     end
 
+    test "update_task_result/2 persists the result without changing the error" do
+      dag = dag_fixture(%{name: "update_task_result"})
+      run = run_fixture(%{dag_id: dag.id})
+      error = %{"message" => "keep me"}
+      result = %{"value" => 42}
+      task = task_fixture(%{run_id: run.id, name: "result_task", error: error})
+
+      assert {:ok, %Task{result: ^result, error: ^error}} =
+               Flows.update_task_result(task, result)
+
+      assert %Task{result: ^result, error: ^error} = Flows.get_task!(task.id)
+    end
+
+    test "prepare_task_restart/1 clears execution state but preserves mapping identity" do
+      dag = dag_fixture(%{name: "prepare_task_restart"})
+      run = run_fixture(%{dag_id: dag.id})
+
+      task =
+        task_fixture(%{
+          run_id: run.id,
+          name: "mapped",
+          map_index: 2,
+          params: %{"item" => "keep"},
+          status: :failed,
+          result: %{"old" => "result"},
+          error: %{"old" => "error"},
+          attempt: 4,
+          waiting_for: "old_wait",
+          wait_satisfied_at: DateTime.utc_now()
+        })
+
+      assert {:ok,
+              %Task{
+                status: :created,
+                result: %{},
+                error: %{},
+                attempt: 1,
+                waiting_for: nil,
+                wait_satisfied_at: nil,
+                map_index: 2,
+                params: %{"item" => "keep"}
+              }} = Flows.prepare_task_restart(task)
+    end
+
     test "update_task_params/2 updates task params" do
       dag = dag_fixture(%{name: "task_params_dag"})
       run = run_fixture(%{dag_id: dag.id})
@@ -503,6 +574,20 @@ defmodule FlowsTest do
 
       assert Flows.get_task_statuses_by_name("first", run.id) |> MapSet.new() ==
                MapSet.new([:succeeded, :failed])
+    end
+
+    test "get_task_statuses/1 returns statuses for the requested task IDs" do
+      dag = dag_fixture(%{name: "task_statuses_dag"})
+      run = run_fixture(%{dag_id: dag.id})
+
+      succeeded = task_fixture(%{run_id: run.id, name: "first", status: :succeeded})
+      failed = task_fixture(%{run_id: run.id, name: "second", status: :failed})
+      _other = task_fixture(%{run_id: run.id, name: "other", status: :running})
+
+      assert Flows.get_task_statuses(MapSet.new([succeeded.id, failed.id])) |> MapSet.new() ==
+               MapSet.new([:succeeded, :failed])
+
+      assert Flows.get_task_statuses([]) == []
     end
 
     test "reconcile_run_tasks/2 preserves requested and mapped-instance order" do

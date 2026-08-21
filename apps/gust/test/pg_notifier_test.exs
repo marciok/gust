@@ -15,15 +15,8 @@ defmodule Gust.PGNotifierTest do
   setup :set_mox_global
 
   setup do
-    previous_impl = Application.get_env(:gust, :pg_notifier)
-    previous_options = Application.get_env(:gust, :pg_notifications)
-
-    Application.put_env(:gust, :pg_notifier, Gust.PGNotifierMock)
-
-    on_exit(fn ->
-      restore_env(:pg_notifier, previous_impl)
-      restore_env(:pg_notifications, previous_options)
-    end)
+    replace_env(:pg_notifier, Gust.PGNotifierMock)
+    replace_env(:pg_notifications, [])
 
     :ok
   end
@@ -150,9 +143,6 @@ defmodule Gust.PGNotifierTest do
     assert log =~ "PostgreSQL notification connection failed"
     assert log =~ "retrying in 0ms"
   end
-
-  defp restore_env(key, nil), do: Application.delete_env(:gust, key)
-  defp restore_env(key, value), do: Application.put_env(:gust, key, value)
 
   defp expect_connection_start do
     expect(Gust.PGNotifierMock, :start_link, fn _opts ->

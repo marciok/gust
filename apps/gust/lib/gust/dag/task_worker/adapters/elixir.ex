@@ -21,7 +21,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
   @impl true
   def handle_info(
         :run,
-        %{task: task, dag_def: dag_def, stage_pid: stage_pid, opts: opts} = state
+        %{task: task, dag_def: dag_def, owner_pid: owner_pid, opts: opts} = state
       ) do
     fn_name = String.to_existing_atom(task.name)
     args = [task_context(task)]
@@ -48,7 +48,7 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
 
     Logger.unset()
 
-    send(stage_pid, {:task_result, result, task.id, status})
+    send(owner_pid, {:task_result, result, task.id, status})
 
     {:stop, :normal, state}
   end

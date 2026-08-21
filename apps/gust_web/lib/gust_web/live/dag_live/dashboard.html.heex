@@ -14,6 +14,7 @@
     module={GustWeb.BreadcrumbsComponent}
     dag_def={@dag}
     selected_item={@selected_item}
+    pinned_run_id={@pinned_run_id}
     id="breadcrumbs"
   />
 
@@ -81,7 +82,12 @@
               <% tasks_by_name = Enum.group_by(ran_tasks, & &1.name) %>
               <div class={"px-1 rounded #{selected_run_class(run_id, @selected_item)}"} id={id}>
                 <.link navigate={
-                  ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&page=#{@page}"
+                  dashboard_item_path(
+                    @dag_def.name,
+                    run_id,
+                    @page,
+                    @pinned_run_id
+                  )
                 }>
                   <div class="flex justify-center mb-2 pt-2">
                     <.task_cell id={"run-status-cell-#{run_id}"} status={status} />
@@ -94,7 +100,13 @@
                     name={task_name}
                     run_id={run_id}
                     navigate={
-                      ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{run_id}&task_name=#{task_name}&page=#{@page}"
+                      dashboard_item_path(
+                        @dag_def.name,
+                        run_id,
+                        @page,
+                        @pinned_run_id,
+                        [{"task_name", task_name}]
+                      )
                     }
                     data-testid={"#{task_name}-at-run-#{run_id}-link"}
                   />
@@ -282,7 +294,13 @@
                 <.link
                   class="btn btn-xs btn-soft"
                   navigate={
-                    ~g"/dags/#{@dag_def.name}/dashboard?run_id=#{task.run_id}&task_name=#{task.name}&task_index=#{task.map_index}&page=#{@page}"
+                    dashboard_item_path(
+                      @dag_def.name,
+                      task.run_id,
+                      @page,
+                      @pinned_run_id,
+                      [{"task_name", task.name}, {"task_index", task.map_index}]
+                    )
                   }
                   id={"show-mapped-task-#{task.id}"}
                 >

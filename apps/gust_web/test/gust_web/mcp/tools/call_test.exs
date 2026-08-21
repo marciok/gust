@@ -314,7 +314,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
     task: %Gust.Flows.Task{name: t_name} = task
   } do
     GustWeb.DAGRunTriggerMock
-    |> expect(:reset_task, fn ^tasks, ^task, nil ->
+    |> expect(:reset_task, fn ^tasks, ^task ->
       []
     end)
 
@@ -323,58 +323,81 @@ defmodule GustWeb.MCP.Tools.CallTest do
   end
 
   @tag :mock_load_definition
+  test "handle/2 returns an error when restart_task fails", %{
+    dag_def: %Definition{tasks: tasks},
+    task: %Gust.Flows.Task{name: task_name} = task
+  } do
+    GustWeb.DAGRunTriggerMock
+    |> expect(:reset_task, fn ^tasks, ^task ->
+      {:error, :run_owner_unavailable}
+    end)
+
+    assert {true, [%Content{text: text}]} =
+             Call.handle(%Tool{name: :restart_task}, %{"task_id" => task.id})
+
+    assert text ==
+             "Task: #{task_name} could not be restarted: run_owner_unavailable"
+  end
+
   test "handle/2 cancels a running task via the terminator", %{
     task: task
   } do
     {:ok, task} = Flows.update_task_status(task, :running)
 
     GustWeb.DAGTerminatorMock
-    |> expect(:kill_task, fn ^task, :cancelled, _runtime ->
-      nil
-    end)
+    |> expect(:cancel, fn ^task -> {:ok, task} end)
 
     assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
     assert text_list(contents) == ["Task: #{task.name} was cancelled"]
   end
 
-  @tag :mock_load_definition
   test "handle/2 cancels a retrying task timer via the terminator", %{
     task: task
   } do
     {:ok, task} = Flows.update_task_status(task, :retrying)
 
     GustWeb.DAGTerminatorMock
-    |> expect(:cancel_timer, fn ^task, :cancelled ->
-      nil
-    end)
+    |> expect(:cancel, fn ^task -> {:ok, task} end)
 
     assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
     assert text_list(contents) == ["Task: #{task.name} retrying cancelled"]
   end
 
-  @tag :mock_load_definition
   test "handle/2 cancels a waiting task via the terminator", %{
     task: task
   } do
     {:ok, task} = Flows.update_task_status(task, :waiting)
 
     GustWeb.DAGTerminatorMock
-    |> expect(:cancel_waiting, fn ^task ->
-      nil
-    end)
+    |> expect(:cancel, fn ^task -> {:ok, task} end)
 
     assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
     assert text_list(contents) == ["Task: #{task.name} waiting cancelled"]
   end
 
-  @tag :mock_load_definition
+  test "handle/2 returns an error when task cancellation cannot reach the run owner", %{
+    task: task
+  } do
+    {:ok, task} = Flows.update_task_status(task, :running)
+
+    GustWeb.DAGTerminatorMock
+    |> expect(:cancel, fn ^task -> {:error, :run_owner_unavailable} end)
+
+    assert {true, contents} =
+             Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
+
+    assert text_list(contents) == [
+             "Task: #{task.name} could not be cancelled: run_owner_unavailable"
+           ]
+  end
+
   test "handle/2 returns a message when cancel_task receives a task in an unsupported status", %{
     task: task
   } do
     assert {false, contents} = Call.handle(%Tool{name: :cancel_task}, %{"task_id" => task.id})
 
     assert text_list(contents) == [
-             "Task: #{task.name} cannot be cancelled from status :failed. Only :running, :retrying, and :waiting tasks can be cancelled."
+             "Task: #{task.name} cannot be cancelled from status :failed. Only statuses in [:running, :retrying, :waiting] can be cancelled."
            ]
   end
 

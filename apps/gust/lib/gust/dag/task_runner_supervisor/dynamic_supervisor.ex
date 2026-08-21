@@ -15,9 +15,9 @@ defmodule Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor do
   end
 
   @impl true
-  def start_child(task, dag_def, stage_pid, opts) do
+  def start_child(task, dag_def, owner_pid, opts) do
     spec =
-      {worker(dag_def.adapter), %{task: task, dag_def: dag_def, stage_pid: stage_pid, opts: opts}}
+      {worker(dag_def.adapter), %{task: task, dag_def: dag_def, owner_pid: owner_pid, opts: opts}}
 
     DynamicSupervisor.start_child(__MODULE__, spec)
   end

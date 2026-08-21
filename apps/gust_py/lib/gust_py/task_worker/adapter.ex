@@ -53,8 +53,8 @@ defmodule GustPy.TaskWorker.Adapter do
     end
   end
 
-  defp send_task_result(%{task: task, stage_pid: stage_pid} = state, result, status) do
-    send(stage_pid, {:task_result, result, task.id, status})
+  defp send_task_result(%{task: task, owner_pid: owner_pid} = state, result, status) do
+    send(owner_pid, {:task_result, result, task.id, status})
     state
   end
 

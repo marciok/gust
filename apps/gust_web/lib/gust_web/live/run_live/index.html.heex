@@ -154,6 +154,18 @@
               </span>
             </:col>
 
+            <:action :let={{_id, run}}>
+              <.link
+                id={"show-run-#{run.id}"}
+                class="btn btn-sm btn-soft btn-primary"
+                navigate={
+                  ~g"/dags/#{@dag_name}/dashboard?run_id=#{run.id}&pinned_run_id=#{run.id}"
+                }
+              >
+                Show
+              </.link>
+            </:action>
+
             <:action :let={{id, run}}>
               <.link
                 phx-click={JS.push("delete", value: %{id: run.id}) |> hide("##{id}")}
