@@ -11,16 +11,31 @@ defmodule GustWeb.DagLiveTest do
   describe "Index" do
     setup %{conn: conn} do
       dag = dag_fixture()
+      successful_dag = dag_fixture(%{name: "successful_dag"})
       broken_dag = dag_fixture(%{name: "broken_dag"})
 
       dag_def = %Gust.DAG.Definition{name: dag.name}
+      successful_dag_def = %Gust.DAG.Definition{name: successful_dag.name}
+
+      dag_defs = %{
+        dag.id => {:ok, dag_def},
+        successful_dag.id => {:ok, successful_dag_def},
+        broken_dag.id => {:error, {}}
+      }
 
       GustWeb.DAGLoaderMock
       |> expect(:get_definitions, 2, fn ->
-        %{dag.id => {:ok, dag_def}, broken_dag.id => {:error, {}}}
+        dag_defs
       end)
 
-      %{conn: conn, dag: dag, dag_def: dag_def, broken_dag: broken_dag}
+      %{
+        conn: conn,
+        dag: dag,
+        dag_def: dag_def,
+        dag_defs: dag_defs,
+        successful_dag: successful_dag,
+        broken_dag: broken_dag
+      }
     end
 
     test "lists all valid dags on dag folder", %{conn: conn, dag: dag, broken_dag: broken_dag} do
@@ -58,6 +73,115 @@ defmodule GustWeb.DagLiveTest do
       |> Enum.each(fn run ->
         refute has_element?(index_live, "#dag-#{dag.id}-run-#{run.id}")
       end)
+    end
+
+    test "filters dags to those with a failed recent run", %{
+      conn: conn,
+      dag: dag,
+      dag_defs: dag_defs,
+      successful_dag: successful_dag
+    } do
+      _failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+      _successful_run = run_fixture(%{dag_id: successful_dag.id, status: :succeeded})
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
+
+      assert has_element?(index_live, "#dag-index-header")
+
+      assert has_element?(
+               index_live,
+               "#dag-index-header [data-slot='header-actions'].rounded-lg.border.shadow-sm #dag-filter-form"
+             )
+
+      assert has_element?(index_live, "#recent-failures-only:not(:checked)")
+      assert has_element?(index_live, "#dag-run-history-#{dag.id}")
+      assert has_element?(index_live, "#dag-run-history-#{successful_dag.id}")
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definitions, fn -> dag_defs end)
+
+      index_live
+      |> form("#dag-filter-form", filters: %{failed_runs_only: "true"})
+      |> render_change()
+
+      assert has_element?(index_live, "#recent-failures-only:checked")
+      assert has_element?(index_live, "#dag-run-history-#{dag.id}")
+      refute has_element?(index_live, "#dag-run-history-#{successful_dag.id}")
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definitions, fn -> dag_defs end)
+
+      index_live
+      |> form("#dag-filter-form", filters: %{failed_runs_only: "false"})
+      |> render_change()
+
+      assert has_element?(index_live, "#recent-failures-only:not(:checked)")
+      assert has_element?(index_live, "#dag-run-history-#{dag.id}")
+      assert has_element?(index_live, "#dag-run-history-#{successful_dag.id}")
+    end
+
+    test "shows a reloaded dag with failed recent runs when the filter is active", %{
+      conn: conn,
+      broken_dag: broken_dag,
+      dag_defs: dag_defs
+    } do
+      failed_run = run_fixture(%{dag_id: broken_dag.id, status: :failed})
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definitions, fn -> dag_defs end)
+
+      index_live
+      |> form("#dag-filter-form", filters: %{failed_runs_only: "true"})
+      |> render_change()
+
+      assert has_element?(index_live, "#broken-dags > div")
+      refute has_element?(index_live, "#dag-run-history-#{broken_dag.id}")
+
+      send(
+        index_live.pid,
+        {:dag, :file_updated,
+         %{
+           action: "reload",
+           parse_result: {:ok, %Gust.DAG.Definition{name: broken_dag.name}}
+         }}
+      )
+
+      assert has_element?(index_live, "#dag-run-history-#{broken_dag.id}")
+      assert has_element?(index_live, "#dag-#{broken_dag.id}-run-#{failed_run.id}.status-failed")
+      refute has_element?(index_live, "#broken-dags > div")
+    end
+
+    test "keeps a reloaded dag hidden when it has no failed recent runs", %{
+      conn: conn,
+      dag: dag,
+      dag_defs: dag_defs,
+      successful_dag: successful_dag
+    } do
+      _failed_run = run_fixture(%{dag_id: dag.id, status: :failed})
+      _successful_run = run_fixture(%{dag_id: successful_dag.id, status: :succeeded})
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definitions, fn -> dag_defs end)
+
+      index_live
+      |> form("#dag-filter-form", filters: %{failed_runs_only: "true"})
+      |> render_change()
+
+      assert has_element?(index_live, "#dag-run-history-#{dag.id}")
+      refute has_element?(index_live, "#dag-run-history-#{successful_dag.id}")
+
+      send(
+        index_live.pid,
+        {:dag, :file_updated,
+         %{
+           action: "reload",
+           parse_result: {:ok, %Gust.DAG.Definition{name: successful_dag.name}}
+         }}
+      )
+
+      refute has_element?(index_live, "#dag-run-history-#{successful_dag.id}")
     end
 
     test "dag file was reloaded", %{conn: conn, dag: dag, broken_dag: broken_dag} do
