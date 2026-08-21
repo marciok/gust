@@ -102,6 +102,7 @@ defmodule GustWeb.Layouts do
       aria-live="polite"
     >
       <.flash kind={:info} flash={@flash} />
+      <.flash kind={:warning} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
       <.flash
