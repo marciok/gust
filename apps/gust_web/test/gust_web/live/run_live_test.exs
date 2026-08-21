@@ -32,6 +32,16 @@ defmodule GustWeb.RunLiveTest do
       assert html =~ to_string(run.id)
     end
 
+    test "links runs to an pinned dashboard history", %{conn: conn, dag: dag, run: run} do
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      assert has_element?(
+               index_live,
+               "#show-run-#{run.id}[href='/dags/#{dag.name}/dashboard?run_id=#{run.id}&pinned_run_id=#{run.id}']"
+             )
+    end
+
     test "list runs with params", %{conn: conn, dag: dag} do
       _run = run_fixture(%{dag_id: dag.id, params: %{"my_key" => "my_value"}})
 

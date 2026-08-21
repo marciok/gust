@@ -128,6 +128,60 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert render(element(dashboard_live, "#selected-item")) =~ "ID #{run.id}"
     end
 
+    test "pinned run details load the selected run into history", %{
+      conn: conn,
+      dag: dag,
+      run: run
+    } do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      newer_runs =
+        for seconds <- 1..30 do
+          run_fixture(%{
+            dag_id: dag.id,
+            inserted_at: DateTime.add(now, seconds, :second)
+          })
+        end
+
+      {:ok, dashboard_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&pinned_run_id=#{run.id}"
+        )
+
+      assert has_element?(dashboard_live, "#run-status-cell-#{run.id}")
+
+      Enum.each(newer_runs, fn newer_run ->
+        refute has_element?(dashboard_live, "#run-status-cell-#{newer_run.id}")
+      end)
+
+      assert has_element?(
+               dashboard_live,
+               "#runs-#{run.id} a[href='/dags/#{dag.name}/dashboard?run_id=#{run.id}&pinned_run_id=#{run.id}']"
+             )
+
+      assert has_element?(
+               dashboard_live,
+               "[data-testid='sum_41-at-run-#{run.id}-link'][href='/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=sum_41&pinned_run_id=#{run.id}']"
+             )
+
+      assert has_element?(
+               dashboard_live,
+               "#next-page[href='/dags/#{dag.name}/dashboard?page=2']"
+             )
+
+      new_run = run_fixture(%{dag_id: dag.id})
+      Gust.PubSub.broadcast_run_started(dag.id, new_run.id)
+
+      refute has_element?(dashboard_live, "#run-status-cell-#{new_run.id}")
+
+      dashboard_live
+      |> element("#clear-history-pinned")
+      |> render_click()
+
+      assert_redirect dashboard_live, ~g"/dags/#{dag.name}/dashboard?page=1"
+    end
+
     test "display task logs", %{
       conn: conn,
       dag: dag,
@@ -986,6 +1040,40 @@ defmodule GustWeb.DagLiveDashboardTest do
                dashboard_live,
                "#run-status-cell-#{last_run.id}.status-enqueued"
              )
+    end
+
+    test "triggering a run keeps pinned history pinned and shows an explanation", %{
+      conn: conn,
+      dag: dag,
+      run: pinned_run
+    } do
+      {:ok, dashboard_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{pinned_run.id}&pinned_run_id=#{pinned_run.id}"
+        )
+
+      GustWeb.DAGRunTriggerMock
+      |> expect(:dispatch_run, fn new_run ->
+        {:ok, _run} = Flows.update_run_status(new_run, :enqueued)
+        Flows.get_run!(new_run.id)
+      end)
+
+      dashboard_live
+      |> element("#trigger-dag-run-#{dag.id}")
+      |> render_click()
+
+      triggered_run = Flows.get_dag_with_runs!(dag.id).runs |> List.last()
+
+      assert has_element?(
+               dashboard_live,
+               "#flash-warning .alert.alert-warning",
+               "Run #{triggered_run.id} triggered. Unpin your history to view it."
+             )
+
+      assert has_element?(dashboard_live, "#clear-history-pinned")
+      assert has_element?(dashboard_live, "#run-status-cell-#{pinned_run.id}")
+      refute has_element?(dashboard_live, "#run-status-cell-#{triggered_run.id}")
     end
 
     test "display run params when present", %{

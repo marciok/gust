@@ -213,6 +213,33 @@ defmodule FlowsTest do
       assert full_task.error == %{"large" => "error"}
     end
 
+    test "get_dag_with_runs_and_tasks!/2 loads an pinned run window" do
+      dag = dag_fixture(%{name: "pinned_runs"})
+      other_dag = dag_fixture(%{name: "other_pinned_runs"})
+
+      older = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2024-01-01 00:00:00]})
+      same_time_older = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2024-01-02 00:00:00]})
+      pinn = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2024-01-02 00:00:00]})
+      newer = run_fixture(%{dag_id: dag.id, inserted_at: ~N[2024-01-03 00:00:00]})
+      other_pinn = run_fixture(%{dag_id: other_dag.id})
+
+      loaded_dag =
+        Flows.get_dag_with_runs_and_tasks!(dag.name,
+          limit: 3,
+          pinned_run_id: pinn.id
+        )
+
+      assert Enum.map(loaded_dag.runs, & &1.id) == [pinn.id, same_time_older.id, older.id]
+      refute Enum.any?(loaded_dag.runs, &(&1.id == newer.id))
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Flows.get_dag_with_runs_and_tasks!(dag.name,
+          limit: 3,
+          pinned_run_id: other_pinn.id
+        )
+      end
+    end
+
     test "get_dag_by_name_with_runs!/1 returns dag with runs honoring pagination" do
       dag = dag_fixture(%{name: "paginated"})
       other_dag = dag_fixture(%{name: "other"})

@@ -508,23 +508,56 @@ defmodule Gust.Flows do
 
   Tasks are loaded with only the fields required by the run-history grid.
   Use the task or run detail functions when payload fields are needed.
+
+  The `:limit` option is required. Pass `:offset` for normal pagination or
+  `:pinned_run_id` to load a window containing the pinned followed by older
+  runs. The pinned must belong to the named DAG.
   """
-  def get_dag_with_runs_and_tasks!(name, limit: limit, offset: offset) do
+  def get_dag_with_runs_and_tasks!(name, opts) do
+    limit = Keyword.fetch!(opts, :limit)
+
     tasks_q =
       from t in Task,
         select: struct(t, [:id, :name, :status, :map_index, :run_id])
 
     runs_q =
       from r in Run,
-        order_by: [desc: r.inserted_at],
+        order_by: [desc: r.inserted_at, desc: r.id],
         limit: ^limit,
-        offset: ^offset,
         preload: [tasks: ^tasks_q]
+
+    runs_q = apply_run_window(runs_q, name, opts)
 
     Repo.one!(
       from d in Dag,
         where: d.name == ^name,
         preload: [runs: ^runs_q]
+    )
+  end
+
+  defp apply_run_window(query, name, opts) do
+    case Keyword.fetch(opts, :pinned_run_id) do
+      {:ok, pinned_run_id} ->
+        pinned = get_run_pinned!(name, pinned_run_id)
+
+        where(
+          query,
+          [run],
+          run.inserted_at < ^pinned.inserted_at or
+            (run.inserted_at == ^pinned.inserted_at and run.id <= ^pinned.id)
+        )
+
+      :error ->
+        offset(query, ^Keyword.fetch!(opts, :offset))
+    end
+  end
+
+  defp get_run_pinned!(dag_name, run_id) do
+    Repo.one!(
+      from run in Run,
+        join: dag in assoc(run, :dag),
+        where: dag.name == ^dag_name and run.id == ^run_id,
+        select: %{id: run.id, inserted_at: run.inserted_at}
     )
   end
 
