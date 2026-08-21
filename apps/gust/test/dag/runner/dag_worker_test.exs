@@ -39,7 +39,7 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert {:error, :cannot_restart_task_group_on_active_run} =
              RunGateway.call(run, {:restart_task_group, "first"})
 
-    assert {:error, :task_not_found} = RunGateway.call(run, {:restart_task, -1})
+    assert {:error, :task_not_found} = RunGateway.call(run, {:restart_mapped_task, -1})
     assert Process.alive?(runner)
     assert_receive {:dag, :run_status, %{run_id: run_id, status: :running}}
     assert run_id == run.id
@@ -119,7 +119,7 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     failed_task = Flows.get_task!(first.id)
 
     assert {:ok, %Flows.Task{status: :running, id: restarted_id}} =
-             RunGateway.call(run, {:restart_task, failed_task.id})
+             RunGateway.call(run, {:restart_mapped_task, failed_task.id})
 
     assert restarted_id == first.id
     assert_receive {:task_started, %Flows.Task{id: ^restarted_id, map_index: 0}, ^runner}
@@ -159,7 +159,7 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert_receive {:task_started, %Flows.Task{map_index: 1}, ^runner}
 
     assert {:error, :task_not_restartable} =
-             RunGateway.call(run, {:restart_task, first.id})
+             RunGateway.call(run, {:restart_mapped_task, first.id})
   end
 
   test "uses all mapped outcomes instead of the last task result", %{run: run} do
@@ -353,7 +353,7 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert_task_status(failed.id, :failed)
 
     assert {:error, :max_children} =
-             RunGateway.call(run, {:restart_task, failed.id})
+             RunGateway.call(run, {:restart_mapped_task, failed.id})
 
     assert %Flows.Task{
              status: :failed,

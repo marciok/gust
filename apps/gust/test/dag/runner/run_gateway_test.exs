@@ -17,9 +17,9 @@ defmodule Gust.DAG.Runner.RunGatewayTest do
     run = %Run{id: 123}
 
     Gust.RunGatewayMock
-    |> expect(:call, fn ^run, {:restart_task, 456} -> {:ok, :restarted} end)
+    |> expect(:call, fn ^run, {:restart_mapped_task, 456} -> {:ok, :restarted} end)
 
-    assert {:ok, :restarted} = RunGateway.call(run, {:restart_task, 456})
+    assert {:ok, :restarted} = RunGateway.call(run, {:restart_mapped_task, 456})
     assert RunGateway.impl() == Gust.RunGatewayMock
   end
 end

@@ -25,22 +25,22 @@ defmodule Gust.DAG.Runner.RunGateway.DefaultTest do
     run = run()
 
     spawn_registered(run.id, fn
-      {:"$gen_call", from, {:restart_task, 123}} ->
+      {:"$gen_call", from, {:restart_mapped_task, 123}} ->
         GenServer.reply(from, {:ok, :restarted})
     end)
 
-    assert {:ok, :restarted} = Default.call(run, {:restart_task, 123})
+    assert {:ok, :restarted} = Default.call(run, {:restart_mapped_task, 123})
   end
 
   test "returns run_not_active when no worker or active lease exists" do
-    assert {:error, :run_not_active} = Default.call(run(), {:restart_task, 123})
+    assert {:error, :run_not_active} = Default.call(run(), {:restart_mapped_task, 123})
   end
 
   test "protects an active lease when its local worker is not registered" do
     run = run(status: :starting, claim_expires_at: future_time())
 
     assert {:error, :run_owner_unavailable} =
-             Default.call(run, {:restart_task, 123})
+             Default.call(run, {:restart_mapped_task, 123})
   end
 
   test "treats a clean worker exit during the call as inactive" do

@@ -83,9 +83,9 @@ defmodule Gust.DAG.Runner.DAGWorker do
   end
 
   @impl true
-  def handle_call({:restart_task, task_id}, _from, %State{} = state) do
+  def handle_call({:restart_mapped_task, task_id}, _from, %State{} = state) do
     with %Flows.Task{} = task <- Flows.get_task(task_id),
-         :ok <- validate_restart(state, task),
+         :ok <- validate_mapped_task_restart(state, task),
          {:ok, coord} <- Coord.restart_task(state.coord, task.id),
          {:ok, task} <- Flows.prepare_task_restart(task) do
       case TaskExecution.start(task, state.dag_def, self()) do
@@ -292,7 +292,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
     state
   end
 
-  defp validate_restart(%State{current_task_ids: task_ids}, task) do
+  defp validate_mapped_task_restart(%State{current_task_ids: task_ids}, task) do
     cond do
       is_nil(task.map_index) -> {:error, :task_not_mapped}
       not MapSet.member?(task_ids, task.id) -> {:error, :task_not_on_current_stage}

@@ -24,15 +24,19 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
       reset_all!(tasks)
     end)
 
-    update_broadcast(run)
+    Dispatcher.enqueue(run)
   end
 
   @impl true
-  def reset_task(graph, [%Flows.Task{} = task | _tasks]), do: call_restart(graph, task, :group)
-  def reset_task(graph, %Flows.Task{map_index: nil} = task), do: call_restart(graph, task, :group)
-  def reset_task(graph, %Flows.Task{} = task), do: call_restart(graph, task, :instance)
+  def reset_task(graph, [%Flows.Task{} = task | _tasks]),
+    do: restart_or_requeue(graph, task, :group)
 
-  defp call_restart(graph, task, type) do
+  def reset_task(graph, %Flows.Task{map_index: nil} = task),
+    do: restart_or_requeue(graph, task, :group)
+
+  def reset_task(graph, %Flows.Task{} = task), do: restart_or_requeue(graph, task, :instance)
+
+  defp restart_or_requeue(graph, task, type) do
     run = Flows.get_run!(task.run_id)
 
     message =
@@ -41,22 +45,22 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
           {:restart_task_group, task.name}
 
         :instance ->
-          {:restart_task, task.id}
+          {:restart_mapped_task, task.id}
       end
 
     case RunGateway.call(run, message) do
-      {:error, :run_not_active} -> reset_and_enqueue(graph, run, task, type)
+      {:error, :run_not_active} -> requeue_tasks(graph, run, task, type)
       result -> result
     end
   end
 
-  defp reset_and_enqueue(graph, run, task, scope) do
+  defp requeue_tasks(graph, run, task, scope) do
     cleared_tasks =
       graph
       |> tasks_to_clear(task.name)
       |> Enum.map(fn task_name -> reset_task_name(task_name, task, run.id, scope) end)
 
-    update_broadcast(run)
+    Dispatcher.enqueue(run)
     cleared_tasks
   end
 
@@ -86,10 +90,6 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
     set_created!(task)
   end
 
-  defp update_broadcast(run) do
-    Dispatcher.enqueue(run)
-  end
-
   @impl true
   def dispatch_all_runs(dag_id) do
     Flows.get_running_runs_by_dag([dag_id], [:created])
@@ -104,7 +104,7 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   defp maybe_dispatch_enabled_dag(run, %Flows.Dag{enabled: false}), do: run
 
   defp maybe_dispatch_enabled_dag(run, %Flows.Dag{enabled: true}) do
-    update_broadcast(run)
+    Dispatcher.enqueue(run)
   end
 
   defp set_created!(task) do

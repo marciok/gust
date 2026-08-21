@@ -172,7 +172,7 @@ defmodule DAG.Run.RequeueTest do
         send(parent, :run_owner_ready)
 
         receive do
-          {:"$gen_call", from, {:restart_task, task_id}} ->
+          {:"$gen_call", from, {:restart_mapped_task, task_id}} ->
             send(parent, {:restart_requested, task_id})
             GenServer.reply(from, {:ok, %{task | status: :running}})
         end
