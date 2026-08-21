@@ -9,6 +9,41 @@ defmodule GustWeb.DagLive.Index do
   def mount(_params, _session, socket) do
     PubSub.subscribe_all_files("update")
 
+    failed_runs_only? = false
+    {dags, broken_dags} = list_dags(failed_runs_only?)
+
+    {:ok,
+     socket
+     |> assign(:page_title, "DAGs Listing")
+     |> assign(:failed_runs_only?, failed_runs_only?)
+     |> assign_filter_form(failed_runs_only?)
+     |> stream(:dags, dags)
+     |> stream(:broken_dags, broken_dags)}
+  end
+
+  @impl true
+  def handle_event("filter_dags", %{"filters" => filters}, socket) do
+    failed_runs_only? = filters["failed_runs_only"] == "true"
+    {dags, _broken_dags} = list_dags(failed_runs_only?)
+
+    {:noreply,
+     socket
+     |> assign(:failed_runs_only?, failed_runs_only?)
+     |> assign_filter_form(failed_runs_only?)
+     |> stream(:dags, dags, reset: true)}
+  end
+
+  @impl true
+  def handle_event("trigger_run", %{"id" => id}, socket) do
+    dag_id = String.to_integer(id)
+    {:ok, run} = Flows.create_run(%{dag_id: dag_id})
+
+    run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
+
+    {:noreply, socket |> put_flash(:info, "Run #{run.id} triggered")}
+  end
+
+  defp list_dags(failed_runs_only?) do
     dag_defs = Loader.get_definitions()
 
     dags_by_id =
@@ -23,27 +58,15 @@ defmodule GustWeb.DagLive.Index do
         %{id: dag.name, dag: dag, dag_def: dag_def, recent_runs: dag.runs}
       end
 
+    dags = Enum.filter(dags, &show_dag?(&1.dag, failed_runs_only?))
+
     broken_dags =
       for {dag_id, {:error, error}} <- dag_defs do
         dag = Map.fetch!(dags_by_id, dag_id)
         %{id: dag.name, dag: dag, error: error}
       end
 
-    {:ok,
-     socket
-     |> assign(:page_title, "DAGs Listing")
-     |> stream(:dags, dags)
-     |> stream(:broken_dags, broken_dags)}
-  end
-
-  @impl true
-  def handle_event("trigger_run", %{"id" => id}, socket) do
-    dag_id = String.to_integer(id)
-    {:ok, run} = Flows.create_run(%{dag_id: dag_id})
-
-    run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
-
-    {:noreply, socket |> put_flash(:info, "Run #{run.id} triggered")}
+    {dags, broken_dags}
   end
 
   @impl true
@@ -73,10 +96,28 @@ defmodule GustWeb.DagLive.Index do
       ) do
     name = dag_def.name
     dag = Flows.get_dag_with_recent_runs(name)
-    socket = insert_dag(socket, dag, dag_def)
+
+    socket =
+      if show_dag?(dag, socket.assigns.failed_runs_only?) do
+        insert_dag(socket, dag, dag_def)
+      else
+        socket
+      end
+
     socket = stream_delete(socket, :broken_dags, %{id: dag.name})
     {:noreply, socket}
   end
+
+  defp assign_filter_form(socket, failed_runs_only?) do
+    assign(
+      socket,
+      :filter_form,
+      to_form(%{"failed_runs_only" => failed_runs_only?}, as: :filters)
+    )
+  end
+
+  defp show_dag?(_dag, false), do: true
+  defp show_dag?(dag, true), do: Enum.any?(dag.runs, &(&1.status == :failed))
 
   defp insert_dag(socket, dag, dag_def) do
     stream_insert(socket, :dags, %{

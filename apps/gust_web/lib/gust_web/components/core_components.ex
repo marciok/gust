@@ -298,7 +298,13 @@ defmodule GustWeb.CoreComponents do
           {render_slot(@subtitle)}
         </p>
       </div>
-      <div class="flex-none">{render_slot(@actions)}</div>
+      <div
+        :if={@actions != []}
+        data-slot="header-actions"
+        class="flex-none rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm"
+      >
+        {render_slot(@actions)}
+      </div>
     </header>
     """
   end
