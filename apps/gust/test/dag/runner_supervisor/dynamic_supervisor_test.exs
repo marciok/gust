@@ -1,6 +1,8 @@
 defmodule DAG.RunnerSupervisor.DynamicSupervisorTest do
-  use Gust.DataCase, async: true
+  use Gust.DataCase, async: false
+
   import Gust.FlowsFixtures
+
   alias Gust.DAG.Runner
   alias Gust.DAG.RunnerSupervisor.DynamicSupervisor, as: RunnerSupervisor
 
@@ -16,9 +18,7 @@ defmodule DAG.RunnerSupervisor.DynamicSupervisorTest do
     run = run_fixture(%{dag_id: dag.id})
     runner = Runner.Empty
 
-    old = Application.get_env(:gust, :dag_runner)
-    Application.put_env(:gust, :dag_runner, runner)
-    on_exit(fn -> Application.put_env(:gust, :dag_runner, old) end)
+    replace_env(:dag_runner, runner)
 
     start_supervised!(RunnerSupervisor)
 

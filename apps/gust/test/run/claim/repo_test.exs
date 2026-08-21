@@ -60,7 +60,7 @@ defmodule Run.Claim.RepoTest do
 
       assert %Flows.Run{
                id: ^run_id,
-               status: :running,
+               status: :starting,
                claim_token: token,
                claimed_by: ^node,
                claim_expires_at: expiration_date
@@ -85,7 +85,7 @@ defmodule Run.Claim.RepoTest do
 
       assert %Flows.Run{
                id: ^run_id,
-               status: :running,
+               status: :starting,
                claim_token: token,
                claimed_by: ^node,
                claim_expires_at: expiration_date
@@ -106,7 +106,7 @@ defmodule Run.Claim.RepoTest do
 
       assert %Flows.Run{
                id: ^enabled_run_id,
-               status: :running,
+               status: :starting,
                claimed_by: ^node
              } = Claim.next_run()
     end
@@ -128,6 +128,21 @@ defmodule Run.Claim.RepoTest do
       enabled_run_id = enabled_run.id
 
       assert %Flows.Run{id: ^enabled_run_id} = Claim.next_run()
+    end
+
+    test "reclaims a starting run after its lease expires", %{dag: dag} do
+      expired = DateTime.add(DateTime.utc_now(), -10)
+
+      run =
+        run_fixture(%{
+          dag_id: dag.id,
+          status: :starting,
+          claim_expires_at: expired
+        })
+
+      assert %Flows.Run{id: run_id, status: :starting, claim_token: token} = Claim.next_run()
+      assert run_id == run.id
+      refute is_nil(token)
     end
 
     test "nothing to claim" do

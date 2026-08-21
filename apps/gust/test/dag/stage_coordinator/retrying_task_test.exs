@@ -29,6 +29,31 @@ defmodule DAG.StageCoordinator.RetryingTaskTest do
     end
   end
 
+  describe "restart_task/2" do
+    test "adds a completed task back to the running set", %{task: task} do
+      coord = %RetryingTask{}
+
+      assert {:ok, %RetryingTask{running: running}} =
+               RetryingTask.restart_task(coord, task.id)
+
+      assert MapSet.member?(running, task.id)
+    end
+
+    test "rejects a task that is already running", %{task: task} do
+      coord = %RetryingTask{running: MapSet.new([task.id])}
+
+      assert {:error, :already_active} = RetryingTask.restart_task(coord, task.id)
+    end
+
+    test "rejects a task that is retrying or waiting", %{task: task} do
+      retrying = %RetryingTask{retrying: %{task.id => %{attempt: 1}}}
+      waiting = %RetryingTask{waiting: MapSet.new([task.id])}
+
+      assert {:error, :already_active} = RetryingTask.restart_task(retrying, task.id)
+      assert {:error, :already_active} = RetryingTask.restart_task(waiting, task.id)
+    end
+  end
+
   describe "process_task/2 when upstream is not present" do
     test "upstream does not exsists", %{task: task} do
       tasks = %{task.name => %{upstream: []}}
@@ -355,6 +380,24 @@ defmodule DAG.StageCoordinator.RetryingTaskTest do
 
       assert {:finished, %RetryingTask{running: %MapSet{}, retrying: %{}}} ==
                RetryingTask.apply_task_result(coord, task, :cancelled)
+    end
+
+    test "removes a cancelled waiting task while other work continues", %{run: run, task: task} do
+      other_task = task_fixture(%{run_id: run.id, name: "other"})
+
+      coord = %RetryingTask{
+        running: MapSet.new([other_task.id]),
+        waiting: MapSet.new([task.id])
+      }
+
+      assert {:continue,
+              %RetryingTask{
+                running: running,
+                retrying: %{},
+                waiting: %MapSet{}
+              }} = RetryingTask.apply_task_result(coord, task, :cancelled)
+
+      assert running == MapSet.new([other_task.id])
     end
   end
 

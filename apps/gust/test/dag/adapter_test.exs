@@ -4,11 +4,7 @@ defmodule Gust.DAG.AdapterTest do
   alias Gust.DAG.Adapter
 
   setup do
-    previous_adapters = Application.get_env(:gust, :dag_adapter, [])
-
-    on_exit(fn ->
-      Application.put_env(:gust, :dag_adapter, previous_adapters)
-    end)
+    replace_env(:dag_adapter, [])
 
     :ok
   end

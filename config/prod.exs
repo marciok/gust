@@ -18,10 +18,8 @@ config :gust, dags_folder: "/dags"
 
 config :gust, dag_runner_supervisor: Gust.DAG.RunnerSupervisor.DynamicSupervisor
 config :gust, dag_task_runner_supervisor: Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor
-config :gust, dag_stage_runner_supervisor: Gust.DAG.StageRunnerSupervisor.DynamicSupervisor
 config :gust, dag_scheduler: Gust.DAG.Scheduler.Worker
 config :gust, dag_loader: Gust.DAG.Loader.Worker
-config :gust, dag_stage_runner: Gust.DAG.Runner.StageWorker
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

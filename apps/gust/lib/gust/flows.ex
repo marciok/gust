@@ -214,6 +214,22 @@ defmodule Gust.Flows do
   """
   def get_task!(id), do: Repo.get!(Task, id)
 
+  def get_task(id), do: Repo.get(Task, id)
+
+  @doc """
+  Gets task statuses for the given task IDs.
+  """
+  def get_task_statuses([]), do: []
+
+  def get_task_statuses(task_ids) do
+    task_ids = Enum.to_list(task_ids)
+
+    Task
+    |> where([task], task.id in ^task_ids)
+    |> select([task], task.status)
+    |> Repo.all()
+  end
+
   @doc """
   Gets a single secret.
 
@@ -342,6 +358,25 @@ defmodule Gust.Flows do
   """
   def update_task_status(task, status) do
     Task.changeset(task, %{status: status})
+    |> Repo.update()
+  end
+
+  @doc """
+  Clears execution state before manually restarting a terminal task instance.
+
+  Mapping identity and persisted params are intentionally preserved so a mapped
+  task can be restarted without rebuilding or collapsing its sibling instances.
+  """
+  def prepare_task_restart(%Task{} = task) do
+    task
+    |> Task.changeset(%{
+      status: :created,
+      result: %{},
+      error: %{},
+      attempt: 1,
+      waiting_for: nil,
+      wait_satisfied_at: nil
+    })
     |> Repo.update()
   end
 

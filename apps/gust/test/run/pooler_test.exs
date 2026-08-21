@@ -9,10 +9,7 @@ defmodule Gust.Run.PoolerTest do
   alias Gust.Run.Pooler
 
   setup do
-    previous_tick = Application.get_env(:gust, :claim_runs_tick)
-    Application.put_env(:gust, :claim_runs_tick, 9_999_999)
-
-    on_exit(fn -> restore_env(:claim_runs_tick, previous_tick) end)
+    replace_env(:claim_runs_tick, 9_999_999)
 
     :ok
   end
@@ -78,7 +75,4 @@ defmodule Gust.Run.PoolerTest do
 
     assert_receive :claim_runs
   end
-
-  defp restore_env(key, nil), do: Application.delete_env(:gust, key)
-  defp restore_env(key, value), do: Application.put_env(:gust, key, value)
 end

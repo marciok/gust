@@ -1,7 +1,6 @@
 defmodule Gust.Run.DispatcherSupervisor do
   @moduledoc false
 
-  alias Gust.DAG.Terminator
   alias Gust.Run.Claimer
   alias Gust.Run.Dispatcher
 
@@ -16,7 +15,7 @@ defmodule Gust.Run.DispatcherSupervisor do
 
   @impl true
   def init(_opts) do
-    children = [Dispatcher.impl(), Claimer, Terminator.Worker]
+    children = [Dispatcher.impl(), Claimer]
     Supervisor.init(children, strategy: :rest_for_one)
   end
 end

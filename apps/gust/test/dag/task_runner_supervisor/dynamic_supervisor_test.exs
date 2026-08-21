@@ -1,7 +1,10 @@
 defmodule DAG.TaskRunnerSupervisor.DynamicSupervisorTest do
   use Gust.DataCase, async: false
-  import Gust.FlowsFixtures
+
   alias Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor, as: TaskRunnerSupervisor
+  alias Gust.Flows
+
+  import Gust.FlowsFixtures
   import Mox
 
   setup :set_mox_from_context
@@ -37,14 +40,15 @@ defmodule DAG.TaskRunnerSupervisor.DynamicSupervisorTest do
 
     start_supervised!(TaskRunnerSupervisor)
 
-    stage_pid = spawn(fn -> Process.sleep(100) end)
+    owner_pid = spawn(fn -> Process.sleep(100) end)
 
     {:ok, runner_pid} =
-      TaskRunnerSupervisor.start_child(task, dag_def, stage_pid, %{})
+      TaskRunnerSupervisor.start_child(task, dag_def, owner_pid, %{})
 
     Process.monitor(runner_pid)
 
     assert Process.alive?(runner_pid)
+    assert Flows.get_task!(task.id).status == :running
 
     assert [{_id, ^runner_pid, :worker, [Gust.DAG.TaskWorker.Adapters.Elixir]}] =
              DynamicSupervisor.which_children(TaskRunnerSupervisor)

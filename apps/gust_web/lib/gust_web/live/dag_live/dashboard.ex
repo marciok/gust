@@ -1,5 +1,5 @@
 defmodule GustWeb.DagLive.Dashboard do
-  alias Gust.DAG.{Adapter, Loader, Terminator}
+  alias Gust.DAG.{Loader, TaskStatus, Terminator}
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.Flows.Dag
@@ -281,45 +281,44 @@ defmodule GustWeb.DagLive.Dashboard do
 
   @impl true
   def handle_event("cancel", _params, socket) do
-    flash_msg =
+    {flash_kind, flash_msg} =
       case socket.assigns.selected_item do
         %Task{} = task ->
-          handle_task_cancel(socket, reload_task(task))
+          handle_task_cancel(reload_task(task))
 
         [%Task{name: name} | _tail] = tasks ->
-          tasks
-          |> Enum.map(&reload_task/1)
-          |> Enum.each(fn task -> handle_task_cancel(socket, task) end)
+          results =
+            tasks
+            |> Enum.map(&reload_task/1)
+            |> Enum.map(&handle_task_cancel/1)
 
-          "All #{name} tasks are being cancelled"
+          Enum.find(results, {:info, "All #{name} tasks are being cancelled"}, fn
+            {:error, _message} -> true
+            {:info, _message} -> false
+          end)
       end
 
-    {:noreply, socket |> put_flash(:info, flash_msg)}
+    {:noreply, socket |> put_flash(flash_kind, flash_msg)}
   end
 
   @impl true
   def handle_event("restart", _params, socket) do
-    flash_msg =
+    {flash_kind, flash_msg} =
       case socket.assigns.selected_item do
         %Task{map_index: map_index} = task ->
-          Trigger.reset_task(socket.assigns.dag_def.tasks, task, map_index)
+          result = Trigger.reset_task(socket.assigns.dag_def.tasks, task)
+          restart_flash(result, task, map_index)
 
-          if map_index do
-            "Task: #{task.name} [#{map_index}] was restarted"
-          else
-            "Task: #{task.name} was restarted"
-          end
-
-        [%Task{} = task | _tail] ->
-          Trigger.reset_task(socket.assigns.dag_def.tasks, task, nil)
-          "Task: #{task.name} was restarted"
+        [%Task{} = task | _tail] = tasks ->
+          result = Trigger.reset_task(socket.assigns.dag_def.tasks, tasks)
+          restart_flash(result, task, nil)
 
         %Run{} = run ->
           run = Trigger.reset_run(run)
-          "Run: #{run.id} was restarted"
+          {:info, "Run: #{run.id} was restarted"}
       end
 
-    {:noreply, socket |> put_flash(:info, flash_msg)}
+    {:noreply, socket |> put_flash(flash_kind, flash_msg)}
   end
 
   @impl true
@@ -417,28 +416,15 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply, socket |> stream_insert(:runs, run)}
   end
 
-  defp handle_task_cancel(socket, %Task{name: name, status: status} = task) do
-    msg =
-      case status do
-        :running ->
-          dag_def = socket.assigns.dag_def
-          runtime = Adapter.impl!(dag_def.adapter, :runtime)
-          Terminator.kill_task(task, :cancelled, runtime)
-          "was cancelled"
-
-        :waiting ->
-          Terminator.cancel_waiting(task)
-          "waiting cancelled"
-
-        :retrying ->
-          Terminator.cancel_timer(task, :cancelled)
-          "retrying cancelled"
-
-        _status ->
-          "is not running"
+  defp handle_task_cancel(%Task{name: name, status: status} = task) do
+    if TaskStatus.cancellable?(status) do
+      case Terminator.cancel(task) do
+        {:ok, _task} -> {:info, "Task: #{name} was cancelled"}
+        {:error, reason} -> {:error, "Task: #{name} could not be cancelled: #{reason}"}
       end
-
-    "Task: #{name} #{msg}"
+    else
+      {:info, "Task: #{name} is not running"}
+    end
   end
 
   defp reload_task(%Task{id: id}), do: Flows.get_task!(id)
@@ -503,10 +489,18 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   defp cancelable?(_item, _status), do: false
-  defp cancellable_status?(status), do: status in [:running, :retrying, :waiting]
+  defp cancellable_status?(status), do: TaskStatus.cancellable?(status)
 
-  defp restartable?([%Task{} | _tail], status), do: status in [:failed, :succeeded]
-  defp restartable?(_item, status), do: status in [:failed, :succeeded]
+  defp restartable?(_item, status), do: TaskStatus.restartable?(status)
+
+  defp restart_flash({:error, reason}, task, _map_index) do
+    {:error, "Task: #{task.name} could not be restarted: #{reason}"}
+  end
+
+  defp restart_flash(_result, task, nil), do: {:info, "Task: #{task.name} was restarted"}
+
+  defp restart_flash(_result, task, map_index),
+    do: {:info, "Task: #{task.name} [#{map_index}] was restarted"}
 
   defp assign_item_attrs(socket, selected_item) do
     {inserted_at, updated_at} = get_timestamps(selected_item)
