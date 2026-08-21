@@ -90,7 +90,7 @@ defmodule GustWeb.DagLiveTest do
 
       assert has_element?(
                index_live,
-               "dag-index-header [data-slot='header-actions'] #dag-filter-form"
+               "#dag-index-header [data-slot='header-actions'] #dag-filter-form"
              )
 
       assert has_element?(index_live, "#recent-failures-only:not(:checked)")
