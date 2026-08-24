@@ -272,6 +272,99 @@ defmodule FlowsTest do
       assert [failed_run.id] == Enum.map(filtered_dag.runs, & &1.id)
     end
 
+    test "get_dag_by_name_with_runs!/1 searches run parameter keys and values" do
+      dag = dag_fixture(%{name: "params_filtered"})
+      other_dag = dag_fixture(%{name: "other_params_filtered"})
+
+      key_match = run_fixture(%{dag_id: dag.id, params: %{"CustomerReference" => "unrelated"}})
+      value_match = run_fixture(%{dag_id: dag.id, params: %{"reference" => "CUSTOMER-42"}})
+      _no_match = run_fixture(%{dag_id: dag.id, params: %{"reference" => "supplier-7"}})
+      _other_dag_match = run_fixture(%{dag_id: other_dag.id, params: %{"customer" => "42"}})
+
+      key_results =
+        Flows.get_dag_by_name_with_runs!(dag.name,
+          limit: 30,
+          offset: 0,
+          params_search: "customerreference"
+        )
+
+      value_results =
+        Flows.get_dag_by_name_with_runs!(dag.name,
+          limit: 30,
+          offset: 0,
+          params_search: "customer-42"
+        )
+
+      assert Enum.map(key_results.runs, & &1.id) == [key_match.id]
+      assert Enum.map(value_results.runs, & &1.id) == [value_match.id]
+    end
+
+    test "run parameter search works with status, pagination, and counts" do
+      dag = dag_fixture(%{name: "paginated_params_filtered"})
+
+      oldest_match =
+        run_fixture(%{
+          dag_id: dag.id,
+          status: :failed,
+          params: %{"customer" => "match"},
+          inserted_at: ~N[2021-01-01 00:00:00]
+        })
+
+      newest_match =
+        run_fixture(%{
+          dag_id: dag.id,
+          status: :failed,
+          params: %{"customer" => "MATCH"},
+          inserted_at: ~N[2022-01-01 00:00:00]
+        })
+
+      _wrong_status =
+        run_fixture(%{
+          dag_id: dag.id,
+          status: :succeeded,
+          params: %{"customer" => "match"}
+        })
+
+      _wrong_params =
+        run_fixture(%{dag_id: dag.id, status: :failed, params: %{"customer" => "other"}})
+
+      first_page =
+        Flows.get_dag_by_name_with_runs!(dag.name,
+          limit: 1,
+          offset: 0,
+          status: :failed,
+          params_search: "match"
+        )
+
+      second_page =
+        Flows.get_dag_by_name_with_runs!(dag.name,
+          limit: 1,
+          offset: 1,
+          status: :failed,
+          params_search: "match"
+        )
+
+      assert Enum.map(first_page.runs, & &1.id) == [newest_match.id]
+      assert Enum.map(second_page.runs, & &1.id) == [oldest_match.id]
+      assert Flows.count_runs_on_dag(dag.id, :failed, "match") == 2
+      assert Flows.count_runs_on_dag(dag.id, :failed, "missing") == 0
+    end
+
+    test "blank run parameter search does not filter runs" do
+      dag = dag_fixture(%{name: "blank_params_filtered"})
+      run = run_fixture(%{dag_id: dag.id, params: %{"customer" => "match"}})
+
+      loaded_dag =
+        Flows.get_dag_by_name_with_runs!(dag.name,
+          limit: 30,
+          offset: 0,
+          params_search: "  "
+        )
+
+      assert Enum.map(loaded_dag.runs, & &1.id) == [run.id]
+      assert Flows.count_runs_on_dag(dag.id, nil, "  ") == 1
+    end
+
     test "get_dag_by_name_with_runs!/1 raises when required pagination options are missing" do
       dag = dag_fixture(%{name: "missing_required_opts"})
 

@@ -23,9 +23,10 @@ defmodule GustWeb.RunLive.Index do
     page = String.to_integer(page)
     selected_status = run_status(params["status"])
     selected_status_param = status_param(selected_status)
-    dag = get_dag_with_runs!(page, page_size, name, selected_status)
+    params_search = parse_search_params(params["params_search"])
+    dag = get_dag_with_runs!(page, page_size, name, selected_status, params_search)
 
-    {runs_count, pages} = count_and_pages(dag.id, selected_status, page_size)
+    {runs_count, pages} = count_and_pages(dag.id, selected_status, params_search, page_size)
 
     subscribe_dag_runs(socket, dag)
 
@@ -37,6 +38,8 @@ defmodule GustWeb.RunLive.Index do
      |> assign(:runs_count, runs_count)
      |> assign(:page, page)
      |> assign(:selected_status, selected_status_param)
+     |> assign(:params_search, params_search)
+     |> assign(:params_search_form, to_form(%{"params_search" => params_search}))
      |> assign(:selected_run_ids, [])
      |> assign(:run_status_options, run_status_options())
      |> assign(:all_selected?, false)
@@ -44,8 +47,8 @@ defmodule GustWeb.RunLive.Index do
      |> stream(:runs, dag.runs, reset: true)}
   end
 
-  defp count_and_pages(dag_id, status, size) do
-    count = Flows.count_runs_on_dag(dag_id, status)
+  defp count_and_pages(dag_id, status, params_search, size) do
+    count = Flows.count_runs_on_dag(dag_id, status, params_search)
     pages = max(div(count + size - 1, size), 1)
     {count, pages}
   end
@@ -55,20 +58,54 @@ defmodule GustWeb.RunLive.Index do
     dag_name = socket.assigns.dag_name
     page_size = socket.assigns.page_size
     selected_status = socket.assigns.selected_status
+    params_search = socket.assigns.params_search
 
     {:noreply,
      socket
-     |> push_patch(to: runs_path(dag_name, page_size, num, selected_status))}
+     |> push_patch(to: runs_path(dag_name, page_size, num, selected_status, params_search))}
   end
 
   @impl true
   def handle_event("filter_status", %{"status" => status}, socket) do
     dag_name = socket.assigns.dag_name
     page_size = socket.assigns.page_size
+    params_search = socket.assigns.params_search
 
     {:noreply,
      socket
-     |> push_patch(to: runs_path(dag_name, page_size, 1, status))}
+     |> push_patch(to: runs_path(dag_name, page_size, 1, status, params_search))}
+  end
+
+  @impl true
+  def handle_event("filter_params", %{"params_search" => params_search}, socket) do
+    params_search = parse_search_params(params_search)
+
+    {:noreply,
+     push_patch(socket,
+       to:
+         runs_path(
+           socket.assigns.dag_name,
+           socket.assigns.page_size,
+           1,
+           socket.assigns.selected_status,
+           params_search
+         )
+     )}
+  end
+
+  @impl true
+  def handle_event("clear_params_search", _params, socket) do
+    {:noreply,
+     push_patch(socket,
+       to:
+         runs_path(
+           socket.assigns.dag_name,
+           socket.assigns.page_size,
+           1,
+           socket.assigns.selected_status,
+           ""
+         )
+     )}
   end
 
   @impl true
@@ -88,7 +125,8 @@ defmodule GustWeb.RunLive.Index do
         socket.assigns.page,
         socket.assigns.page_size,
         socket.assigns.dag_name,
-        run_status(socket.assigns.selected_status)
+        run_status(socket.assigns.selected_status),
+        socket.assigns.params_search
       )
 
     run_ids = if selected?, do: Enum.map(dag.runs, & &1.id), else: []
@@ -150,7 +188,7 @@ defmodule GustWeb.RunLive.Index do
     run = Flows.get_run!(run_id)
     PubSub.subscribe_run(run_id)
 
-    if status_matches?(run, socket.assigns.selected_status) do
+    if run_matches_filters?(run, socket) do
       {:noreply, socket |> stream_insert(:runs, run, at: 0)}
     else
       {:noreply, socket}
@@ -164,7 +202,7 @@ defmodule GustWeb.RunLive.Index do
       ) do
     run = Flows.get_run!(run_id)
 
-    if status_matches?(run, socket.assigns.selected_status) do
+    if run_matches_filters?(run, socket) do
       {:noreply, stream_insert(socket, :runs, run)}
     else
       {:noreply,
@@ -175,10 +213,15 @@ defmodule GustWeb.RunLive.Index do
     end
   end
 
-  defp get_dag_with_runs!(page, size, name, status) do
+  defp get_dag_with_runs!(page, size, name, status, params_search) do
     offset = (page - 1) * size
 
-    Flows.get_dag_by_name_with_runs!(name, limit: size, offset: offset, status: status)
+    Flows.get_dag_by_name_with_runs!(name,
+      limit: size,
+      offset: offset,
+      status: status,
+      params_search: params_search
+    )
   end
 
   defp pretty_json!(value) do
@@ -246,11 +289,29 @@ defmodule GustWeb.RunLive.Index do
   defp status_matches?(_run, ""), do: true
   defp status_matches?(run, status), do: to_string(run.status) == status
 
+  defp params_match?(_run, ""), do: true
+
+  defp params_match?(run, params_search) do
+    run.params
+    |> Jason.encode!()
+    |> String.downcase()
+    |> String.contains?(String.downcase(params_search))
+  end
+
+  defp run_matches_filters?(run, socket) do
+    status_matches?(run, socket.assigns.selected_status) and
+      params_match?(run, socket.assigns.params_search)
+  end
+
+  defp parse_search_params(nil), do: ""
+  defp parse_search_params(params_search), do: String.trim(params_search)
+
   defp refresh_runs_count(socket) do
     {runs_count, pages} =
       count_and_pages(
         socket.assigns.dag_id,
         run_status(socket.assigns.selected_status),
+        socket.assigns.params_search,
         socket.assigns.page_size
       )
 
@@ -265,7 +326,8 @@ defmodule GustWeb.RunLive.Index do
         socket.assigns.page,
         socket.assigns.page_size,
         socket.assigns.dag_name,
-        run_status(socket.assigns.selected_status)
+        run_status(socket.assigns.selected_status),
+        socket.assigns.params_search
       )
 
     subscribe_dag_runs(socket, dag)
@@ -296,9 +358,18 @@ defmodule GustWeb.RunLive.Index do
 
   defp maybe_clear_selection(socket, false), do: socket
 
-  defp runs_path(name, page_size, page, ""),
-    do: ~g"/dags/#{name}/runs?page_size=#{page_size}&page=#{page}"
+  defp runs_path(name, page_size, page, status, params_search) do
+    query_params =
+      [{"page_size", page_size}, {"page", page}]
+      |> maybe_add_query_param("status", status)
+      |> maybe_add_query_param("params_search", params_search)
 
-  defp runs_path(name, page_size, page, status),
-    do: ~g"/dags/#{name}/runs?page_size=#{page_size}&page=#{page}&status=#{status}"
+    ~g"/dags/#{name}/runs?#{URI.encode_query(query_params)}"
+  end
+
+  defp maybe_add_query_param(query_params, _key, ""), do: query_params
+
+  defp maybe_add_query_param(query_params, key, value) do
+    query_params ++ [{key, value}]
+  end
 end
