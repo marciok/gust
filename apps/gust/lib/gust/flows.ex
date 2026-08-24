@@ -577,6 +577,7 @@ defmodule Gust.Flows do
     * `:limit` - Required. The maximum number of runs to preload.
     * `:offset` - Required. The number of runs to skip before starting to preload.
     * `:status` - Optional. Filters preloaded runs by status when present.
+    * `:params_search` - Optional. Case-insensitively filters runs by parameter keys or values.
 
   ## Returns
 
@@ -589,6 +590,7 @@ defmodule Gust.Flows do
     limit = Keyword.fetch!(opts, :limit)
     offset = Keyword.fetch!(opts, :offset)
     status = Keyword.get(opts, :status)
+    params_search = Keyword.get(opts, :params_search)
 
     runs_q =
       from r in Run,
@@ -596,7 +598,10 @@ defmodule Gust.Flows do
         limit: ^limit,
         offset: ^offset
 
-    runs_q = maybe_filter_run_status(runs_q, status)
+    runs_q =
+      runs_q
+      |> maybe_filter_run_status(status)
+      |> maybe_filter_run_params(params_search)
 
     Repo.one!(
       from d in Dag,
@@ -611,15 +616,18 @@ defmodule Gust.Flows do
   ## Parameters
 
     * `dag_id` - The identifier of the DAG whose runs should be counted.
+    * `status` - Optional status to filter by.
+    * `params_search` - Optional case-insensitive parameter key or value search.
 
   ## Returns
 
     * The integer count of runs associated with the specified DAG.
   """
-  def count_runs_on_dag(dag_id, status \\ nil) do
+  def count_runs_on_dag(dag_id, status \\ nil, params_search \\ nil) do
     Run
     |> where([r], r.dag_id == ^dag_id)
     |> maybe_filter_run_status(status)
+    |> maybe_filter_run_params(params_search)
     |> Repo.aggregate(:count)
   end
 
@@ -638,6 +646,22 @@ defmodule Gust.Flows do
 
   defp maybe_filter_run_status(query, status) do
     where(query, [r], r.status == ^status)
+  end
+
+  defp maybe_filter_run_params(query, nil), do: query
+
+  defp maybe_filter_run_params(query, params_search) do
+    case String.trim(params_search) do
+      "" ->
+        query
+
+      params_search ->
+        where(
+          query,
+          [r],
+          fragment("strpos(lower(CAST(? AS text)), lower(?)) > 0", r.params, ^params_search)
+        )
+    end
   end
 
   @doc """

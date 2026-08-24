@@ -411,6 +411,14 @@
   .app-footer__value {
     @apply border border-slate-200 bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm;
   }
+
+  .run-params__search-form {
+    @apply flex h-8 min-w-0 flex-1 items-center gap-2 [&_.fieldset]:mb-0 [&_.fieldset]:h-8 [&_.fieldset]:min-w-0 [&_.fieldset]:flex-1;
+  }
+
+  .run-status__filter-form {
+    @apply flex h-8 shrink-0 items-center [&_.fieldset]:mb-0 [&_.fieldset]:h-8;
+  }
 }
 
 @layer components {

@@ -19,101 +19,132 @@
           <h2 class="dag-card__title dag-card__title-with-icon">
             <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
             <span>Runs for {@dag_name}: </span>
-            <span>{@runs_count}</span>
+            <span id="runs-count">{@runs_count}</span>
           </h2>
         </div>
 
         <nav
-          class="flex w-full flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3"
+          class="flex w-full flex-col gap-3 border-t border-slate-200 pt-3"
           aria-label="Run list controls"
         >
-          <div class="flex flex-wrap items-center gap-2">
-            <label
-              for="select-all-runs"
-              class="inline-flex h-8 items-center gap-2 rounded border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
+          <div class="flex w-full flex-wrap items-center justify-between gap-3">
+            <div
+              id="run-search-controls"
+              class="mx-auto flex h-8 w-full flex-nowrap items-center gap-2"
             >
-              <input
-                type="checkbox"
-                name="select_all_runs"
-                phx-click={JS.push("select_all")}
-                checked={@all_selected?}
-                id="select-all-runs"
-                class="checkbox checkbox-sm"
-              />
-              <span>
-                Select runs
-                <span :if={@selected_run_ids != []}>({length(@selected_run_ids)})</span>
-              </span>
-            </label>
+              <.form
+                for={@params_search_form}
+                id="run-params-search-form"
+                phx-submit="filter_params"
+                class="run-params__search-form"
+              >
+                <.input
+                  field={@params_search_form[:params_search]}
+                  id="run-params-search"
+                  type="search"
+                  placeholder="Search run params, any key or value"
+                  aria-label="Search run params, any key or value"
+                  class="input input-bordered input-sm h-8 w-full"
+                />
+                <button
+                  id="submit-run-params-search"
+                  type="submit"
+                  class="btn btn-sm btn-soft h-8 shrink-0"
+                >
+                  <.icon name="hero-magnifying-glass" class="h-4 w-4" /> Search
+                </button>
+                <button
+                  :if={@params_search != ""}
+                  id="clear-run-params-search"
+                  type="button"
+                  phx-click="clear_params_search"
+                  class="btn btn-sm btn-ghost h-8 shrink-0"
+                >
+                  <.icon name="hero-x-mark" class="h-4 w-4" /> Clear
+                </button>
+              </.form>
 
-            <details class="dropdown">
-              <summary id="run-batch-actions" class="btn btn-sm">
-                <.icon name="hero-chevron-down" class="h-4 w-4" /> Actions
-              </summary>
-              <ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-56 p-2 shadow-sm">
-                <li>
-                  <button
-                    id="batch-restart-runs"
-                    type="button"
-                    phx-click="batch_restart"
-                    disabled={@selected_run_ids == []}
-                    data-confirm="Are you sure you want to restart the selected runs?"
-                    class={[
-                      "btn btn-sm btn-soft justify-start",
-                      @selected_run_ids == [] && "btn-disabled"
-                    ]}
-                  >
-                    <.icon name="hero-arrow-path" class="h-4 w-4" /> Restart selected
-                  </button>
-                </li>
-                <li>
-                  <button
-                    id="batch-delete-runs"
-                    type="button"
-                    phx-click="batch_delete"
-                    disabled={@selected_run_ids == []}
-                    data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
-                    class={[
-                      "btn btn-sm btn-soft btn-error justify-start",
-                      @selected_run_ids == [] && "btn-disabled"
-                    ]}
-                  >
-                    <.icon name="hero-trash" class="h-4 w-4" /> Delete selected
-                  </button>
-                </li>
-              </ul>
-            </details>
-          </div>
+              <.form
+                for={%{}}
+                id="status-filter"
+                phx-change="filter_status"
+                class="run-status__filter-form"
+              >
+                <.input
+                  id="run-status-filter"
+                  value={@selected_status}
+                  name="status"
+                  type="select"
+                  options={@run_status_options}
+                  class="select select-bordered select-sm h-8 w-36"
+                />
+              </.form>
+            </div>
 
-          <div class="flex flex-wrap items-center gap-2">
-            <.form for={%{}} id="status-filter" phx-change="filter_status">
-              <.input
-                id="run-status-filter"
-                value={@selected_status}
-                name="status"
-                type="select"
-                options={@run_status_options}
-                class="select select-bordered select-sm w-36"
-              />
-            </.form>
+            <div class="flex flex-wrap items-center gap-2">
+              <label
+                for="select-all-runs"
+                class="inline-flex h-8 items-center gap-2 rounded border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
+              >
+                <input
+                  type="checkbox"
+                  name="select_all_runs"
+                  phx-click={JS.push("select_all")}
+                  checked={@all_selected?}
+                  id="select-all-runs"
+                  class="checkbox checkbox-sm"
+                />
+                <span>
+                  Select runs
+                  <span :if={@selected_run_ids != []}>({length(@selected_run_ids)})</span>
+                </span>
+              </label>
 
-            <.form for={%{}} id="page-select" phx-change="select_page">
-              <.input
-                id="pages"
-                value={@page}
-                name="page"
-                type="select"
-                options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
-                class="select select-bordered select-sm w-28"
-              />
-            </.form>
+              <details class="dropdown">
+                <summary id="run-batch-actions" class="btn btn-sm">
+                  <.icon name="hero-chevron-down" class="h-4 w-4" /> Actions
+                </summary>
+                <ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-56 p-2 shadow-sm">
+                  <li>
+                    <button
+                      id="batch-restart-runs"
+                      type="button"
+                      phx-click="batch_restart"
+                      disabled={@selected_run_ids == []}
+                      data-confirm="Are you sure you want to restart the selected runs?"
+                      class={[
+                        "btn btn-sm btn-soft justify-start",
+                        @selected_run_ids == [] && "btn-disabled"
+                      ]}
+                    >
+                      <.icon name="hero-arrow-path" class="h-4 w-4" /> Restart selected
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      id="batch-delete-runs"
+                      type="button"
+                      phx-click="batch_delete"
+                      disabled={@selected_run_ids == []}
+                      data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
+                      class={[
+                        "btn btn-sm btn-soft btn-error justify-start",
+                        @selected_run_ids == [] && "btn-disabled"
+                      ]}
+                    >
+                      <.icon name="hero-trash" class="h-4 w-4" /> Delete selected
+                    </button>
+                  </li>
+                </ul>
+              </details>
+            </div>
           </div>
         </nav>
       </div>
     </section>
 
     <div class="dag-card__body">
-      <div class="overflow-x-auto">
+      <div id="runs-table-container" class="overflow-x-auto">
         <.form for={%{}} id="run-batch-form" phx-change="select_runs">
           <.table id="runs" rows={@streams.runs}>
             <:col :let={{_id, run}} label="Select">
@@ -178,6 +209,63 @@
           </.table>
         </.form>
       </div>
+
+      <nav
+        id="runs-pagination"
+        class="flex justify-center border-t border-slate-200 pt-4"
+        aria-label="Runs pagination"
+      >
+        <div class="join">
+          <button
+            id="previous-page"
+            type="button"
+            phx-click="select_page"
+            phx-value-page={@page - 1}
+            disabled={@page == 1}
+            class="join-item btn btn-sm"
+            aria-label="Previous page"
+          >
+            <.icon name="hero-chevron-left" class="h-4 w-4" />
+          </button>
+
+          <%= for page_item <- pagination_items(@page, @pages) do %>
+            <span
+              :if={page_item == :ellipsis}
+              class="pagination-ellipsis join-item btn btn-sm btn-disabled pointer-events-none"
+              aria-hidden="true"
+            >
+              …
+            </span>
+            <button
+              :if={is_integer(page_item)}
+              id={"run-page-#{page_item}"}
+              type="button"
+              phx-click="select_page"
+              phx-value-page={page_item}
+              class={[
+                "join-item btn btn-sm",
+                page_item == @page && "btn-active"
+              ]}
+              aria-label={"Page #{page_item}"}
+              aria-current={if(page_item == @page, do: "page", else: nil)}
+            >
+              {page_item}
+            </button>
+          <% end %>
+
+          <button
+            id="next-page"
+            type="button"
+            phx-click="select_page"
+            phx-value-page={@page + 1}
+            disabled={@page == Enum.max(@pages)}
+            class="join-item btn btn-sm"
+            aria-label="Next page"
+          >
+            <.icon name="hero-chevron-right" class="h-4 w-4" />
+          </button>
+        </div>
+      </nav>
     </div>
   </div>
 </Layouts.app>
