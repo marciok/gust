@@ -195,7 +195,10 @@
       </div>
     </section>
 
-    <section :if={@item_error && map_size(@item_error) > 0} class="dag-card__body">
+    <section
+      :if={@item_error && map_size(@item_error) > 0 && @item_status != :running}
+      class="dag-card__body"
+    >
       <div
         id="task-error"
         role="alert"

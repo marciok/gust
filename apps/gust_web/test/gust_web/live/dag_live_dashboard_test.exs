@@ -404,6 +404,52 @@ defmodule GustWeb.DagLiveDashboardTest do
       refute has_element?(dashboard_live, "#task-error-stacktrace")
     end
 
+    test "does not display a persisted task error while the task is running", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      error = %{
+        type: "RuntimeError",
+        value: "running-task",
+        message: "stale error"
+      }
+
+      {:ok, task} = Flows.update_task_error(task, error)
+      {:ok, _task} = Flows.update_task_status(task, :running)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      refute has_element?(dashboard_live, "#task-error")
+    end
+
+    test "hides a displayed task error when the task starts running", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      error = %{
+        type: "RuntimeError",
+        value: "starting-task",
+        message: "previous attempt failed"
+      }
+
+      {:ok, task} = Flows.update_task_error(task, error)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(dashboard_live, "#task-error")
+
+      {:ok, _task} = Flows.update_task_status(task, :running)
+      Gust.PubSub.broadcast_run_status(run.id, :running, task.id)
+
+      refute has_element?(dashboard_live, "#task-error")
+    end
+
     test "display task error stacktrace", %{
       conn: conn,
       dag: dag,
