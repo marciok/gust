@@ -69,7 +69,7 @@ defmodule GustWeb.RunLiveTest do
 
       assert has_element?(
                index_live,
-               "#run-params-search[placeholder='Search run params, key or values']"
+               "#run-params-search[placeholder='Search run params, any key or value']"
              )
 
       refute has_element?(index_live, "label[for='run-params-search']")
