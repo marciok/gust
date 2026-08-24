@@ -138,26 +138,13 @@
                 </ul>
               </details>
             </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-              <.form for={%{}} id="page-select" phx-change="select_page">
-                <.input
-                  id="pages"
-                  value={@page}
-                  name="page"
-                  type="select"
-                  options={Enum.map(@pages, fn num -> {"Page: #{num}", num} end)}
-                  class="select select-bordered select-sm w-28"
-                />
-              </.form>
-            </div>
           </div>
         </nav>
       </div>
     </section>
 
     <div class="dag-card__body">
-      <div class="overflow-x-auto">
+      <div id="runs-table-container" class="overflow-x-auto">
         <.form for={%{}} id="run-batch-form" phx-change="select_runs">
           <.table id="runs" rows={@streams.runs}>
             <:col :let={{_id, run}} label="Select">
@@ -222,6 +209,63 @@
           </.table>
         </.form>
       </div>
+
+      <nav
+        id="runs-pagination"
+        class="flex justify-center border-t border-slate-200 pt-4"
+        aria-label="Runs pagination"
+      >
+        <div class="join">
+          <button
+            id="previous-page"
+            type="button"
+            phx-click="select_page"
+            phx-value-page={@page - 1}
+            disabled={@page == 1}
+            class="join-item btn btn-sm"
+            aria-label="Previous page"
+          >
+            <.icon name="hero-chevron-left" class="h-4 w-4" />
+          </button>
+
+          <%= for page_item <- pagination_items(@page, @pages) do %>
+            <span
+              :if={page_item == :ellipsis}
+              class="pagination-ellipsis join-item btn btn-sm btn-disabled pointer-events-none"
+              aria-hidden="true"
+            >
+              …
+            </span>
+            <button
+              :if={is_integer(page_item)}
+              id={"run-page-#{page_item}"}
+              type="button"
+              phx-click="select_page"
+              phx-value-page={page_item}
+              class={[
+                "join-item btn btn-sm",
+                page_item == @page && "btn-active"
+              ]}
+              aria-label={"Page #{page_item}"}
+              aria-current={if(page_item == @page, do: "page", else: nil)}
+            >
+              {page_item}
+            </button>
+          <% end %>
+
+          <button
+            id="next-page"
+            type="button"
+            phx-click="select_page"
+            phx-value-page={@page + 1}
+            disabled={@page == Enum.max(@pages)}
+            class="join-item btn btn-sm"
+            aria-label="Next page"
+          >
+            <.icon name="hero-chevron-right" class="h-4 w-4" />
+          </button>
+        </div>
+      </nav>
     </div>
   </div>
 </Layouts.app>

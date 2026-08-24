@@ -1,5 +1,5 @@
 defmodule GustWeb.RunLiveTest do
-  alias Gust.Flows
+  alias Gust.{Flows, Repo}
   use GustWeb.ConnCase
 
   import Phoenix.LiveViewTest
@@ -202,8 +202,8 @@ defmodule GustWeb.RunLiveTest do
       refute has_element?(index_live, "#runs-#{older_match.id}")
 
       index_live
-      |> element("#page-select")
-      |> render_change(%{"_target" => "page", "page" => "2"})
+      |> element("#run-page-2")
+      |> render_click()
 
       assert_patch(
         index_live,
@@ -228,14 +228,52 @@ defmodule GustWeb.RunLiveTest do
       assert index_live |> has_element?("#runs-#{current_page_run.id}")
       refute index_live |> has_element?("#runs-#{prev_page_run.id}")
 
-      assert index_live |> has_element?("#pages option[value='2']:checked")
-      refute index_live |> has_element?("#pages option[value='3']")
+      assert index_live |> has_element?("#runs-table-container + #runs-pagination")
+      assert index_live |> has_element?("#run-page-2.btn-active[aria-current='page']")
+      refute index_live |> has_element?("#run-page-3")
+      refute index_live |> has_element?("#previous-page[disabled]")
+      assert index_live |> has_element?("#next-page[disabled]")
 
       index_live
-      |> element("#page-select")
-      |> render_change(%{"_target" => "page", "page" => "1"})
+      |> element("#run-page-1")
+      |> render_click()
 
       assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=3&page=1"
+    end
+
+    test "keeps pagination compact with hundreds of pages", %{conn: conn} do
+      dag =
+        dag_fixture(%{
+          name: "dag_with_many_runs_#{System.unique_integer([:positive])}"
+        })
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      runs =
+        Enum.map(1..500, fn _index ->
+          %{
+            dag_id: dag.id,
+            status: :created,
+            params: %{},
+            inserted_at: now,
+            updated_at: now
+          }
+        end)
+
+      {500, nil} = Repo.insert_all(Flows.Run, runs)
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=1&page=250")
+
+      assert has_element?(index_live, "#run-page-1")
+      assert has_element?(index_live, "#run-page-249")
+      assert has_element?(index_live, "#run-page-250.btn-active[aria-current='page']")
+      assert has_element?(index_live, "#run-page-251")
+      assert has_element?(index_live, "#run-page-500")
+      assert has_element?(index_live, "#runs-pagination .pagination-ellipsis")
+      refute has_element?(index_live, "#run-page-2")
+      refute has_element?(index_live, "#run-page-248")
+      refute has_element?(index_live, "#run-page-252")
     end
 
     test "filters runs by status", %{conn: conn, dag: dag, run: created_run} do
@@ -312,8 +350,8 @@ defmodule GustWeb.RunLiveTest do
       refute index_live |> has_element?("#runs-#{older_failed_run.id}")
 
       index_live
-      |> element("#page-select")
-      |> render_change(%{"_target" => "page", "page" => "2"})
+      |> element("#run-page-2")
+      |> render_click()
 
       assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=1&page=2&status=failed"
     end

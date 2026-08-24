@@ -367,6 +367,32 @@ defmodule GustWeb.RunLive.Index do
     ~g"/dags/#{name}/runs?#{URI.encode_query(query_params)}"
   end
 
+  defp pagination_items(current_page, pages) do
+    total_pages = Enum.max(pages)
+
+    cond do
+      total_pages <= 7 ->
+        Enum.to_list(pages)
+
+      current_page <= 4 ->
+        [1, 2, 3, 4, 5, :ellipsis, total_pages]
+
+      current_page >= total_pages - 3 ->
+        [1, :ellipsis | Enum.to_list((total_pages - 4)..total_pages)]
+
+      true ->
+        [
+          1,
+          :ellipsis,
+          current_page - 1,
+          current_page,
+          current_page + 1,
+          :ellipsis,
+          total_pages
+        ]
+    end
+  end
+
   defp maybe_add_query_param(query_params, _key, ""), do: query_params
 
   defp maybe_add_query_param(query_params, key, value) do
