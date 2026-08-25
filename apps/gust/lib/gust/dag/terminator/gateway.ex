@@ -17,4 +17,12 @@ defmodule Gust.DAG.Terminator.Gateway do
       result -> result
     end
   end
+
+  @impl true
+  def stop_run(%Flows.Run{} = run) do
+    case RunGateway.call(run, :stop) do
+      {:error, :run_not_active} -> {:ok, run}
+      result -> result
+    end
+  end
 end

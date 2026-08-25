@@ -199,8 +199,9 @@
 
             <:action :let={{id, run}}>
               <.link
+                id={"delete-run-#{run.id}"}
                 phx-click={JS.push("delete", value: %{id: run.id}) |> hide("##{id}")}
-                data-confirm="Are you sure? Make sure it is completed, otherwise it may cause unexpected behavior."
+                data-confirm="Are you sure? An active run will be stopped before it is deleted."
                 class="btn btn-sm btn-soft btn-error"
               >
                 Delete

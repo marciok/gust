@@ -13,6 +13,10 @@ defmodule GustWeb.RunLiveTest do
       dag = dag_fixture(%{name: "dag_with_runs"})
       run = run_fixture(%{dag_id: dag.id})
 
+      stub(GustWeb.DAGTerminatorMock, :stop_run, fn run ->
+        Gust.DAG.Terminator.Gateway.stop_run(run)
+      end)
+
       %{conn: conn, run: run, dag: dag}
     end
 
@@ -364,8 +368,43 @@ defmodule GustWeb.RunLiveTest do
     test "deletes run in listing", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
-      assert index_live |> element("#runs-#{run.id} a", "Delete") |> render_click()
+      assert index_live |> element("#delete-run-#{run.id}") |> render_click()
       refute has_element?(index_live, "#runs-#{run.id}")
+    end
+
+    test "stops an active run process before deleting it", %{conn: conn, dag: dag, run: run} do
+      {:ok, run} = Flows.update_run_status(run, :running)
+      runner = start_registered_runner(run.id)
+      runner_ref = Process.monitor(runner)
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      assert index_live |> element("#delete-run-#{run.id}") |> render_click()
+      assert_receive {:run_stopped, run_id}
+      assert run_id == run.id
+      assert_receive {:DOWN, ^runner_ref, :process, ^runner, :normal}
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(run.id) end
+    end
+
+    test "keeps a run when its active process cannot be stopped", %{
+      conn: conn,
+      dag: dag,
+      run: run
+    } do
+      {:ok, run} = Flows.update_run_status(run, :running)
+      runner = start_rejecting_runner(run.id)
+
+      on_exit(fn ->
+        if Process.alive?(runner), do: send(runner, :stop)
+      end)
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      html = index_live |> element("#delete-run-#{run.id}") |> render_click()
+
+      assert html =~ "Run could not be deleted because its process could not be stopped."
+      assert Process.alive?(runner)
+      assert Flows.get_run!(run.id)
     end
 
     test "batch deletes selected runs in listing", %{conn: conn, dag: dag, run: first_run} do
@@ -396,13 +435,15 @@ defmodule GustWeb.RunLiveTest do
       assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(second_run.id) end
     end
 
-    test "batch delete skips active runs and reports the result", %{
+    test "batch delete stops active runs and deletes runs in any status", %{
       conn: conn,
       dag: dag,
       run: created_run
     } do
       succeeded_run = run_fixture(%{dag_id: dag.id, status: :succeeded})
       running_run = run_fixture(%{dag_id: dag.id, status: :running})
+      runner = start_registered_runner(running_run.id)
+      runner_ref = Process.monitor(runner)
 
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
@@ -414,12 +455,14 @@ defmodule GustWeb.RunLiveTest do
 
       html = index_live |> element("#batch-delete-runs") |> render_click()
 
-      assert html =~
-               "1 run deleted; 2 runs skipped: Created runs cannot be deleted. Running runs cannot be deleted."
+      assert html =~ "3 runs deleted"
+      assert_receive {:run_stopped, run_id}
+      assert run_id == running_run.id
+      assert_receive {:DOWN, ^runner_ref, :process, ^runner, :normal}
 
       assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(succeeded_run.id) end
-      assert Flows.get_run!(running_run.id)
-      assert Flows.get_run!(created_run.id)
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(running_run.id) end
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(created_run.id) end
     end
 
     test "batch delete with no selected runs does nothing", %{conn: conn, dag: dag, run: run} do
@@ -624,5 +667,45 @@ defmodule GustWeb.RunLiveTest do
 
       refute index_live |> has_element?("#runs-#{failed_run.id}")
     end
+  end
+
+  defp start_registered_runner(run_id) do
+    owner = self()
+
+    runner =
+      spawn(fn ->
+        {:ok, _owner} = Registry.register(Gust.Registry, "dag_run_#{run_id}", nil)
+        send(owner, {:run_registered, self()})
+
+        receive do
+          {:"$gen_call", from, :stop} ->
+            send(owner, {:run_stopped, run_id})
+            GenServer.reply(from, {:ok, :stopped})
+        end
+      end)
+
+    assert_receive {:run_registered, ^runner}
+    runner
+  end
+
+  defp start_rejecting_runner(run_id) do
+    owner = self()
+
+    runner =
+      spawn(fn ->
+        {:ok, _owner} = Registry.register(Gust.Registry, "dag_run_#{run_id}", nil)
+        send(owner, {:run_registered, self()})
+
+        receive do
+          {:"$gen_call", from, :stop} -> GenServer.reply(from, {:error, :cannot_stop})
+        end
+
+        receive do
+          :stop -> :ok
+        end
+      end)
+
+    assert_receive {:run_registered, ^runner}
+    runner
   end
 end

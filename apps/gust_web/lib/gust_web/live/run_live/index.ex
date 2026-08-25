@@ -1,5 +1,6 @@
 defmodule GustWeb.RunLive.Index do
   alias Gust.DAG.Run.Trigger
+  alias Gust.DAG.Terminator
   alias Gust.Flows
   alias Gust.PubSub
   use GustWeb, :live_view
@@ -144,10 +145,10 @@ defmodule GustWeb.RunLive.Index do
   end
 
   def handle_event("batch_delete", _params, socket) do
-    {eligible_runs, skipped_runs} = socket |> selected_runs_on_dag() |> partition_batch_runs()
+    {stopped_runs, skipped_runs} = socket |> selected_runs_on_dag() |> partition_stoppable_runs()
 
     {:ok, deleted_runs} =
-      Flows.delete_runs_on_dag(socket.assigns.dag_id, Enum.map(eligible_runs, & &1.id))
+      Flows.delete_runs_on_dag(socket.assigns.dag_id, Enum.map(stopped_runs, & &1.id))
 
     {:noreply,
      socket
@@ -161,7 +162,9 @@ defmodule GustWeb.RunLive.Index do
   end
 
   def handle_event("batch_restart", _params, socket) do
-    {eligible_runs, skipped_runs} = socket |> selected_runs_on_dag() |> partition_batch_runs()
+    {eligible_runs, skipped_runs} =
+      socket |> selected_runs_on_dag() |> partition_restartable_runs()
+
     restarted_runs = Enum.map(eligible_runs, &Trigger.reset_run/1)
 
     {:noreply,
@@ -173,11 +176,21 @@ defmodule GustWeb.RunLive.Index do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     run = Flows.get_run!(id)
-    {:ok, _} = Flows.delete_run(run)
 
-    {:noreply,
-     socket
-     |> refresh_run_list(clear_selection?: false)}
+    case stop_run(run) do
+      :ok ->
+        {:ok, _run} = Flows.delete_run(run)
+
+        {:noreply, refresh_run_list(socket, clear_selection?: false)}
+
+      {:error, _reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Run could not be deleted because its process could not be stopped."
+         )}
+    end
   end
 
   @impl true
@@ -251,8 +264,19 @@ defmodule GustWeb.RunLive.Index do
     Flows.get_runs_on_dag(socket.assigns.dag_id, socket.assigns.selected_run_ids)
   end
 
-  defp partition_batch_runs(runs) do
+  defp partition_stoppable_runs(runs) do
+    Enum.split_with(runs, &(stop_run(&1) == :ok))
+  end
+
+  defp partition_restartable_runs(runs) do
     Enum.split_with(runs, &(&1.status in @completed_run_statuses))
+  end
+
+  defp stop_run(run) do
+    case Terminator.stop_run(run) do
+      {:ok, _run} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp batch_summary(action, processed_runs, []) do
