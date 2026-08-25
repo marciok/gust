@@ -168,6 +168,17 @@
       </div>
     </section>
 
+    <div
+      :if={@item_status}
+      id="task-status-progress"
+      class={["task-status-progress", "status-#{@item_status}"]}
+      role="progressbar"
+      aria-label={"Status: #{@item_status}"}
+      aria-valuetext={to_string(@item_status)}
+    >
+      <div class="task-status-progress__bar"></div>
+    </div>
+
     <section class="dag-card__meta">
       <div :if={@item_inserted_at} class="dag-card__meta-item">
         <div class="dag-card__meta-label">Started</div>
@@ -195,7 +206,10 @@
       </div>
     </section>
 
-    <section :if={@item_error && map_size(@item_error) > 0} class="dag-card__body">
+    <section
+      :if={@item_error && map_size(@item_error) > 0 && @item_status != :running}
+      class="dag-card__body"
+    >
       <div
         id="task-error"
         role="alert"

@@ -419,6 +419,55 @@
   .run-status__filter-form {
     @apply flex h-8 shrink-0 items-center [&_.fieldset]:mb-0 [&_.fieldset]:h-8;
   }
+
+  .task-status-progress {
+    @apply h-1.5 w-full overflow-hidden;
+  }
+
+  .task-status-progress__bar {
+    @apply h-full w-full;
+  }
+
+  .status-running,
+  .task-grid-cell--running {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--color-sky-600) 0,
+      var(--color-sky-600) 0.75rem,
+      var(--color-sky-300) 0.75rem,
+      var(--color-sky-300) 1.5rem
+    );
+    background-size: 2.125rem 2.125rem;
+    animation: task-running-stripes 0.8s linear infinite;
+  }
+
+  .status-retrying,
+  .task-grid-cell--retrying {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--color-amber-600) 0,
+      var(--color-amber-600) 0.75rem,
+      var(--color-amber-300) 0.75rem,
+      var(--color-amber-300) 1.5rem
+    );
+    background-size: 2.125rem 2.125rem;
+    animation: task-running-stripes 0.8s linear infinite;
+  }
+}
+
+@keyframes task-running-stripes {
+  to {
+    background-position: 2.125rem 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-running,
+   .status-retrying,
+   .task-grid-cell--running,
+   .task-grid-cell--retrying {
+    animation: none;
+  }
 }
 
 @layer components {

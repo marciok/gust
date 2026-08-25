@@ -214,19 +214,24 @@ defmodule GustWeb.RunLiveTest do
       refute has_element?(index_live, "#runs-#{newer_match.id}")
     end
 
-    test "list runs paged", %{conn: conn, dag: dag, run: _first_run} do
+    test "list runs paged", %{conn: conn, dag: dag, run: first_run} do
       page_size = 3
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-      run_fixture(%{dag_id: dag.id})
-      prev_page_run = run_fixture(%{dag_id: dag.id})
+      run_fixture(%{dag_id: dag.id, inserted_at: DateTime.add(now, 60)})
 
-      current_page_run = run_fixture(%{dag_id: dag.id})
+      prev_page_run =
+        run_fixture(%{dag_id: dag.id, inserted_at: DateTime.add(now, 120)})
+
+      current_page_run =
+        run_fixture(%{dag_id: dag.id, inserted_at: DateTime.add(now, 180)})
 
       {:ok, index_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/runs?page_size=#{page_size}&page=2")
 
-      assert index_live |> has_element?("#runs-#{current_page_run.id}")
+      assert index_live |> has_element?("#runs-#{first_run.id}")
       refute index_live |> has_element?("#runs-#{prev_page_run.id}")
+      refute index_live |> has_element?("#runs-#{current_page_run.id}")
 
       assert index_live |> has_element?("#runs-table-container + #runs-pagination")
       assert index_live |> has_element?("#run-page-2.btn-active[aria-current='page']")

@@ -120,7 +120,7 @@ defmodule GustWeb.DagRunComponentsTest do
       assert [_cell] =
                LazyHTML.query(
                  document,
-                 "#load_data-at-run-42.task-grid-cell.status-running.active.selected"
+                 "#load_data-at-run-42.task-grid-cell.status-running.active.selected.task-grid-cell--running"
                )
                |> LazyHTML.to_tree()
     end
