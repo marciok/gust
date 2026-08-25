@@ -19,6 +19,7 @@ defmodule Gust.DAG.Runner.RunGateway.Default do
   @doc false
   def local_call(run_id, command) do
     case Registry.lookup(Gust.Registry, registry_key(run_id)) do
+      [{pid, _value}] when command == :stop -> safe_stop(pid)
       [{pid, _value}] -> safe_call(pid, command)
       [] -> {:error, :run_not_active}
     end
@@ -47,7 +48,35 @@ defmodule Gust.DAG.Runner.RunGateway.Default do
   end
 
   defp safe_call(pid, command) do
-    GenServer.call(pid, command, call_timeout())
+    call_safely(fn -> GenServer.call(pid, command, call_timeout()) end)
+  end
+
+  defp safe_stop(pid) do
+    monitor = Process.monitor(pid)
+
+    try do
+      call_safely(fn -> stop_and_wait(pid, monitor) end)
+    after
+      Process.demonitor(monitor, [:flush])
+    end
+  end
+
+  defp stop_and_wait(pid, monitor) do
+    case GenServer.call(pid, :stop, call_timeout()) do
+      {:ok, _value} = result ->
+        receive do
+          {:DOWN, ^monitor, :process, ^pid, _reason} -> result
+        after
+          call_timeout() -> {:error, :run_command_timeout}
+        end
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp call_safely(callback) do
+    callback.()
   catch
     :exit, {:normal, _call} -> {:error, :run_not_active}
     :exit, {:shutdown, _call} -> {:error, :run_not_active}

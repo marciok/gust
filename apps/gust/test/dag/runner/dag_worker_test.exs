@@ -226,6 +226,52 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert Flows.get_run!(run.id).status == :failed
   end
 
+  test "stops active task workers, ignores missing tasks, and tears down", %{run: run} do
+    dag_def = definition([["running"]])
+    expect_task_starts(1)
+
+    Gust.RuntimeAdapterMock
+    |> expect(:kill, fn task_pid ->
+      Process.exit(task_pid, :kill)
+      :ok
+    end)
+    |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+    runner = start_runner(run, dag_def)
+    runner_ref = Process.monitor(runner)
+
+    assert_receive {:task_started, %Flows.Task{name: "running"} = task, ^runner}
+    [{task_pid, _value}] = Registry.lookup(Gust.Registry, TaskWorker.registry_name(task))
+    task_ref = Process.monitor(task_pid)
+
+    :sys.replace_state(runner, fn state ->
+      %{state | current_task_ids: MapSet.put(state.current_task_ids, -1)}
+    end)
+
+    assert is_nil(Flows.get_task(-1))
+
+    assert {:ok, %Flows.Run{id: run_id}} = RunGateway.call(run, :stop)
+    assert run_id == run.id
+    assert_receive {:DOWN, ^task_ref, :process, ^task_pid, :killed}
+    assert_receive {:DOWN, ^runner_ref, :process, ^runner, :normal}
+  end
+
+  test "returns the task cancellation error and keeps the run alive", %{run: run} do
+    dag_def = definition([["running"]])
+    expect_task_starts(1)
+
+    Gust.RuntimeAdapterMock
+    |> expect(:kill, fn _task_pid -> {:error, :cannot_kill_task} end)
+
+    runner = start_runner(run, dag_def)
+    runner_ref = Process.monitor(runner)
+
+    assert_receive {:task_started, %Flows.Task{name: "running"}, ^runner}
+    assert {:error, :cannot_kill_task} = RunGateway.call(run, :stop)
+    assert Process.alive?(runner)
+    refute_receive {:DOWN, ^runner_ref, :process, ^runner, _reason}
+  end
+
   test "persists waiting state and pauses the run", %{run: run} do
     dag_def =
       definition(

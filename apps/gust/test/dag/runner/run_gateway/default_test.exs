@@ -53,6 +53,46 @@ defmodule Gust.DAG.Runner.RunGateway.DefaultTest do
     assert {:error, :run_not_active} = Default.call(run, :stop)
   end
 
+  test "returns a stop error without waiting for the worker to exit" do
+    run = run()
+
+    worker =
+      spawn_registered(run.id, fn
+        {:"$gen_call", from, :stop} ->
+          GenServer.reply(from, {:error, :cannot_stop})
+
+          receive do
+            :stop -> :ok
+          end
+      end)
+
+    assert {:error, :cannot_stop} = Default.call(run, :stop)
+    assert Process.alive?(worker)
+    send(worker, :stop)
+  end
+
+  test "times out when the worker acknowledges stop but remains alive" do
+    run = run()
+
+    worker =
+      spawn_registered(run.id, fn
+        {:"$gen_call", from, :stop} ->
+          GenServer.reply(from, {:ok, :stopping})
+
+          receive do
+            :stop -> :ok
+          end
+      end)
+
+    on_exit(fn ->
+      if Process.alive?(worker), do: Process.exit(worker, :kill)
+    end)
+
+    assert {:error, :run_command_timeout} = Default.call(run, :stop)
+    assert Process.alive?(worker)
+    send(worker, :stop)
+  end
+
   test "returns run_command_failed when the worker crashes during the call" do
     run = run()
 

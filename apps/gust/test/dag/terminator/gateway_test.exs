@@ -61,4 +61,18 @@ defmodule Gust.DAG.Terminator.GatewayTest do
     assert {:error, :run_not_active} = Gateway.cancel(task)
     assert Flows.get_task!(task.id).status == :running
   end
+
+  test "routes run stops through the run gateway", %{run: run} do
+    Gust.RunGatewayMock
+    |> expect(:call, fn ^run, :stop -> {:ok, run} end)
+
+    assert {:ok, ^run} = Gateway.stop_run(run)
+  end
+
+  test "treats a run without an active process as stopped", %{run: run} do
+    Gust.RunGatewayMock
+    |> expect(:call, fn ^run, :stop -> {:error, :run_not_active} end)
+
+    assert {:ok, ^run} = Gateway.stop_run(run)
+  end
 end

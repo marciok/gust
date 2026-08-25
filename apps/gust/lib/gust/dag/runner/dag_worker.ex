@@ -122,6 +122,18 @@ defmodule Gust.DAG.Runner.DAGWorker do
   end
 
   @impl true
+  def handle_call(:stop, _from, %State{} = state) do
+    case stop_active_tasks(state) do
+      :ok ->
+        teardown(state.dag_def, state.runtime_id)
+        {:stop, :normal, {:ok, state.run}, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  @impl true
   def handle_info(
         {:task_result, result, task_id, status},
         %State{coord: coord, dag_def: dag_def} = state
@@ -329,6 +341,27 @@ defmodule Gust.DAG.Runner.DAGWorker do
       Flows.update_task_wait_state(task, %{waiting_for: nil, wait_satisfied_at: nil})
 
     :ok
+  end
+
+  defp stop_active_tasks(%State{} = state) do
+    Enum.reduce_while(state.current_task_ids, :ok, fn task_id, :ok ->
+      task_id
+      |> Flows.get_task()
+      |> stop_task(state)
+    end)
+  end
+
+  defp stop_task(nil, _state), do: {:cont, :ok}
+
+  defp stop_task(%Flows.Task{} = task, state) do
+    case maybe_cancel_execution(task, state) do
+      :ok -> {:cont, :ok}
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
+  end
+
+  defp maybe_cancel_execution(%Flows.Task{status: status} = task, state) do
+    if TaskStatus.cancellable?(status), do: cancel_execution(task, state), else: :ok
   end
 
   defp update_run_status(run, status) do
