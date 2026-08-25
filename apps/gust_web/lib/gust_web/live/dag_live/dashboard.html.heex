@@ -169,9 +169,12 @@
     </section>
 
     <div
+      :if={@item_status}
       id="task-status-progress"
-      class={["status-#{@item_status}", "task-status-progress"]}
+      class={["task-status-progress", "status-#{@item_status}"]}
       role="progressbar"
+      aria-label={"Status: #{@item_status}"}
+      aria-valuetext={to_string(@item_status)}
     >
       <div class="task-status-progress__bar"></div>
     </div>

@@ -61,7 +61,7 @@ defmodule GustWeb.DagRunComponents do
         "task-grid-cell border rounded",
         if(@status, do: "status-#{@status} active", else: "status-none"),
         @selected && "selected",
-        "task-grid-cell--#{@status}"
+        @status && "task-grid-cell--#{@status}"
       ]}
     >
     </div>

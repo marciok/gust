@@ -462,8 +462,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .task-status-progress__bar,
-  .task-grid-cell--running {
+  .status-running,
+   .status-retrying,
+   .task-grid-cell--running,
+   .task-grid-cell--retrying {
     animation: none;
   }
 }
