@@ -1,4 +1,5 @@
 defmodule GustWeb.RunLiveTest do
+  alias Gust.DAG.Terminator.Gateway
   alias Gust.{Flows, Repo}
   use GustWeb.ConnCase
 
@@ -14,7 +15,7 @@ defmodule GustWeb.RunLiveTest do
       run = run_fixture(%{dag_id: dag.id})
 
       stub(GustWeb.DAGTerminatorMock, :stop_run, fn run ->
-        Gust.DAG.Terminator.Gateway.stop_run(run)
+        Gateway.stop_run(run)
       end)
 
       %{conn: conn, run: run, dag: dag}

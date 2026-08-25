@@ -345,17 +345,19 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   defp stop_active_tasks(%State{} = state) do
     Enum.reduce_while(state.current_task_ids, :ok, fn task_id, :ok ->
-      case Flows.get_task(task_id) do
-        %Flows.Task{} = task ->
-          case maybe_cancel_execution(task, state) do
-            :ok -> {:cont, :ok}
-            {:error, reason} -> {:halt, {:error, reason}}
-          end
-
-        nil ->
-          {:cont, :ok}
-      end
+      task_id
+      |> Flows.get_task()
+      |> stop_task(state)
     end)
+  end
+
+  defp stop_task(nil, _state), do: {:cont, :ok}
+
+  defp stop_task(%Flows.Task{} = task, state) do
+    case maybe_cancel_execution(task, state) do
+      :ok -> {:cont, :ok}
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
   end
 
   defp maybe_cancel_execution(%Flows.Task{status: status} = task, state) do
