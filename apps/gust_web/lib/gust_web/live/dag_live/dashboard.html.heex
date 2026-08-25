@@ -168,6 +168,14 @@
       </div>
     </section>
 
+    <div
+      id="task-status-progress"
+      class={["status-#{@item_status}", "task-status-progress"]}
+      role="progressbar"
+    >
+      <div class="task-status-progress__bar"></div>
+    </div>
+
     <section class="dag-card__meta">
       <div :if={@item_inserted_at} class="dag-card__meta-item">
         <div class="dag-card__meta-label">Started</div>

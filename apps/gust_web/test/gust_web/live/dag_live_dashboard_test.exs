@@ -423,6 +423,13 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
       refute has_element?(dashboard_live, "#task-error")
+
+      assert has_element?(
+               dashboard_live,
+               "#task-status-progress[role='progressbar']"
+             )
+
+      assert has_element?(dashboard_live, "#task-status-progress .task-status-progress__bar")
     end
 
     test "hides a displayed task error when the task starts running", %{
@@ -448,6 +455,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       Gust.PubSub.broadcast_run_status(run.id, :running, task.id)
 
       refute has_element?(dashboard_live, "#task-error")
+      assert has_element?(dashboard_live, "#task-status-progress")
     end
 
     test "display task error stacktrace", %{
@@ -510,6 +518,12 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
 
       assert mermaid_source(dashboard_live) =~ "class #{task.name} status-running"
+
+      assert has_element?(
+               dashboard_live,
+               "##{task.name}-at-run-#{run.id}.task-grid-cell--running"
+             )
+
       refute mermaid_source(dashboard_live) =~ "selected-task"
 
       {:ok, _task} = Flows.update_task_status(task, :succeeded)
@@ -517,6 +531,11 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert mermaid_source(dashboard_live) =~ "class #{task.name} status-succeeded"
       refute mermaid_source(dashboard_live) =~ "class #{task.name} status-running"
+
+      refute has_element?(
+               dashboard_live,
+               "##{task.name}-at-run-#{run.id}.task-grid-cell--running"
+             )
     end
 
     test "marks the selected task on the mermaid graph", %{
@@ -568,11 +587,21 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, _task} = Gust.Flows.update_task_status(task, :running)
       {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
+      assert has_element?(
+               dashboard_live,
+               "#run-status-cell-#{run.id}.task-grid-cell--running"
+             )
+
       Flows.update_run_status(run, :succeeded)
 
       Gust.PubSub.broadcast_run_status(run.id, :succeeded)
 
       assert has_element?(dashboard_live, "#run-status-cell-#{run.id}.status-succeeded")
+
+      refute has_element?(
+               dashboard_live,
+               "#run-status-cell-#{run.id}.task-grid-cell--running"
+             )
     end
 
     test "selected run details are reloaded when its status changes", %{
