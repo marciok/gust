@@ -1,7 +1,16 @@
 defmodule Gust.DAG.Runner.TaskExecution do
   @moduledoc false
 
-  alias Gust.DAG.{Adapter, ErrorParser, TaskRunnerSupervisor, TaskWaiter, TaskWorker}
+  alias Gust.DAG.{
+    Adapter,
+    ErrorParser,
+    TaskRunnerSupervisor,
+    TaskWaiter,
+    TaskWorker
+  }
+
+  alias Gust.DAG.Run.ErrorReporter.Worker, as: ErrorReporterWorker
+  alias Gust.DAG.Runner.TaskFailureError
   alias Gust.Flows
   alias Gust.PubSub
 
@@ -36,6 +45,22 @@ defmodule Gust.DAG.Runner.TaskExecution do
       maybe_update_result(task, dag_def.tasks, status, result)
     end
   end
+
+  def maybe_report_error(task, status, error, dag_name)
+      when status in [:error, :non_recoverable_error] do
+    {error, stacktrace} = error_and_stacktrace(error)
+    exception = TaskFailureError.exception_from_error(error)
+
+    data = %{
+      task_name: task.name,
+      run_id: task.run_id,
+      dag_name: dag_name
+    }
+
+    ErrorReporterWorker.report(exception, stacktrace, data)
+  end
+
+  def maybe_report_error(_task, _status, _error, _dag_name), do: :ok
 
   def finish(task, status) do
     case status do
@@ -92,6 +117,11 @@ defmodule Gust.DAG.Runner.TaskExecution do
     {:ok, updated_task} = Flows.update_task_error(task, ErrorParser.parse(error))
     updated_task
   end
+
+  defp error_and_stacktrace({:error_with_stacktrace, error, stacktrace}),
+    do: {error, stacktrace}
+
+  defp error_and_stacktrace(error), do: {error, []}
 
   defp update_result?(tasks, name, :ok), do: tasks[name][:store_result]
   defp update_result?(_tasks, _name, _status), do: false

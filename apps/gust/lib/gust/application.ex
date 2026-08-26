@@ -54,6 +54,7 @@ defmodule Gust.Application do
     DAG.Folder.verify!(env, folder)
 
     query = Gust.DNSCluster.parse_query(Application.get_env(:gust, :dns_cluster_query))
+    error_tracking = Application.get_env(:gust, :error_tracking, [])
 
     base_children =
       [
@@ -61,7 +62,8 @@ defmodule Gust.Application do
         Gust.Repo,
         {Registry, keys: :unique, name: Gust.Registry},
         {DNSCluster, query: query},
-        {Phoenix.PubSub, name: Gust.PubSub}
+        {Phoenix.PubSub, name: Gust.PubSub},
+        {Gust.DAG.Run.ErrorReporter.Worker, error_tracking}
       ]
 
     role = System.get_env("GUST_ROLE", "single")
