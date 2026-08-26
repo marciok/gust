@@ -1,4 +1,26 @@
 <Layouts.app flash={@flash}>
+  <div id="dag-index-header" class="p-3">
+    <.header>
+      Listing DAGs
+      <:actions>
+        <.form
+          for={@filter_form}
+          id="dag-filter-form"
+          phx-change="filter_dags"
+          class="flex items-center [&_.fieldset]:mb-0"
+        >
+          <.input
+            field={@filter_form[:failed_runs_only]}
+            id="recent-failures-only"
+            type="checkbox"
+            label="Recent failures only"
+            class="checkbox checkbox-sm"
+          />
+        </.form>
+      </:actions>
+    </.header>
+  </div>
+
   <div phx-update="stream" id="broken-dags">
     <div
       :for={{dag_id, %{dag: dag, error: _error}} <- @streams.broken_dags}
@@ -9,6 +31,14 @@
     </div>
   </div>
   <div phx-update="stream" id="dags">
+    <div id="dags-empty" class="hidden only:block rounded-lg bg-white p-6 text-center shadow-sm">
+      <p class="text-sm text-slate-600">
+        {if(@failed_runs_only?,
+          do: "No DAGs have failures among their ten most recent runs.",
+          else: "No DAGs found."
+        )}
+      </p>
+    </div>
     <div
       :for={{dag_id, %{dag: dag, dag_def: dag_def, recent_runs: recent_runs}} <- @streams.dags}
       class="grid grid-cols-1 gap-4 mb-4"

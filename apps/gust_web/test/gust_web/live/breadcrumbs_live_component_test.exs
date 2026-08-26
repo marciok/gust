@@ -51,6 +51,41 @@ defmodule GustWeb.BreadcrumbsLiveComponentTest do
     assert_redirect breadcrumbs, "/dags/#{dag_def.name}/dashboard?run_id=#{run.id}"
   end
 
+  test "pinn run is preserved in selected-item links", %{
+    conn: conn,
+    dag: dag,
+    dag_def: dag_def
+  } do
+    run = run_fixture(%{dag_id: dag.id})
+
+    {:ok, breadcrumbs, _html} =
+      live_component_isolated(conn, GustWeb.BreadcrumbsComponent, %{
+        selected_item: run,
+        dag_def: dag_def,
+        pinned_run_id: run.id
+      })
+
+    assert breadcrumbs |> element("#dag-run-link") |> render_click()
+
+    assert_redirect breadcrumbs,
+                    "/dags/#{dag_def.name}/dashboard?run_id=#{run.id}&pinned_run_id=#{run.id}"
+
+    {:ok, breadcrumbs, _html} =
+      live_component_isolated(conn, GustWeb.BreadcrumbsComponent, %{
+        selected_item: run,
+        dag_def: dag_def,
+        pinned_run_id: run.id
+      })
+
+    assert has_element?(
+             breadcrumbs,
+             "#breadcrumbs-nav > #clear-history-pinned.badge.badge-warning.ml-auto[aria-label='Unpin history and return to latest runs']"
+           )
+
+    assert breadcrumbs |> element("#clear-history-pinned") |> render_click()
+    assert_redirect breadcrumbs, "/dags/#{dag_def.name}/dashboard?page=1"
+  end
+
   test "dag, run and task is provided", %{conn: conn, dag: dag, dag_def: dag_def} do
     run = run_fixture(%{dag_id: dag.id})
     task = task_fixture(%{run_id: run.id, name: "hello_breadcrumb"})

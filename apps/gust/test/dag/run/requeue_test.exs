@@ -85,7 +85,7 @@ defmodule DAG.Run.RequeueTest do
       end)
 
       assert [%Flows.Task{id: restarted_task_id, status: :created}] =
-               Trigger.reset_task(graph, task)
+               Trigger.reset_task(graph, [task, expanded_task])
 
       assert restarted_task_id == task.id
       assert %Flows.Task{status: :created} = Flows.get_task!(task.id)
@@ -108,7 +108,7 @@ defmodule DAG.Run.RequeueTest do
       }
 
       assert [%Flows.Task{id: restarted_task_id, status: :created, map_index: 1}] =
-               Trigger.reset_task(graph, mapped_task, 1)
+               Trigger.reset_task(graph, mapped_task)
 
       assert restarted_task_id == mapped_task.id
       assert Flows.get_task!(task.id).status == :failed
@@ -142,7 +142,7 @@ defmodule DAG.Run.RequeueTest do
         }
       }
 
-      restarted_tasks = Trigger.reset_task(graph, selected_mapped_task, 1)
+      restarted_tasks = Trigger.reset_task(graph, selected_mapped_task)
 
       assert MapSet.new(Enum.map(restarted_tasks, & &1.id)) ==
                MapSet.new([selected_mapped_task.id, downstream_task.id])
@@ -151,6 +151,121 @@ defmodule DAG.Run.RequeueTest do
       assert Flows.get_task!(selected_mapped_task.id).status == :created
       assert Flows.get_task!(downstream_task.id).status == :created
       assert %Flows.Run{status: :enqueued} = Flows.get_run!(run_id)
+    end
+
+    test "restarts through the active owner regardless of persisted run status", %{
+      run: run,
+      run_id: run_id
+    } do
+      task =
+        task_fixture(%{
+          run_id: run_id,
+          name: "mapped",
+          status: :failed,
+          map_index: 1
+        })
+
+      parent = self()
+
+      spawn(fn ->
+        {:ok, _owner} = Registry.register(Gust.Registry, "dag_run_#{run_id}", nil)
+        send(parent, :run_owner_ready)
+
+        receive do
+          {:"$gen_call", from, {:restart_mapped_task, task_id}} ->
+            send(parent, {:restart_requested, task_id})
+            GenServer.reply(from, {:ok, %{task | status: :running}})
+        end
+      end)
+
+      assert_receive :run_owner_ready
+      PubSub.subscribe_run_dispatch()
+
+      graph = %{"mapped" => %{downstream: MapSet.new(), upstream: MapSet.new()}}
+
+      assert {:ok, %Flows.Task{id: task_id, status: :running}} =
+               Trigger.reset_task(graph, task)
+
+      assert task_id == task.id
+      assert_receive {:restart_requested, ^task_id}
+      assert Flows.get_run!(run.id).status == :created
+      refute_receive {:run_dispatch, :wake}
+    end
+
+    test "falls back to resetting and enqueueing when no run owner exists", %{run: run} do
+      {:ok, _run} = Flows.update_run_status(run, :running)
+
+      task =
+        task_fixture(%{
+          run_id: run.id,
+          name: "mapped",
+          status: :failed,
+          map_index: 0
+        })
+
+      graph = %{"mapped" => %{downstream: MapSet.new(), upstream: MapSet.new()}}
+
+      assert [%Flows.Task{id: task_id, status: :created}] =
+               Trigger.reset_task(graph, task)
+
+      assert task_id == task.id
+      assert Flows.get_run!(run.id).status == :enqueued
+    end
+
+    test "does not enqueue while an owner lease is still active", %{run: run} do
+      {:ok, run} =
+        run
+        |> Ecto.Changeset.change(
+          status: :starting,
+          claimed_by: to_string(Node.self()),
+          claim_expires_at: DateTime.add(DateTime.utc_now(), 30)
+        )
+        |> Gust.Repo.update()
+
+      task =
+        task_fixture(%{
+          run_id: run.id,
+          name: "mapped",
+          status: :failed,
+          map_index: 0
+        })
+
+      graph = %{"mapped" => %{downstream: MapSet.new(), upstream: MapSet.new()}}
+
+      assert {:error, :run_owner_unavailable} =
+               Trigger.reset_task(graph, task)
+
+      assert Flows.get_task!(task.id).status == :failed
+      assert Flows.get_run!(run.id).status == :starting
+    end
+
+    test "rejects restarting a mapped group while a run owner is active", %{run: run} do
+      task =
+        task_fixture(%{
+          run_id: run.id,
+          name: "mapped",
+          status: :failed,
+          map_index: 0
+        })
+
+      parent = self()
+
+      spawn(fn ->
+        {:ok, _owner} = Registry.register(Gust.Registry, "dag_run_#{run.id}", nil)
+        send(parent, :run_owner_ready)
+
+        receive do
+          {:"$gen_call", from, {:restart_task_group, "mapped"}} ->
+            GenServer.reply(from, {:error, :cannot_restart_task_group_on_active_run})
+        end
+      end)
+
+      assert_receive :run_owner_ready
+
+      graph = %{"mapped" => %{downstream: MapSet.new(), upstream: MapSet.new()}}
+
+      assert {:error, :cannot_restart_task_group_on_active_run} =
+               Trigger.reset_task(graph, [task])
     end
   end
 

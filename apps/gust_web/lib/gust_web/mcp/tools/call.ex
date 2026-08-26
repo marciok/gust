@@ -1,7 +1,7 @@
 defmodule GustWeb.MCP.Tools.Call do
   @moduledoc false
 
-  alias Gust.DAG.{Adapter, Definition, Loader, TaskWaiter, Terminator}
+  alias Gust.DAG.{Definition, Loader, TaskStatus, TaskWaiter, Terminator}
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias GustWeb.MCP.{Content, Tool, Tools}
@@ -102,35 +102,30 @@ defmodule GustWeb.MCP.Tools.Call do
     {:ok, dag_def} = get_def_by_task(task)
     tasks_graph = dag_def.tasks
 
-    Trigger.reset_task(tasks_graph, task)
+    result = Trigger.reset_task(tasks_graph, task)
 
-    {false, [content("Task: #{task.name} was restarted")]}
+    case result do
+      {:error, reason} ->
+        {true, [content("Task: #{task.name} could not be restarted: #{reason}")]}
+
+      _result ->
+        {false, [content("Task: #{task.name} was restarted")]}
+    end
   end
 
   def handle(%Tool{name: :cancel_task}, %{"task_id" => task_id}) do
     task = Flows.get_task!(task_id)
-    {:ok, dag_def} = get_def_by_task(task)
 
-    text =
-      case task.status do
-        :running ->
-          runtime = Adapter.impl!(dag_def.adapter, :runtime)
-          Terminator.kill_task(task, :cancelled, runtime)
-          "Task: #{task.name} was cancelled"
-
-        :retrying ->
-          Terminator.cancel_timer(task, :cancelled)
-          "Task: #{task.name} retrying cancelled"
-
-        :waiting ->
-          Terminator.cancel_waiting(task)
-          "Task: #{task.name} waiting cancelled"
-
-        status ->
-          "Task: #{task.name} cannot be cancelled from status #{inspect(status)}. Only :running, :retrying, and :waiting tasks can be cancelled."
-      end
-
-    {false, [content(text)]}
+    if TaskStatus.cancellable?(task.status) do
+      cancel_task_reply(task)
+    else
+      {false,
+       [
+         content(
+           "Task: #{task.name} cannot be cancelled from status #{inspect(task.status)}. Only statuses in #{inspect(TaskStatus.cancellable_statuses())} can be cancelled."
+         )
+       ]}
+    end
   end
 
   def handle(%Tool{name: :resume_task}, %{"waiting_for" => waiting_for} = args) do
@@ -176,6 +171,25 @@ defmodule GustWeb.MCP.Tools.Call do
     run = Flows.get_run!(task.run_id)
     Loader.get_definition(run.dag_id)
   end
+
+  defp cancel_task_reply(task) do
+    case Terminator.cancel(task) do
+      {:error, reason} ->
+        {true, [content("Task: #{task.name} could not be cancelled: #{reason}")]}
+
+      _result ->
+        {false, [content(cancelled_task_text(task))]}
+    end
+  end
+
+  defp cancelled_task_text(%Flows.Task{name: name, status: :running}),
+    do: "Task: #{name} was cancelled"
+
+  defp cancelled_task_text(%Flows.Task{name: name, status: :retrying}),
+    do: "Task: #{name} retrying cancelled"
+
+  defp cancelled_task_text(%Flows.Task{name: name, status: :waiting}),
+    do: "Task: #{name} waiting cancelled"
 
   defp dag_definition_reply(id) do
     case Loader.get_definition(id) do

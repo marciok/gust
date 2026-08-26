@@ -39,6 +39,7 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 - [Getting Started](#getting-started)
 - [Adding to an existing app](#adding-gust-to-an-existing-phoenix-app)
 - [Multi-node setup](#multi-node-setup)
+- [Error tracking](#error-tracking)
 - [Features](#features)
 - [GustWeb](apps/gust_web)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
@@ -165,6 +166,14 @@ GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/
 
 6. Open  "http://localhost:4000/gust/dags" to visualize your app
 
+
+## Error tracking
+
+Gust can asynchronously report terminal task failures without interrupting DAG
+execution. See the
+[`Gust.DAG.Run.ErrorReporter`](https://hexdocs.pm/gust/Gust.DAG.Run.ErrorReporter.html)
+documentation for integration examples using Sentry or another error tracking
+provider.
 
 ---
 

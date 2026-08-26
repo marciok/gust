@@ -1,5 +1,6 @@
 defmodule GustWeb.RunLiveTest do
-  alias Gust.Flows
+  alias Gust.DAG.Terminator.Gateway
+  alias Gust.{Flows, Repo}
   use GustWeb.ConnCase
 
   import Phoenix.LiveViewTest
@@ -12,6 +13,10 @@ defmodule GustWeb.RunLiveTest do
     setup %{conn: conn} do
       dag = dag_fixture(%{name: "dag_with_runs"})
       run = run_fixture(%{dag_id: dag.id})
+
+      stub(GustWeb.DAGTerminatorMock, :stop_run, fn run ->
+        Gateway.stop_run(run)
+      end)
 
       %{conn: conn, run: run, dag: dag}
     end
@@ -32,6 +37,16 @@ defmodule GustWeb.RunLiveTest do
       assert html =~ to_string(run.id)
     end
 
+    test "links runs to an pinned dashboard history", %{conn: conn, dag: dag, run: run} do
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      assert has_element?(
+               index_live,
+               "#show-run-#{run.id}[href='/dags/#{dag.name}/dashboard?run_id=#{run.id}&pinned_run_id=#{run.id}']"
+             )
+    end
+
     test "list runs with params", %{conn: conn, dag: dag} do
       _run = run_fixture(%{dag_id: dag.id, params: %{"my_key" => "my_value"}})
 
@@ -43,28 +58,232 @@ defmodule GustWeb.RunLiveTest do
       assert html =~ "my_value"
     end
 
-    test "list runs paged", %{conn: conn, dag: dag, run: _first_run} do
+    test "searches run parameter keys and values and stores the search in the URL", %{
+      conn: conn,
+      dag: dag,
+      run: run_without_match
+    } do
+      key_match = run_fixture(%{dag_id: dag.id, params: %{"CustomerReference" => "unrelated"}})
+      value_match = run_fixture(%{dag_id: dag.id, params: %{"reference" => "CUSTOMER-42"}})
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      assert has_element?(index_live, "#run-search-controls > #run-params-search-form")
+      assert has_element?(index_live, "#run-search-controls > #status-filter")
+
+      assert has_element?(
+               index_live,
+               "#run-params-search[placeholder='Search run params, any key or value']"
+             )
+
+      refute has_element?(index_live, "label[for='run-params-search']")
+
+      index_live
+      |> element("#run-params-search-form")
+      |> render_submit(%{"params_search" => "  customer  "})
+
+      assert_patch(
+        index_live,
+        ~g"/dags/#{dag.name}/runs?page_size=30&page=1&params_search=customer"
+      )
+
+      assert has_element?(index_live, "#run-params-search[value='customer']")
+      assert has_element?(index_live, "#clear-run-params-search")
+      assert has_element?(index_live, "#runs-count", "2")
+      assert has_element?(index_live, "#runs-#{key_match.id}")
+      assert has_element?(index_live, "#runs-#{value_match.id}")
+      refute has_element?(index_live, "#runs-#{run_without_match.id}")
+    end
+
+    test "shows no runs when parameter search has no matches", %{
+      conn: conn,
+      dag: dag,
+      run: run
+    } do
+      {:ok, index_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/runs?page_size=30&page=1&params_search=missing"
+        )
+
+      assert has_element?(index_live, "#run-params-search[value='missing']")
+      assert has_element?(index_live, "#runs-count", "0")
+      refute has_element?(index_live, "#runs-#{run.id}")
+    end
+
+    test "clearing parameter search restores runs and preserves the status filter", %{
+      conn: conn,
+      dag: dag
+    } do
+      matching_run =
+        run_fixture(%{dag_id: dag.id, status: :failed, params: %{"customer" => "match"}})
+
+      other_failed_run =
+        run_fixture(%{dag_id: dag.id, status: :failed, params: %{"customer" => "other"}})
+
+      succeeded_run =
+        run_fixture(%{dag_id: dag.id, status: :succeeded, params: %{"customer" => "match"}})
+
+      {:ok, index_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed&params_search=match"
+        )
+
+      assert has_element?(index_live, "#runs-#{matching_run.id}")
+      refute has_element?(index_live, "#runs-#{other_failed_run.id}")
+
+      index_live
+      |> element("#clear-run-params-search")
+      |> render_click()
+
+      assert_patch(
+        index_live,
+        ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed"
+      )
+
+      assert has_element?(index_live, "#run-params-search[value='']")
+      refute has_element?(index_live, "#clear-run-params-search")
+      assert has_element?(index_live, "#runs-#{matching_run.id}")
+      assert has_element?(index_live, "#runs-#{other_failed_run.id}")
+      refute has_element?(index_live, "#runs-#{succeeded_run.id}")
+    end
+
+    test "parameter search works with the status filter", %{conn: conn, dag: dag} do
+      failed_match =
+        run_fixture(%{dag_id: dag.id, status: :failed, params: %{"customer" => "match"}})
+
+      succeeded_match =
+        run_fixture(%{dag_id: dag.id, status: :succeeded, params: %{"customer" => "match"}})
+
+      failed_without_match =
+        run_fixture(%{dag_id: dag.id, status: :failed, params: %{"customer" => "other"}})
+
+      {:ok, index_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/runs?page_size=30&page=1&params_search=match"
+        )
+
+      index_live
+      |> element("#status-filter")
+      |> render_change(%{"_target" => "status", "status" => "failed"})
+
+      assert_patch(
+        index_live,
+        ~g"/dags/#{dag.name}/runs?page_size=30&page=1&status=failed&params_search=match"
+      )
+
+      assert has_element?(index_live, "#runs-#{failed_match.id}")
+      refute has_element?(index_live, "#runs-#{succeeded_match.id}")
+      refute has_element?(index_live, "#runs-#{failed_without_match.id}")
+    end
+
+    test "parameter search is preserved across pagination", %{conn: conn, dag: dag} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      older_match =
+        run_fixture(%{
+          dag_id: dag.id,
+          params: %{"customer" => "match"},
+          inserted_at: DateTime.add(now, -60)
+        })
+
+      newer_match =
+        run_fixture(%{
+          dag_id: dag.id,
+          params: %{"customer" => "match"},
+          inserted_at: DateTime.add(now, 60)
+        })
+
+      {:ok, index_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/runs?page_size=1&page=1&params_search=match"
+        )
+
+      assert has_element?(index_live, "#runs-#{newer_match.id}")
+      refute has_element?(index_live, "#runs-#{older_match.id}")
+
+      index_live
+      |> element("#run-page-2")
+      |> render_click()
+
+      assert_patch(
+        index_live,
+        ~g"/dags/#{dag.name}/runs?page_size=1&page=2&params_search=match"
+      )
+
+      assert has_element?(index_live, "#runs-#{older_match.id}")
+      refute has_element?(index_live, "#runs-#{newer_match.id}")
+    end
+
+    test "list runs paged", %{conn: conn, dag: dag, run: first_run} do
       page_size = 3
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-      run_fixture(%{dag_id: dag.id})
-      prev_page_run = run_fixture(%{dag_id: dag.id})
+      run_fixture(%{dag_id: dag.id, inserted_at: DateTime.add(now, 60)})
 
-      current_page_run = run_fixture(%{dag_id: dag.id})
+      prev_page_run =
+        run_fixture(%{dag_id: dag.id, inserted_at: DateTime.add(now, 120)})
+
+      current_page_run =
+        run_fixture(%{dag_id: dag.id, inserted_at: DateTime.add(now, 180)})
 
       {:ok, index_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/runs?page_size=#{page_size}&page=2")
 
-      assert index_live |> has_element?("#runs-#{current_page_run.id}")
+      assert index_live |> has_element?("#runs-#{first_run.id}")
       refute index_live |> has_element?("#runs-#{prev_page_run.id}")
+      refute index_live |> has_element?("#runs-#{current_page_run.id}")
 
-      assert index_live |> has_element?("#pages option[value='2']:checked")
-      refute index_live |> has_element?("#pages option[value='3']")
+      assert index_live |> has_element?("#runs-table-container + #runs-pagination")
+      assert index_live |> has_element?("#run-page-2.btn-active[aria-current='page']")
+      refute index_live |> has_element?("#run-page-3")
+      refute index_live |> has_element?("#previous-page[disabled]")
+      assert index_live |> has_element?("#next-page[disabled]")
 
       index_live
-      |> element("#page-select")
-      |> render_change(%{"_target" => "page", "page" => "1"})
+      |> element("#run-page-1")
+      |> render_click()
 
       assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=3&page=1"
+    end
+
+    test "keeps pagination compact with hundreds of pages", %{conn: conn} do
+      dag =
+        dag_fixture(%{
+          name: "dag_with_many_runs_#{System.unique_integer([:positive])}"
+        })
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      runs =
+        Enum.map(1..500, fn _index ->
+          %{
+            dag_id: dag.id,
+            status: :created,
+            params: %{},
+            inserted_at: now,
+            updated_at: now
+          }
+        end)
+
+      {500, nil} = Repo.insert_all(Flows.Run, runs)
+
+      {:ok, index_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/runs?page_size=1&page=250")
+
+      assert has_element?(index_live, "#run-page-1")
+      assert has_element?(index_live, "#run-page-249")
+      assert has_element?(index_live, "#run-page-250.btn-active[aria-current='page']")
+      assert has_element?(index_live, "#run-page-251")
+      assert has_element?(index_live, "#run-page-500")
+      assert has_element?(index_live, "#runs-pagination .pagination-ellipsis")
+      refute has_element?(index_live, "#run-page-2")
+      refute has_element?(index_live, "#run-page-248")
+      refute has_element?(index_live, "#run-page-252")
     end
 
     test "filters runs by status", %{conn: conn, dag: dag, run: created_run} do
@@ -141,8 +360,8 @@ defmodule GustWeb.RunLiveTest do
       refute index_live |> has_element?("#runs-#{older_failed_run.id}")
 
       index_live
-      |> element("#page-select")
-      |> render_change(%{"_target" => "page", "page" => "2"})
+      |> element("#run-page-2")
+      |> render_click()
 
       assert_patch index_live, ~g"/dags/#{dag.name}/runs?page_size=1&page=2&status=failed"
     end
@@ -150,8 +369,43 @@ defmodule GustWeb.RunLiveTest do
     test "deletes run in listing", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
-      assert index_live |> element("#runs-#{run.id} a", "Delete") |> render_click()
+      assert index_live |> element("#delete-run-#{run.id}") |> render_click()
       refute has_element?(index_live, "#runs-#{run.id}")
+    end
+
+    test "stops an active run process before deleting it", %{conn: conn, dag: dag, run: run} do
+      {:ok, run} = Flows.update_run_status(run, :running)
+      runner = start_registered_runner(run.id)
+      runner_ref = Process.monitor(runner)
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      assert index_live |> element("#delete-run-#{run.id}") |> render_click()
+      assert_receive {:run_stopped, run_id}
+      assert run_id == run.id
+      assert_receive {:DOWN, ^runner_ref, :process, ^runner, :normal}
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(run.id) end
+    end
+
+    test "keeps a run when its active process cannot be stopped", %{
+      conn: conn,
+      dag: dag,
+      run: run
+    } do
+      {:ok, run} = Flows.update_run_status(run, :running)
+      runner = start_rejecting_runner(run.id)
+
+      on_exit(fn ->
+        if Process.alive?(runner), do: send(runner, :stop)
+      end)
+
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+
+      html = index_live |> element("#delete-run-#{run.id}") |> render_click()
+
+      assert html =~ "Run could not be deleted because its process could not be stopped."
+      assert Process.alive?(runner)
+      assert Flows.get_run!(run.id)
     end
 
     test "batch deletes selected runs in listing", %{conn: conn, dag: dag, run: first_run} do
@@ -182,13 +436,15 @@ defmodule GustWeb.RunLiveTest do
       assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(second_run.id) end
     end
 
-    test "batch delete skips active runs and reports the result", %{
+    test "batch delete stops active runs and deletes runs in any status", %{
       conn: conn,
       dag: dag,
       run: created_run
     } do
       succeeded_run = run_fixture(%{dag_id: dag.id, status: :succeeded})
       running_run = run_fixture(%{dag_id: dag.id, status: :running})
+      runner = start_registered_runner(running_run.id)
+      runner_ref = Process.monitor(runner)
 
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
@@ -200,12 +456,14 @@ defmodule GustWeb.RunLiveTest do
 
       html = index_live |> element("#batch-delete-runs") |> render_click()
 
-      assert html =~
-               "1 run deleted; 2 runs skipped: Created runs cannot be deleted. Running runs cannot be deleted."
+      assert html =~ "3 runs deleted"
+      assert_receive {:run_stopped, run_id}
+      assert run_id == running_run.id
+      assert_receive {:DOWN, ^runner_ref, :process, ^runner, :normal}
 
       assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(succeeded_run.id) end
-      assert Flows.get_run!(running_run.id)
-      assert Flows.get_run!(created_run.id)
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(running_run.id) end
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_run!(created_run.id) end
     end
 
     test "batch delete with no selected runs does nothing", %{conn: conn, dag: dag, run: run} do
@@ -355,6 +613,23 @@ defmodule GustWeb.RunLiveTest do
       refute index_live |> has_element?("#runs-#{new_run.id}")
     end
 
+    test "inserts only newly started runs matching the parameter search", %{conn: conn, dag: dag} do
+      {:ok, index_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/runs?page_size=30&page=1&params_search=customer-42"
+        )
+
+      matching_run = run_fixture(%{dag_id: dag.id, params: %{"customer" => "CUSTOMER-42"}})
+      nonmatching_run = run_fixture(%{dag_id: dag.id, params: %{"customer" => "customer-7"}})
+
+      Gust.PubSub.broadcast_run_started(dag.id, matching_run.id)
+      Gust.PubSub.broadcast_run_started(dag.id, nonmatching_run.id)
+
+      assert has_element?(index_live, "#runs-#{matching_run.id}")
+      refute has_element?(index_live, "#runs-#{nonmatching_run.id}")
+    end
+
     test "run is updated", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
@@ -393,5 +668,45 @@ defmodule GustWeb.RunLiveTest do
 
       refute index_live |> has_element?("#runs-#{failed_run.id}")
     end
+  end
+
+  defp start_registered_runner(run_id) do
+    owner = self()
+
+    runner =
+      spawn(fn ->
+        {:ok, _owner} = Registry.register(Gust.Registry, "dag_run_#{run_id}", nil)
+        send(owner, {:run_registered, self()})
+
+        receive do
+          {:"$gen_call", from, :stop} ->
+            send(owner, {:run_stopped, run_id})
+            GenServer.reply(from, {:ok, :stopped})
+        end
+      end)
+
+    assert_receive {:run_registered, ^runner}
+    runner
+  end
+
+  defp start_rejecting_runner(run_id) do
+    owner = self()
+
+    runner =
+      spawn(fn ->
+        {:ok, _owner} = Registry.register(Gust.Registry, "dag_run_#{run_id}", nil)
+        send(owner, {:run_registered, self()})
+
+        receive do
+          {:"$gen_call", from, :stop} -> GenServer.reply(from, {:error, :cannot_stop})
+        end
+
+        receive do
+          :stop -> :ok
+        end
+      end)
+
+    assert_receive {:run_registered, ^runner}
+    runner
   end
 end

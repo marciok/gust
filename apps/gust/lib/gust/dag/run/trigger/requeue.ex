@@ -8,6 +8,7 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   """
 
   alias Gust.DAG.Graph
+  alias Gust.DAG.Runner.RunGateway
   alias Gust.DAG.TaskExpander
   alias Gust.Flows
   alias Gust.Run.Dispatcher
@@ -23,28 +24,54 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
       reset_all!(tasks)
     end)
 
-    update_broadcast(run)
+    Dispatcher.enqueue(run)
   end
 
   @impl true
-  def reset_task(graph, task, map_index \\ nil) do
-    run_id = task.run_id
+  def reset_task(graph, [%Flows.Task{} = task | _tasks]),
+    do: restart_or_requeue(graph, task, :group)
 
+  def reset_task(graph, %Flows.Task{map_index: nil} = task),
+    do: restart_or_requeue(graph, task, :group)
+
+  def reset_task(graph, %Flows.Task{} = task), do: restart_or_requeue(graph, task, :instance)
+
+  defp restart_or_requeue(graph, task, type) do
+    run = Flows.get_run!(task.run_id)
+
+    message =
+      case type do
+        :group ->
+          {:restart_task_group, task.name}
+
+        :instance ->
+          {:restart_mapped_task, task.id}
+      end
+
+    case RunGateway.call(run, message) do
+      {:error, :run_not_active} -> requeue_tasks(graph, run, task, type)
+      result -> result
+    end
+  end
+
+  defp requeue_tasks(graph, run, task, scope) do
     cleared_tasks =
-      tasks_to_clear(graph, task.name)
-      |> Enum.map(fn task_name ->
-        if map_index && task_name == task.name do
-          task = Flows.get_task_by_name(task_name, run_id, map_index)
-          set_created!(task)
-        else
-          tasks = Flows.get_tasks_by_name(task_name, run_id)
-          reset_all!(tasks)
-        end
-      end)
+      graph
+      |> tasks_to_clear(task.name)
+      |> Enum.map(fn task_name -> reset_task_name(task_name, task, run.id, scope) end)
 
-    run = Flows.get_run!(run_id)
-    update_broadcast(run)
+    Dispatcher.enqueue(run)
     cleared_tasks
+  end
+
+  defp reset_task_name(task_name, task, _run_id, :instance) when task_name == task.name do
+    set_created!(task)
+  end
+
+  defp reset_task_name(task_name, _task, run_id, _scope) do
+    task_name
+    |> Flows.get_tasks_by_name(run_id)
+    |> reset_all!()
   end
 
   defp tasks_to_clear(graph, starting_at) do
@@ -63,10 +90,6 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
     set_created!(task)
   end
 
-  defp update_broadcast(run) do
-    Dispatcher.enqueue(run)
-  end
-
   @impl true
   def dispatch_all_runs(dag_id) do
     Flows.get_running_runs_by_dag([dag_id], [:created])
@@ -81,7 +104,7 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   defp maybe_dispatch_enabled_dag(run, %Flows.Dag{enabled: false}), do: run
 
   defp maybe_dispatch_enabled_dag(run, %Flows.Dag{enabled: true}) do
-    update_broadcast(run)
+    Dispatcher.enqueue(run)
   end
 
   defp set_created!(task) do

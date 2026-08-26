@@ -214,6 +214,22 @@ defmodule Gust.Flows do
   """
   def get_task!(id), do: Repo.get!(Task, id)
 
+  def get_task(id), do: Repo.get(Task, id)
+
+  @doc """
+  Gets task statuses for the given task IDs.
+  """
+  def get_task_statuses([]), do: []
+
+  def get_task_statuses(task_ids) do
+    task_ids = Enum.to_list(task_ids)
+
+    Task
+    |> where([task], task.id in ^task_ids)
+    |> select([task], task.status)
+    |> Repo.all()
+  end
+
   @doc """
   Gets a single secret.
 
@@ -346,6 +362,25 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Clears execution state before manually restarting a terminal task instance.
+
+  Mapping identity and persisted params are intentionally preserved so a mapped
+  task can be restarted without rebuilding or collapsing its sibling instances.
+  """
+  def prepare_task_restart(%Task{} = task) do
+    task
+    |> Task.changeset(%{
+      status: :created,
+      result: %{},
+      error: %{},
+      attempt: 1,
+      waiting_for: nil,
+      wait_satisfied_at: nil
+    })
+    |> Repo.update()
+  end
+
+  @doc """
   Gets a task with its logs preloaded.
   """
   def get_task_with_logs!(id) do
@@ -473,23 +508,56 @@ defmodule Gust.Flows do
 
   Tasks are loaded with only the fields required by the run-history grid.
   Use the task or run detail functions when payload fields are needed.
+
+  The `:limit` option is required. Pass `:offset` for normal pagination or
+  `:pinned_run_id` to load a window containing the pinned followed by older
+  runs. The pinned must belong to the named DAG.
   """
-  def get_dag_with_runs_and_tasks!(name, limit: limit, offset: offset) do
+  def get_dag_with_runs_and_tasks!(name, opts) do
+    limit = Keyword.fetch!(opts, :limit)
+
     tasks_q =
       from t in Task,
         select: struct(t, [:id, :name, :status, :map_index, :run_id])
 
     runs_q =
       from r in Run,
-        order_by: [desc: r.inserted_at],
+        order_by: [desc: r.inserted_at, desc: r.id],
         limit: ^limit,
-        offset: ^offset,
         preload: [tasks: ^tasks_q]
+
+    runs_q = apply_run_window(runs_q, name, opts)
 
     Repo.one!(
       from d in Dag,
         where: d.name == ^name,
         preload: [runs: ^runs_q]
+    )
+  end
+
+  defp apply_run_window(query, name, opts) do
+    case Keyword.fetch(opts, :pinned_run_id) do
+      {:ok, pinned_run_id} ->
+        pinned = get_run_pinned!(name, pinned_run_id)
+
+        where(
+          query,
+          [run],
+          run.inserted_at < ^pinned.inserted_at or
+            (run.inserted_at == ^pinned.inserted_at and run.id <= ^pinned.id)
+        )
+
+      :error ->
+        offset(query, ^Keyword.fetch!(opts, :offset))
+    end
+  end
+
+  defp get_run_pinned!(dag_name, run_id) do
+    Repo.one!(
+      from run in Run,
+        join: dag in assoc(run, :dag),
+        where: dag.name == ^dag_name and run.id == ^run_id,
+        select: %{id: run.id, inserted_at: run.inserted_at}
     )
   end
 
@@ -509,6 +577,7 @@ defmodule Gust.Flows do
     * `:limit` - Required. The maximum number of runs to preload.
     * `:offset` - Required. The number of runs to skip before starting to preload.
     * `:status` - Optional. Filters preloaded runs by status when present.
+    * `:params_search` - Optional. Case-insensitively filters runs by parameter keys or values.
 
   ## Returns
 
@@ -521,6 +590,7 @@ defmodule Gust.Flows do
     limit = Keyword.fetch!(opts, :limit)
     offset = Keyword.fetch!(opts, :offset)
     status = Keyword.get(opts, :status)
+    params_search = Keyword.get(opts, :params_search)
 
     runs_q =
       from r in Run,
@@ -528,7 +598,10 @@ defmodule Gust.Flows do
         limit: ^limit,
         offset: ^offset
 
-    runs_q = maybe_filter_run_status(runs_q, status)
+    runs_q =
+      runs_q
+      |> maybe_filter_run_status(status)
+      |> maybe_filter_run_params(params_search)
 
     Repo.one!(
       from d in Dag,
@@ -543,15 +616,18 @@ defmodule Gust.Flows do
   ## Parameters
 
     * `dag_id` - The identifier of the DAG whose runs should be counted.
+    * `status` - Optional status to filter by.
+    * `params_search` - Optional case-insensitive parameter key or value search.
 
   ## Returns
 
     * The integer count of runs associated with the specified DAG.
   """
-  def count_runs_on_dag(dag_id, status \\ nil) do
+  def count_runs_on_dag(dag_id, status \\ nil, params_search \\ nil) do
     Run
     |> where([r], r.dag_id == ^dag_id)
     |> maybe_filter_run_status(status)
+    |> maybe_filter_run_params(params_search)
     |> Repo.aggregate(:count)
   end
 
@@ -570,6 +646,22 @@ defmodule Gust.Flows do
 
   defp maybe_filter_run_status(query, status) do
     where(query, [r], r.status == ^status)
+  end
+
+  defp maybe_filter_run_params(query, nil), do: query
+
+  defp maybe_filter_run_params(query, params_search) do
+    case String.trim(params_search) do
+      "" ->
+        query
+
+      params_search ->
+        where(
+          query,
+          [r],
+          fragment("strpos(lower(CAST(? AS text)), lower(?)) > 0", r.params, ^params_search)
+        )
+    end
   end
 
   @doc """

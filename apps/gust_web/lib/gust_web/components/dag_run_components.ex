@@ -51,23 +51,18 @@ defmodule GustWeb.DagRunComponents do
 
   attr :id, :string, required: true
   attr :selected, :boolean, default: false
-  attr :status, :atom
+  attr :status, :atom, default: nil
 
   def task_cell(assigns) do
-    assigns =
-      assign_new(assigns, :classes, fn ->
-        base_classes =
-          if assigns[:status], do: ["status-#{assigns[:status]}", "active"], else: ["status-none"]
-
-        classes = base_classes ++ if assigns[:selected], do: ["selected"], else: []
-
-        Enum.join(classes, " ")
-      end)
-
     ~H"""
     <div
       id={"#{@id}"}
-      class={"task-grid-cell  border rounded #{@classes}"}
+      class={[
+        "task-grid-cell border rounded",
+        if(@status, do: "status-#{@status} active", else: "status-none"),
+        @selected && "selected",
+        @status && "task-grid-cell--#{@status}"
+      ]}
     >
     </div>
     """

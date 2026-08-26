@@ -1,10 +1,17 @@
 defmodule Gust.DAG.TaskWorker do
   @moduledoc false
 
+  def registry_name(%{id: id, map_index: map_index}) do
+    suffix = if map_index, do: "_#{map_index}", else: ""
+    "task_#{id}#{suffix}"
+  end
+
   defmacro __using__(_opts) do
     quote do
       use GenServer
       alias Gust.DAG
+      alias Gust.DAG.Runner.TaskExecution
+      alias Gust.DAG.TaskWorker
 
       defguardp normal_exit?(reason)
                 when reason in [:normal, :shutdown] or
@@ -12,20 +19,15 @@ defmodule Gust.DAG.TaskWorker do
                           elem(reason, 0) == :shutdown)
 
       @impl true
-      def init(init_arg) do
+      def init(%{task: task} = init_arg) do
         Process.flag(:trap_exit, true)
+        task = TaskExecution.update_status!(task, :running)
 
-        {:ok, init_arg, {:continue, :init_run}}
+        {:ok, %{init_arg | task: task}, {:continue, :init_run}}
       end
 
       def start_link(%{task: task} = args) do
-        GenServer.start_link(__MODULE__, args, name: via_tuple(task_name(task)))
-      end
-
-      defp task_name(task) do
-        suffix = if task.map_index, do: "_#{task.map_index}", else: ""
-
-        "task_#{task.id}#{suffix}"
+        GenServer.start_link(__MODULE__, args, name: via_tuple(TaskWorker.registry_name(task)))
       end
 
       def child_spec(args) do
@@ -47,10 +49,10 @@ defmodule Gust.DAG.TaskWorker do
       @impl true
       def handle_info(
             {:EXIT, _pid, reason},
-            %{task: task, stage_pid: stage_pid} = state
+            %{task: task, owner_pid: owner_pid} = state
           )
           when not normal_exit?(reason) do
-        send(stage_pid, {:task_result, exit_error(reason), task.id, :error})
+        send(owner_pid, {:task_result, exit_error(reason), task.id, :error})
 
         {:stop, :normal, state}
       end

@@ -32,7 +32,9 @@ defmodule Gust.Run.Claim.Repo do
         from(r in Run,
           join: d in assoc(r, :dag),
           where: d.enabled == true,
-          where: r.status == :enqueued or (r.status == :running and r.claim_expires_at < ^now),
+          where:
+            r.status == :enqueued or
+              (r.status in [:starting, :running] and r.claim_expires_at < ^now),
           order_by: [asc: r.inserted_at, asc: r.id],
           limit: 1,
           lock: "FOR UPDATE SKIP LOCKED"
@@ -49,7 +51,7 @@ defmodule Gust.Run.Claim.Repo do
   defp maybe_update_claim(run, node, expires_at, token) do
     run
     |> Ecto.Changeset.change(
-      status: :running,
+      status: :starting,
       claimed_by: node,
       claim_expires_at: expires_at,
       claim_token: token
