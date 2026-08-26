@@ -1,9 +1,11 @@
 defmodule Gust.DAG.Runner.DAGWorkerTest do
   use Gust.DataCase, async: false
 
+  import ExUnit.CaptureLog
   import Gust.FlowsFixtures
   import Mox
 
+  alias Gust.DAG.Run.ErrorReporter.Worker, as: ErrorReporterWorker
   alias Gust.DAG.Runner.{DAGWorker, RunGateway, TaskExecution}
   alias Gust.DAG.TaskWorker
   alias Gust.Flows
@@ -293,6 +295,66 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert %Flows.Task{status: :waiting, waiting_for: "approved"} =
              Flows.get_task_by_name("approval", run.id, nil)
 
+    assert Flows.get_run!(run.id).status == :waiting
+  end
+
+  test "reports a task failure before pausing for another waiting task", %{run: run} do
+    dag_def =
+      definition(
+        [["failure", "approval"]],
+        %{
+          "failure" => task_options(),
+          "approval" => task_options(wait_for: "approved")
+        }
+      )
+
+    expect_task_starts(1)
+
+    error = RuntimeError.exception("failed")
+    test_pid = self()
+
+    Gust.DAGErrorReporterMock
+    |> expect(:capture, fn exception, [], data ->
+      send(test_pid, {:capture_attempted, exception, data})
+      raise "reporter unavailable"
+    end)
+
+    Gust.RuntimeAdapterMock
+    |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+    error_reporter_worker = Process.whereis(ErrorReporterWorker)
+    previous_reporter_state = :sys.get_state(error_reporter_worker)
+
+    :sys.replace_state(error_reporter_worker, fn _state ->
+      %{reporter: Gust.DAGErrorReporterMock}
+    end)
+
+    on_exit(fn ->
+      :sys.replace_state(error_reporter_worker, fn _state -> previous_reporter_state end)
+    end)
+
+    runner = start_runner(run, dag_def)
+    allow(Gust.DAGErrorReporterMock, self(), error_reporter_worker)
+    ref = Process.monitor(runner)
+
+    assert_receive {:task_started, %Flows.Task{name: "failure"} = task, ^runner}
+
+    log =
+      capture_log(fn ->
+        send(runner, {:task_result, error, task.id, :non_recoverable_error})
+
+        assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+        assert_receive {:capture_attempted, exception, data}
+        assert Exception.message(exception) == "RuntimeError\n message: failed"
+        assert data.dag_name == dag_def.name
+
+        assert :sys.get_state(ErrorReporterWorker) == %{
+                 reporter: Gust.DAGErrorReporterMock
+               }
+      end)
+
+    assert log =~ "Error reporter Gust.DAGErrorReporterMock failed"
+    assert Flows.get_task!(task.id).status == :failed
     assert Flows.get_run!(run.id).status == :waiting
   end
 

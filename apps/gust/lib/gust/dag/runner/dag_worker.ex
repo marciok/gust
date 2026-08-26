@@ -143,6 +143,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
     case Coord.apply_task_result(coord, task, status) do
       {:continue, coord} ->
         TaskExecution.finish(task, status)
+        TaskExecution.maybe_report_error(task, status, result, dag_def.name)
         {:noreply, %{state | coord: coord}}
 
       {:reschedule, coord, task, time} ->
@@ -155,11 +156,13 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
       {:finished, coord} ->
         TaskExecution.finish(task, status)
+        TaskExecution.maybe_report_error(task, status, result, dag_def.name)
         state = %{state | coord: coord}
         finish_stage(TaskExecution.aggregate_status(state.current_task_ids), state)
 
       {:waiting, coord} ->
         TaskExecution.finish(task, status)
+        TaskExecution.maybe_report_error(task, status, result, dag_def.name)
         pause_run(%{state | coord: coord})
     end
   end
