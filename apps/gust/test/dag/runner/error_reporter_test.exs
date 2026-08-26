@@ -4,6 +4,7 @@ defmodule Gust.DAG.Runner.ErrorReporterTest do
   import ExUnit.CaptureLog
   import Mox
 
+  alias Gust.DAG.NonRecError
   alias Gust.DAG.Run.ErrorReporter.Worker
   alias Gust.DAG.Runner.{TaskExecution, TaskFailureError}
 
@@ -65,7 +66,7 @@ defmodule Gust.DAG.Runner.ErrorReporterTest do
 
   test "reports non-recoverable errors", %{task: task} do
     test_pid = self()
-    error = Gust.DAG.NonRecError.exception("stop")
+    error = NonRecError.exception("stop")
 
     expect(Gust.DAGErrorReporterMock, :capture, fn exception, [], _data ->
       send(test_pid, {:captured, exception})
