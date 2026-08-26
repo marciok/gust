@@ -13,6 +13,7 @@ defmodule Gust.DAG.Run.ErrorReporter do
         @impl true
         def capture(exception, stacktrace, metadata) do
           Sentry.capture_exception(exception, stacktrace: stacktrace, tags: metadata) 
+          :ok
         end
       end
 
@@ -37,6 +38,8 @@ defmodule Gust.DAG.Run.ErrorReporter do
                 metadata: metadata
               }
             )
+
+          :ok
         end
       end
 
