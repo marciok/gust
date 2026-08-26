@@ -7,9 +7,6 @@ defmodule Gust.DAG.Run.ErrorReporter.Worker do
 
   alias Gust.DAG.Run.ErrorReporter
 
-  @typep state :: %{reporter: ErrorReporter.reporter() | nil}
-
-  @spec start_link(ErrorReporter.config()) :: GenServer.on_start()
   def start_link(config) do
     GenServer.start_link(__MODULE__, config, name: __MODULE__)
   end
@@ -21,7 +18,6 @@ defmodule Gust.DAG.Run.ErrorReporter.Worker do
   end
 
   @impl true
-  @spec init(ErrorReporter.config()) :: {:ok, state()}
   def init(config), do: {:ok, %{reporter: Keyword.get(config, :reporter)}}
 
   @impl true
