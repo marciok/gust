@@ -31,6 +31,7 @@ jobs:
         run: npm ci
 
       - name: Build Gust web assets
+        working-directory: apps/gust_web
         run: |
           mix deps.get
           mix assets.deploy
