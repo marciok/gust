@@ -1,31 +1,36 @@
-name: Hex Publish
+name: Publish
 on:
   push:
     tags:
       - "v*.*.*"
 
 jobs:
-  publish:
+  release-assets:
+    name: Publish GitHub release assets
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - uses: erlef/setup-beam@v1
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
         with:
           elixir-version: '1.18'
           otp-version: '27.0'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: npm
+          cache-dependency-path: apps/gust_web/assets/package-lock.json
 
       - name: Install NPM packages
         working-directory: apps/gust_web/assets
-        run: npm install
+        run: npm ci
 
-      - name: Gust-web assets deploy
+      - name: Build Gust web assets
         run: |
           mix deps.get
           mix assets.deploy
@@ -38,10 +43,24 @@ jobs:
           tar -czf gust_static_assets.tar.gz static
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: release_assets/gust_static_assets.tar.gz
           token: ${{ secrets.PUBLISH_RELEASE_GH }}
+
+  publish-gust:
+    name: Publish gust to Hex
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27.0'
 
       - name: Publish gust
         working-directory: apps/gust
@@ -52,6 +71,32 @@ jobs:
           mix deps.get
           mix hex.build
           mix hex.publish --yes --replace
+
+  publish-gust-web:
+    name: Publish gust-web to Hex
+    needs: publish-gust
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27.0'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: apps/gust_web/assets/package-lock.json
+
+      - name: Install NPM packages
+        working-directory: apps/gust_web/assets
+        run: npm ci
 
       - name: Publish gust-web
         working-directory: apps/gust_web
@@ -64,6 +109,21 @@ jobs:
           mix hex.build
           mix hex.publish --yes --replace
 
+  publish-gust-py:
+    name: Publish gust-py to Hex
+    needs: publish-gust
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27.0'
+
       - name: Publish gust-py
         working-directory: apps/gust_py
         env:
@@ -74,4 +134,49 @@ jobs:
           mix hex.build
           mix hex.publish --yes --replace
 
+  publish-docker:
+    name: Publish ${{ matrix.image }} Docker image
+    runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: gust
+            dockerfile: apps/gust/Dockerfile
+          - image: gust-web
+            dockerfile: apps/gust_web/Dockerfile
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate image tags
+        id: metadata
+        uses: docker/metadata-action@v6
+        with:
+          images: docker.io/marcioklepacz/${{ matrix.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+
+      - name: Build and publish image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
