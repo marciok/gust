@@ -71,7 +71,7 @@ defmodule GustWeb.MixProject do
       {:bandit, "~> 1.5"},
       {:igniter, "~> 0.6", optional: true}
     ]
-    |> maybe_add_heroicons()
+    |> add_heroicons()
   end
 
   defp gust_dep() do
@@ -82,21 +82,18 @@ defmodule GustWeb.MixProject do
     end
   end
 
-  defp maybe_add_heroicons(deps) do
-    if publish_dep?() do
-      deps
-    else
-      deps ++
-        [
-          {:heroicons,
-           github: "tailwindlabs/heroicons",
-           tag: "v2.2.0",
-           sparse: "optimized",
-           app: false,
-           compile: false,
-           depth: 1}
-        ]
-    end
+  defp add_heroicons(deps) do
+    deps ++
+      [
+        {:heroicons,
+         github: "tailwindlabs/heroicons",
+         tag: "v2.2.0",
+         sparse: "optimized",
+         app: false,
+         compile: false,
+         depth: 1,
+         only: if(publish_dep?(), do: :dev, else: [:dev, :test, :prod])}
+      ]
   end
 
   defp publish_dep?(), do: System.get_env("PUBLISH_DEP") == "true"

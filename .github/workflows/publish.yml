@@ -4,9 +4,16 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  release-assets:
-    name: Publish GitHub release assets
+  preflight:
+    name: Validate release
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +29,99 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/gust_web/assets/package-lock.json
+
+      - name: Validate release versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_version="${GITHUB_REF_NAME#v}"
+          gust_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust/mix.exs)"
+          gust_web_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_web/mix.exs)"
+          gust_py_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_py/mix.exs)"
+          gust_py_gust_version="$(sed -n 's/^[[:space:]]*@gust_version "\([^"]*\)".*/\1/p' apps/gust_py/mix.exs)"
+
+          if [[ ! "${release_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+
+          if [[ "${gust_version}" != "${release_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match gust ${gust_version}" >&2
+            exit 1
+          fi
+
+          if [[ "${gust_web_version}" != "${release_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match gust_web ${gust_web_version}" >&2
+            exit 1
+          fi
+
+          echo "gust=${gust_version} gust_web=${gust_web_version} gust_py=${gust_py_version} gust_py_gust=${gust_py_gust_version}"
+
+      - name: Install NPM packages
+        working-directory: apps/gust_web/assets
+        run: npm ci
+
+      - name: Build Gust web assets
+        working-directory: apps/gust_web
+        run: |
+          mix deps.get
+          mix assets.deploy
+
+      - name: Build Hex packages
+        run: |
+          (cd apps/gust && mix hex.build --output "${RUNNER_TEMP}/gust.tar")
+          (cd apps/gust_web && PUBLISH_DEP=true mix hex.build --output "${RUNNER_TEMP}/gust_web.tar")
+          (cd apps/gust_py && PUBLISH_DEP=true mix hex.build --output "${RUNNER_TEMP}/gust_py.tar")
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build gust Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/gust/Dockerfile
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=gust
+          cache-to: type=gha,mode=max,scope=gust
+
+      - name: Build gust-web Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/gust_web/Dockerfile
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=gust-web
+          cache-to: type=gha,mode=max,scope=gust-web
+
+  release-assets:
+    name: Publish GitHub release assets
+    needs: preflight
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27.0'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
           cache: npm
           cache-dependency-path: apps/gust_web/assets/package-lock.json
 
@@ -47,11 +146,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release_assets/gust_static_assets.tar.gz
-          token: ${{ secrets.PUBLISH_RELEASE_GH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-gust:
     name: Publish gust to Hex
+    needs: preflight
     runs-on: ubuntu-latest
+    environment: release
 
     steps:
       - name: Check out repository
@@ -63,7 +164,31 @@ jobs:
           elixir-version: '1.18'
           otp-version: '27.0'
 
+      - name: Check whether gust is already published
+        id: release
+        working-directory: apps/gust
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' mix.exs)"
+          status=0
+          output="$(mix hex.info gust "${version}" 2>&1)" || status=$?
+
+          if [[ ${status} -eq 0 ]]; then
+            published=true
+          elif [[ "${output}" == *"No release with name"* ]]; then
+            published=false
+          else
+            echo "${output}" >&2
+            exit "${status}"
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "published=${published}" >> "${GITHUB_OUTPUT}"
+
       - name: Publish gust
+        if: steps.release.outputs.published != 'true'
         working-directory: apps/gust
         env:
           HEX_API_KEY: ${{ secrets.HEX }}
@@ -71,12 +196,17 @@ jobs:
         run: |
           mix deps.get
           mix hex.build
-          mix hex.publish --yes --replace
+          mix hex.publish --yes
+
+      - name: Report existing gust release
+        if: steps.release.outputs.published == 'true'
+        run: echo "gust ${{ steps.release.outputs.version }} is already published; skipping"
 
   publish-gust-web:
     name: Publish gust-web to Hex
-    needs: publish-gust
+    needs: [preflight, publish-gust]
     runs-on: ubuntu-latest
+    environment: release
 
     steps:
       - name: Check out repository
@@ -91,15 +221,40 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "24"
           cache: npm
           cache-dependency-path: apps/gust_web/assets/package-lock.json
 
+      - name: Check whether gust_web is already published
+        id: release
+        working-directory: apps/gust_web
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' mix.exs)"
+          status=0
+          output="$(mix hex.info gust_web "${version}" 2>&1)" || status=$?
+
+          if [[ ${status} -eq 0 ]]; then
+            published=true
+          elif [[ "${output}" == *"No release with name"* ]]; then
+            published=false
+          else
+            echo "${output}" >&2
+            exit "${status}"
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "published=${published}" >> "${GITHUB_OUTPUT}"
+
       - name: Install NPM packages
+        if: steps.release.outputs.published != 'true'
         working-directory: apps/gust_web/assets
         run: npm ci
 
       - name: Publish gust-web
+        if: steps.release.outputs.published != 'true'
         working-directory: apps/gust_web
         env:
           HEX_API_KEY: ${{ secrets.HEX }}
@@ -108,12 +263,17 @@ jobs:
           mix deps.get
           mix assets.deploy
           mix hex.build
-          mix hex.publish --yes --replace
+          mix hex.publish --yes
+
+      - name: Report existing gust_web release
+        if: steps.release.outputs.published == 'true'
+        run: echo "gust_web ${{ steps.release.outputs.version }} is already published; skipping"
 
   publish-gust-py:
     name: Publish gust-py to Hex
-    needs: publish-gust
+    needs: [preflight, publish-gust]
     runs-on: ubuntu-latest
+    environment: release
 
     steps:
       - name: Check out repository
@@ -125,7 +285,31 @@ jobs:
           elixir-version: '1.18'
           otp-version: '27.0'
 
+      - name: Check whether gust_py is already published
+        id: release
+        working-directory: apps/gust_py
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' mix.exs)"
+          status=0
+          output="$(mix hex.info gust_py "${version}" 2>&1)" || status=$?
+
+          if [[ ${status} -eq 0 ]]; then
+            published=true
+          elif [[ "${output}" == *"No release with name"* ]]; then
+            published=false
+          else
+            echo "${output}" >&2
+            exit "${status}"
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "published=${published}" >> "${GITHUB_OUTPUT}"
+
       - name: Publish gust-py
+        if: steps.release.outputs.published != 'true'
         working-directory: apps/gust_py
         env:
           HEX_API_KEY: ${{ secrets.HEX }}
@@ -133,11 +317,17 @@ jobs:
         run: |
           mix deps.get
           mix hex.build
-          mix hex.publish --yes --replace
+          mix hex.publish --yes
+
+      - name: Report existing gust_py release
+        if: steps.release.outputs.published == 'true'
+        run: echo "gust_py ${{ steps.release.outputs.version }} is already published; skipping"
 
   publish-docker:
     name: Publish ${{ matrix.image }} Docker image
+    needs: preflight
     runs-on: ubuntu-latest
+    environment: release
 
     strategy:
       fail-fast: false
