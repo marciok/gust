@@ -52,6 +52,7 @@ defmodule Gust.DAG.Runner.TaskExecution do
     exception = TaskFailureError.exception_from_error(error)
 
     data = %{
+      task_id: task.id,
       task_name: task.name,
       run_id: task.run_id,
       dag_name: dag_name

@@ -1,5 +1,6 @@
 defmodule GustWeb.DagLive.Dashboard do
   alias Gust.DAG.{Loader, TaskStatus, Terminator}
+  alias Gust.DAG.Run.ErrorReporter.ExternalReference
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.Flows.Dag
@@ -359,6 +360,11 @@ defmodule GustWeb.DagLive.Dashboard do
       end
 
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:task, :updated, %{task_id: task_id}}, socket) do
+    {:noreply, assign_task_reload(socket, task_id)}
   end
 
   @impl true

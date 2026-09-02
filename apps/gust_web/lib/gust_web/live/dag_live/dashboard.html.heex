@@ -213,9 +213,9 @@
       <div
         id="task-error"
         role="alert"
-        class={["alert", "alert-error", "items-start", "px-4", "py-3"]}
+        class={["alert", "alert-error", "flex", "items-start", "gap-4", "px-4", "py-3"]}
       >
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <p class={["text-sm", "font-semibold", "leading-5"]}>
             {@item_error["type"] || "Task error"}
           </p>
@@ -244,6 +244,16 @@
             >{format_stacktrace(@item_error["stacktrace"])}</pre>
           </div>
         </div>
+        <.link
+          :if={ExternalReference.valid?(@item_error["external_reference"])}
+          id="task-error-external-link"
+          href={@item_error["external_reference"]}
+          target="_blank"
+          rel="noopener noreferrer"
+          class={["btn", "btn-sm", "btn-outline", "ml-auto", "shrink-0", "self-end"]}
+        >
+          <.icon name="hero-arrow-top-right-on-square" class="size-4" /> Open in reporter
+        </.link>
       </div>
     </section>
 
