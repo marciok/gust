@@ -404,6 +404,40 @@ defmodule GustWeb.DagLiveDashboardTest do
       refute has_element?(dashboard_live, "#task-error-stacktrace")
     end
 
+    test "links a task error to its external reporter and refreshes the link", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      error = %{
+        type: "RuntimeError",
+        message: "ops...",
+        external_reference: "https://errors.example.com/events/event-123"
+      }
+
+      {:ok, task} = Flows.update_task_error(task, error)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(
+               dashboard_live,
+               "#task-error-external-link[href='https://errors.example.com/events/event-123'][target='_blank'][rel='noopener noreferrer']"
+             )
+
+      unsafe_error = %{
+        "type" => "RuntimeError",
+        "message" => "ops...",
+        "external_reference" => "javascript:alert(1)"
+      }
+
+      {:ok, _task} = Flows.update_task_error(task, unsafe_error)
+      Gust.PubSub.broadcast_task_updated(task.id)
+
+      refute has_element?(dashboard_live, "#task-error-external-link")
+    end
+
     test "does not display a persisted task error while the task is running", %{
       conn: conn,
       dag: dag,

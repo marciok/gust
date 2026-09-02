@@ -6,6 +6,8 @@ defmodule Gust.DAG.Run.ErrorReporter.Worker do
   require Logger
 
   alias Gust.DAG.Run.ErrorReporter
+  alias Gust.DAG.Run.ErrorReporter.ExternalReference
+  alias Gust.{Flows, PubSub}
 
   def start_link(config) do
     GenServer.start_link(__MODULE__, config, name: __MODULE__)
@@ -35,12 +37,50 @@ defmodule Gust.DAG.Run.ErrorReporter.Worker do
   end
 
   defp capture(reporter, exception, stacktrace, data) do
-    reporter.capture(exception, stacktrace, data)
-  rescue
-    error -> log_failure(reporter, :error, error, __STACKTRACE__)
-  catch
-    kind, reason -> log_failure(reporter, kind, reason, __STACKTRACE__)
+    case call_reporter(reporter, exception, stacktrace, data) do
+      {:ok, :ok} ->
+        :ok
+
+      {:ok, {:ok, reference}} ->
+        attach_reference(data, reference)
+    end
   end
+
+  defp call_reporter(reporter, exception, stacktrace, data) do
+    {:ok, reporter.capture(exception, stacktrace, data)}
+  rescue
+    error ->
+      log_failure(reporter, :error, error, __STACKTRACE__)
+      :error
+  catch
+    kind, reason ->
+      log_failure(reporter, kind, reason, __STACKTRACE__)
+      :error
+  end
+
+  defp attach_reference(data, reference) do
+    if ExternalReference.valid?(reference) do
+      case Flows.attach_task_error_reference(data.task_id, reference) do
+        {:ok, task} ->
+          PubSub.broadcast_task_updated(task.id)
+
+        {:error, :stale_task} ->
+          stale_reference(data.task_id)
+      end
+    else
+      invalid_reference(reference)
+    end
+  end
+
+  defp stale_reference(task_id),
+    do:
+      Logger.debug(
+        "Ignored an external error reference for task #{task_id} because it is no longer failed"
+      )
+
+  defp invalid_reference(reference),
+    do:
+      Logger.error("Error reporter returned an invalid external reference: #{inspect(reference)}")
 
   defp log_failure(reporter, kind, reason, stacktrace) do
     Logger.error(

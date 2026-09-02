@@ -346,6 +346,25 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Adds an external reporter reference to a failed task's error.
+
+  A non-failed task is treated as stale so a delayed reporter response cannot
+  overwrite the state of a task that has moved on.
+  """
+  def attach_task_error_reference(task_id, url) do
+    case Repo.get(Task, task_id) do
+      %Task{status: :failed} = task ->
+        update_task_error(task, Map.put(task.error, "external_reference", url))
+
+      %Task{} ->
+        {:error, :stale_task}
+
+      nil ->
+        {:error, :stale_task}
+    end
+  end
+
+  @doc """
   Updates a task result and error.
   """
   def update_task_result_error(task, result, error) do
