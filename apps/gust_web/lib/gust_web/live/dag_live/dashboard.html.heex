@@ -54,65 +54,67 @@
     </section>
 
     <div class="dag-card__body">
-      <div class="min-w-max">
-        <!-- Task Grid -->
-        <div class="flex w-full">
-          <!-- Task names column -->
-          <div class="pr-2 border-r border-gray-200 pt-2 w-1/6">
-            <div class="flex items-center h-6 mb-2 border-b-2">
-              <span class="text-xs font-medium text-gray-800 ">Run</span>
-            </div>
-
-            <div :for={name <- @dag_def.task_list} class="flex items-center gap-1 h-6 mb-2">
-              <span class="text-xs font-medium text-gray-800">
-                {name}
-                <strong :if={mapped_task?(@dag_def, name)} id={"#{name}-map-badge"}>
-                  []
-                </strong>
-              </span>
-            </div>
-          </div>
-          <!-- Run columns -->
-          <div
-            class="flex overflow-x-auto w-5/6"
-            phx-update="stream"
-            id="run_history"
-          >
-            <%= for {id, %Run{status: status, id: run_id, tasks: ran_tasks} = run} <- @streams.runs do %>
-              <% tasks_by_name = Enum.group_by(ran_tasks, & &1.name) %>
-              <div class={"px-1 rounded #{selected_run_class(run_id, @selected_item)}"} id={id}>
-                <.link navigate={
-                  dashboard_item_path(
-                    @dag_def.name,
-                    run_id,
-                    @page,
-                    @pinned_run_id
-                  )
-                }>
-                  <div class="flex justify-center mb-2 pt-2">
-                    <.task_cell id={"run-status-cell-#{run_id}"} status={status} />
-                  </div>
-                </.link>
-
-                <div :for={task_name <- @dag_def.task_list} class="flex justify-center mb-2">
-                  <.interactive_task_cell
-                    task_data={task_cell_data(task_name, tasks_by_name, @selected_item)}
-                    name={task_name}
-                    run_id={run_id}
-                    navigate={
-                      dashboard_item_path(
-                        @dag_def.name,
-                        run_id,
-                        @page,
-                        @pinned_run_id,
-                        [{"task_name", task_name}]
-                      )
-                    }
-                    data-testid={"#{task_name}-at-run-#{run_id}-link"}
-                  />
-                </div>
+      <div class={["table-viewport", "max-w-full", "overflow-x-auto"]}>
+        <div class="min-w-max">
+          <!-- Task Grid -->
+          <div class="flex w-full">
+            <!-- Task names column -->
+            <div class="pr-2 border-r border-gray-200 pt-2 w-1/6">
+              <div class="flex items-center h-6 mb-2 border-b-2">
+                <span class="text-xs font-medium text-gray-800 ">Run</span>
               </div>
-            <% end %>
+
+              <div :for={name <- @dag_def.task_list} class="flex items-center gap-1 h-6 mb-2">
+                <span class="text-xs font-medium text-gray-800">
+                  {name}
+                  <strong :if={mapped_task?(@dag_def, name)} id={"#{name}-map-badge"}>
+                    []
+                  </strong>
+                </span>
+              </div>
+            </div>
+            <!-- Run columns -->
+            <div
+              class="flex overflow-x-auto w-5/6"
+              phx-update="stream"
+              id="run_history"
+            >
+              <%= for {id, %Run{status: status, id: run_id, tasks: ran_tasks} = run} <- @streams.runs do %>
+                <% tasks_by_name = Enum.group_by(ran_tasks, & &1.name) %>
+                <div class={"px-1 rounded #{selected_run_class(run_id, @selected_item)}"} id={id}>
+                  <.link navigate={
+                    dashboard_item_path(
+                      @dag_def.name,
+                      run_id,
+                      @page,
+                      @pinned_run_id
+                    )
+                  }>
+                    <div class="flex justify-center mb-2 pt-2">
+                      <.task_cell id={"run-status-cell-#{run_id}"} status={status} />
+                    </div>
+                  </.link>
+
+                  <div :for={task_name <- @dag_def.task_list} class="flex justify-center mb-2">
+                    <.interactive_task_cell
+                      task_data={task_cell_data(task_name, tasks_by_name, @selected_item)}
+                      name={task_name}
+                      run_id={run_id}
+                      navigate={
+                        dashboard_item_path(
+                          @dag_def.name,
+                          run_id,
+                          @page,
+                          @pinned_run_id,
+                          [{"task_name", task_name}]
+                        )
+                      }
+                      data-testid={"#{task_name}-at-run-#{run_id}-link"}
+                    />
+                  </div>
+                </div>
+              <% end %>
+            </div>
           </div>
         </div>
       </div>

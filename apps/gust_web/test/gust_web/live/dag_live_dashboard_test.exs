@@ -73,6 +73,12 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       assert html =~ dag.name
+
+      assert has_element?(
+               dashboard_live,
+               ".table-viewport.max-w-full.overflow-x-auto #run_history"
+             )
+
       assert has_element?(dashboard_live, "#run-status-cell-#{run.id}.task-grid-cell")
       assert has_element?(dashboard_live, "##{task.name}-at-run-#{run.id}.task-grid-cell")
     end
