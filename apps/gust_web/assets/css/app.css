@@ -572,26 +572,6 @@
   display: none;
 }
 
-@media (max-width: 639px) {
-  .run-params__search-form {
-    height: auto;
-    flex-wrap: wrap;
-  }
-
-  .run-params__search-form .fieldset {
-    flex-basis: 100%;
-  }
-
-  .run-params__search-form button {
-    flex: 1 1 0%;
-  }
-
-  .run-status__filter-form,
-  .run-status__filter-form .fieldset,
-  .run-status__filter-form select {
-    width: 100%;
-  }
-}
 
 @media (max-width: 1023px) {
   .app-shell__body {
