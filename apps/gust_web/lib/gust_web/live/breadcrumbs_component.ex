@@ -25,7 +25,7 @@ defmodule GustWeb.BreadcrumbsComponent do
       class={[
         "breadcrumbs",
         "flex flex-wrap items-center justify-between gap-2 sm:gap-4",
-        "text-sm bg-white rounded shadow-sm overflow-hidden mb-4 px-4"
+        "text-sm bg-base-100 text-base-content rounded shadow-sm overflow-hidden mb-4 px-4"
       ]}
     >
       <ul class="min-w-0 max-w-full flex-1 flex-wrap">

@@ -307,7 +307,7 @@ defmodule GustWeb.CoreComponents do
       <div
         :if={@actions != []}
         data-slot="header-actions"
-        class="w-full flex-none rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm sm:w-auto"
+        class="w-full flex-none rounded-lg border border-base-300 bg-base-100 px-3 py-2 shadow-sm sm:w-auto"
       >
         {render_slot(@actions)}
       </div>
@@ -347,12 +347,12 @@ defmodule GustWeb.CoreComponents do
       end
 
     ~H"""
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="min-w-full divide-y divide-base-300">
       <thead>
         <tr>
           <th
             :for={col <- @col}
-            class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider"
+            class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider"
           >
             {col[:label]}
           </th>
@@ -363,14 +363,14 @@ defmodule GustWeb.CoreComponents do
       </thead>
       <tbody
         id={@id}
-        class="bg-white divide-y divide-gray-200"
+        class="bg-base-100 divide-y divide-base-300"
         phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}
       >
         <tr :for={row <- @rows} id={@row_id && @row_id.(row)}>
           <td
             :for={col <- @col}
             phx-click={@row_click && @row_click.(row)}
-            class="px-3 py-2 whitespace-nowrap text-sm font-semibold text-slate-800"
+            class="px-3 py-2 whitespace-nowrap text-sm font-semibold text-base-content"
           >
             {render_slot(col, @row_item.(row))}
           </td>

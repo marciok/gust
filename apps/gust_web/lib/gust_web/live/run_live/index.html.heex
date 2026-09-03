@@ -1,9 +1,9 @@
 <Layouts.app flash={@flash}>
-  <div class="breadcrumbs text-sm bg-white rounded shadow-sm overflow-hidden mb-4 px-4">
+  <div class="breadcrumbs text-sm bg-base-100 text-base-content rounded shadow-sm overflow-hidden mb-4 px-4">
     <ul>
       <li>
         <.link
-          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
+          class="inline-flex items-center gap-1 px-3 py-2 hover:text-base-content"
           navigate={~g"/dags/#{@dag_name}/dashboard"}
         >
           <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Back
@@ -24,7 +24,7 @@
         </div>
 
         <nav
-          class="flex w-full flex-col gap-3 border-t border-slate-200 pt-3"
+          class="flex w-full flex-col gap-3 border-t border-base-300 pt-3"
           aria-label="Run list controls"
         >
           <div class="flex w-full flex-wrap items-center justify-between gap-3">
@@ -84,7 +84,7 @@
             <div class="flex flex-wrap items-center gap-2">
               <label
                 for="select-all-runs"
-                class="inline-flex h-8 items-center gap-2 rounded border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
+                class="inline-flex h-8 items-center gap-2 rounded border border-base-300 bg-base-100 px-3 text-sm font-medium text-base-content/75"
               >
                 <input
                   type="checkbox"
@@ -178,9 +178,12 @@
             <:col :let={{_id, run}} label="Params">
               <pre
                 :if={run.params && map_size(run.params) > 0}
-                class="text-xs bg-slate-50 p-1 rounded max-w-xs overflow-x-auto"
+                class="text-xs bg-base-200 p-1 rounded max-w-xs overflow-x-auto"
               ><%= pretty_json!(run.params) %></pre>
-              <span :if={!run.params || map_size(run.params) == 0} class="text-xs text-gray-400">
+              <span
+                :if={!run.params || map_size(run.params) == 0}
+                class="text-xs text-base-content/40"
+              >
                 -
               </span>
             </:col>
@@ -213,7 +216,7 @@
 
       <nav
         id="runs-pagination"
-        class="flex justify-center border-t border-slate-200 pt-4"
+        class="flex justify-center border-t border-base-300 pt-4"
         aria-label="Runs pagination"
       >
         <div class="join">

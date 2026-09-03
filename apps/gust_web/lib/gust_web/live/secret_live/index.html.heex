@@ -10,7 +10,7 @@
     </.header>
   </div>
 
-  <div class="card bg-white shadow-md rounded mb-6">
+  <div class="card bg-base-100 text-base-content shadow-md rounded mb-6">
     <div class={["table-viewport", "p-4"]}>
       <.table id="secrets" rows={@streams.secrets}>
         <:col :let={{_id, secret}} label="Name">
@@ -43,7 +43,7 @@
   <%= if @live_action in [:new, :edit]  do %>
     <.form for={@form} id="secret-form" phx-change="validate" phx-submit="save">
       <div class="mt-10">
-        <div class="card bg-white shadow-md p-6 space-y-6">
+        <div class="card bg-base-100 text-base-content shadow-md p-6 space-y-6">
           <div>
             <label class="label">
               <span class="label-text">Name</span>

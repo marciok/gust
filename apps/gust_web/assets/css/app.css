@@ -21,40 +21,40 @@
   curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui-theme.js
   We ship with two themes, a light one inspired on Phoenix colors and a dark one inspired
   on Elixir colors. Build your own at: https://daisyui.com/theme-generator/ */
-/* @plugin "../vendor/daisyui-theme" { */
-/*   name: "dark"; */
-/*   default: false; */
-/*   prefersdark: true; */
-/*   color-scheme: "dark"; */
-/*   --color-base-100: oklch(30.33% 0.016 252.42); */
-/*   --color-base-200: oklch(25.26% 0.014 253.1); */
-/*   --color-base-300: oklch(20.15% 0.012 254.09); */
-/*   --color-base-content: oklch(97.807% 0.029 256.847); */
-/*   --color-primary: oklch(58% 0.233 277.117); */
-/*   --color-primary-content: oklch(96% 0.018 272.314); */
-/*   --color-secondary: oklch(58% 0.233 277.117); */
-/*   --color-secondary-content: oklch(96% 0.018 272.314); */
-/*   --color-accent: oklch(60% 0.25 292.717); */
-/*   --color-accent-content: oklch(96% 0.016 293.756); */
-/*   --color-neutral: oklch(37% 0.044 257.287); */
-/*   --color-neutral-content: oklch(98% 0.003 247.858); */
-/*   --color-info: oklch(58% 0.158 241.966); */
-/*   --color-info-content: oklch(97% 0.013 236.62); */
-/*   --color-success: oklch(60% 0.118 184.704); */
-/*   --color-success-content: oklch(98% 0.014 180.72); */
-/*   --color-warning: oklch(66% 0.179 58.318); */
-/*   --color-warning-content: oklch(98% 0.022 95.277); */
-/*   --color-error: oklch(58% 0.253 17.585); */
-/*   --color-error-content: oklch(96% 0.015 12.422); */
-/*   --radius-selector: 0.25rem; */
-/*   --radius-field: 0.25rem; */
-/*   --radius-box: 0.5rem; */
-/*   --size-selector: 0.21875rem; */
-/*   --size-field: 0.21875rem; */
-/*   --border: 1.5px; */
-/*   --depth: 1; */
-/*   --noise: 0; */
-/* } */
+@plugin "../vendor/daisyui-theme" {
+  name: "dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: oklch(26% 0.018 252);
+  --color-base-200: oklch(22% 0.018 252);
+  --color-base-300: oklch(18% 0.018 252);
+  --color-base-content: oklch(94% 0.015 248);
+  --color-primary: oklch(68% 0.15 230);
+  --color-primary-content: oklch(16% 0.03 230);
+  --color-secondary: oklch(68% 0.08 230);
+  --color-secondary-content: oklch(16% 0.02 230);
+  --color-accent: oklch(70% 0.12 185);
+  --color-accent-content: oklch(16% 0.02 185);
+  --color-neutral: oklch(35% 0.035 235);
+  --color-neutral-content: oklch(94% 0.01 230);
+  --color-info: oklch(70% 0.13 225);
+  --color-info-content: oklch(16% 0.02 225);
+  --color-success: oklch(70% 0.11 160);
+  --color-success-content: oklch(15% 0.02 155);
+  --color-warning: oklch(76% 0.15 75);
+  --color-warning-content: oklch(20% 0.03 80);
+  --color-error: oklch(68% 0.14 30);
+  --color-error-content: oklch(16% 0.02 30);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.21875rem;
+  --size-field: 0.21875rem;
+  --border: 1.5px;
+  --depth: 1;
+  --noise: 0;
+}
 
 @plugin "../vendor/daisyui-theme" {
   name: "light";
@@ -210,7 +210,7 @@
   }
 
   .dag-card {
-    @apply bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden;
+    @apply bg-base-100 text-base-content border border-base-300 rounded-xl shadow-sm overflow-hidden;
   }
 
   .dag-card__alert {
@@ -222,7 +222,7 @@
   }
 
   .dag-card__header {
-    @apply flex flex-col gap-4 p-4 bg-slate-50 border-b border-slate-200/70;
+    @apply flex flex-col gap-4 p-4 bg-base-200 border-b border-base-300;
   }
 
   .dag-card__title-row {
@@ -230,11 +230,11 @@
   }
 
   .dag-card__title {
-    @apply text-lg font-semibold text-slate-900 leading-tight;
+    @apply text-lg font-semibold text-base-content leading-tight;
   }
 
   .dag-card__title a {
-    @apply text-slate-900 hover:underline decoration-2 underline-offset-4;
+    @apply text-base-content hover:underline decoration-2 underline-offset-4;
   }
 
   .dag-card__title-with-icon {
@@ -266,7 +266,7 @@
   }
 
   .dag-card__run-history-line {
-    @apply flex h-2 w-full gap-px overflow-hidden rounded-full bg-slate-200;
+    @apply flex h-2 w-full gap-px overflow-hidden rounded-full bg-base-300;
   }
 
   .dag-card__run-history-segment {
@@ -274,15 +274,15 @@
   }
 
   .dag-card__meta-item {
-    @apply bg-white rounded-lg border border-slate-200/70 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)];
+    @apply bg-base-100 rounded-lg border border-base-300 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)];
   }
 
   .dag-card__meta-label {
-    @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+    @apply text-xs font-semibold uppercase tracking-wide text-base-content/60;
   }
 
   .dag-card__meta-value {
-    @apply text-sm text-slate-900;
+    @apply text-sm text-base-content;
   }
 
   .dag-card__body {
@@ -298,7 +298,7 @@
   }
 
   .dag-card__footer {
-    @apply flex justify-between items-center gap-3 p-4 border-t border-slate-200/70 bg-slate-50;
+    @apply flex justify-between items-center gap-3 p-4 border-t border-base-300 bg-base-200;
   }
 
   .run-history__actions {
@@ -310,11 +310,11 @@
   }
 
   .system-panel {
-    @apply rounded-xl border border-slate-200/80 bg-white shadow-sm;
+    @apply rounded-xl border border-base-300 bg-base-100 text-base-content shadow-sm;
   }
 
   .system-panel__header {
-    @apply border-b border-slate-200/70 px-5 py-4;
+    @apply border-b border-base-300 px-5 py-4;
   }
 
   .system-panel__header--split {
@@ -322,7 +322,7 @@
   }
 
   .system-panel__title {
-    @apply text-lg font-semibold text-slate-900;
+    @apply text-lg font-semibold text-base-content;
   }
 
   .system-panel__body {
@@ -334,19 +334,19 @@
   }
 
   .system-stat {
-    @apply rounded-lg bg-slate-50 p-4;
+    @apply rounded-lg bg-base-200 p-4;
   }
 
   .system-label {
-    @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+    @apply text-xs font-semibold uppercase tracking-wide text-base-content/60;
   }
 
   .system-value {
-    @apply mt-1 break-words font-mono text-sm text-slate-900;
+    @apply mt-1 break-words font-mono text-sm text-base-content;
   }
 
   .system-empty {
-    @apply rounded-lg bg-slate-50 p-4 text-sm text-slate-600;
+    @apply rounded-lg bg-base-200 p-4 text-sm text-base-content/70;
   }
 
   .system-node-list {
@@ -354,28 +354,33 @@
   }
 
   .system-node {
-    @apply break-words rounded-lg bg-slate-50 px-4 py-3 font-mono text-sm text-slate-900;
+    @apply break-words rounded-lg bg-base-200 px-4 py-3 font-mono text-sm text-base-content;
   }
 
   .sidebar {
-    @apply w-64 shrink-0 bg-white border-r border-slate-300 shadow-sm flex flex-col;
+    @apply w-64 shrink-0 bg-base-100 text-base-content border-r border-base-300 shadow-sm flex flex-col;
   }
 
   .sidebar__brand {
-    @apply p-5 border-b border-slate-200 flex items-center gap-3;
+    @apply p-5 border-b border-base-300 flex items-center gap-3;
   }
 
   .sidebar__links {
     @apply px-3 py-4 space-y-1;
   }
 
+  .sidebar__footer {
+    @apply mt-auto border-t border-base-300 p-3;
+  }
+
   .sidebar__link {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors;
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-base-content/75 hover:bg-base-200 hover:text-base-content transition-colors;
   }
 
   .app-shell {
     @apply flex min-h-screen w-full min-w-0 max-w-full flex-col overflow-x-hidden;
-    background-color: #e2e8f0;
+    color: var(--color-base-content);
+    background-color: var(--color-base-200);
     background-image:
       radial-gradient(60% 60% at 20% 25%, rgba(56, 189, 248, 0.18), transparent 60%),
       radial-gradient(55% 55% at 80% 20%, rgba(59, 130, 246, 0.18), transparent 60%),
@@ -390,6 +395,26 @@
 
   .app-shell__content {
     @apply flex min-h-full min-w-0 max-w-full flex-col gap-6 px-3 py-4;
+  }
+
+  .theme-toggle {
+    @apply inline-flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-base-content/75 transition-colors hover:bg-base-200 hover:text-base-content;
+  }
+
+  .theme-toggle--compact {
+    @apply min-w-11 w-11 justify-center p-0;
+  }
+
+  .theme-toggle__icon {
+    @apply shrink-0;
+  }
+
+  .theme-toggle__icon--sun {
+    display: none;
+  }
+
+  .mobile-app-bar__actions {
+    @apply flex items-center gap-1;
   }
 
   @media (max-width: 639px) {
@@ -441,14 +466,36 @@
   }
 
   .gust-wordmark {
-    @apply text-xl font-semibold text-slate-900 tracking-tight leading-tight;
+    @apply text-xl font-semibold text-base-content tracking-tight leading-tight;
     background: linear-gradient(135deg, rgba(15, 23, 42, 1), rgba(30, 41, 59, 0.85));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
+  [data-theme="dark"] .app-shell {
+    background-image:
+      radial-gradient(60% 60% at 20% 25%, rgb(14 116 144 / 18%), transparent 60%),
+      radial-gradient(55% 55% at 80% 20%, rgb(30 64 175 / 18%), transparent 60%),
+      radial-gradient(50% 50% at 70% 70%, rgb(51 65 85 / 24%), transparent 60%),
+      linear-gradient(120deg, rgb(15 23 42 / 20%), rgb(2 6 23 / 5%));
+  }
+
+  [data-theme="dark"] .gust-wordmark {
+    background: linear-gradient(135deg, rgba(248, 250, 252, 1), rgba(186, 230, 253, 0.9));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  [data-theme="dark"] .theme-toggle__icon--moon {
+    display: none;
+  }
+
+  [data-theme="dark"] .theme-toggle__icon--sun {
+    display: inline-block;
+  }
+
   .app-footer {
-    @apply w-full rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3 text-xs text-slate-500 shadow-sm backdrop-blur;
+    @apply w-full rounded-xl border border-base-300 bg-base-100/80 px-4 py-3 text-xs text-base-content/60 shadow-sm backdrop-blur;
   }
 
   .app-footer__content {
@@ -461,7 +508,7 @@
 
 
   .app-footer__value {
-    @apply border border-slate-200 bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm;
+    @apply border border-base-300 bg-base-100/80 px-2 py-1 text-[11px] font-medium text-base-content/75 shadow-sm;
   }
 
   .run-params__search-form {
@@ -529,7 +576,7 @@
 
 @layer components {
   .log-filter {
-    @apply flex items-center gap-2 text-xs text-slate-600 ml-auto;
+    @apply flex items-center gap-2 text-xs text-base-content/60 ml-auto;
   }
 
   .log-filter .fieldset {
@@ -588,8 +635,8 @@
     z-index: 30;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--color-slate-300);
-    background: white;
+    border-bottom: 1px solid var(--color-base-300);
+    background: var(--color-base-100);
     padding: 0.5rem 0.75rem;
     box-shadow: var(--shadow-sm);
   }
@@ -617,12 +664,12 @@
     align-items: center;
     justify-content: center;
     border-radius: 0.5rem;
-    color: var(--color-slate-700);
+    color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
   }
 
   .mobile-app-bar__menu-button:hover,
   .sidebar__close:hover {
-    background: var(--color-slate-100);
+    background: var(--color-base-200);
   }
 
   .sidebar-backdrop {
@@ -650,7 +697,7 @@
     flex-direction: column;
     transform: translateX(-100%);
     overflow-y: auto;
-    background: white;
+    background: var(--color-base-100);
     transition: transform 150ms ease;
   }
 
@@ -672,7 +719,7 @@
   .sidebar__brand {
     width: 100%;
     justify-content: space-between;
-    border-bottom: 1px solid var(--color-slate-200);
+    border-bottom: 1px solid var(--color-base-300);
     padding: 0.75rem 1rem;
   }
 

@@ -33,17 +33,82 @@ import "prismjs/components/prism-python.js"
 import "prismjs/plugins/line-numbers/prism-line-numbers.js"
 import "prismjs/plugins/line-highlight/prism-line-highlight.js"
 
+const themeStorageKey = "gust-theme"
+const darkThemeQuery = window.matchMedia("(prefers-color-scheme: dark)")
+
+const storedTheme = () => {
+  try {
+    const theme = window.localStorage.getItem(themeStorageKey)
+    return ["light", "dark"].includes(theme) ? theme : null
+  } catch (_error) {
+    return null
+  }
+}
+
+const preferredTheme = () => storedTheme() || (darkThemeQuery.matches ? "dark" : "light")
+
+const updateThemeControls = theme => {
+  const darkMode = theme === "dark"
+  const nextTheme = darkMode ? "light" : "dark"
+  const label = `Switch to ${nextTheme} mode`
+
+  document.querySelectorAll("[data-theme-toggle]").forEach(toggle => {
+    toggle.setAttribute("aria-label", label)
+    toggle.setAttribute("aria-pressed", String(darkMode))
+    toggle.setAttribute("title", label)
+
+    const text = toggle.querySelector(".theme-toggle__label")
+    if (text) text.textContent = `${nextTheme[0].toUpperCase()}${nextTheme.slice(1)} mode`
+  })
+}
+
+const applyTheme = theme => {
+  document.documentElement.dataset.theme = theme
+  updateThemeControls(theme)
+  window.dispatchEvent(new CustomEvent("gust:theme-changed", { detail: { theme } }))
+}
+
+applyTheme(preferredTheme())
+
+document.addEventListener("click", event => {
+  const toggle = event.target.closest("[data-theme-toggle]")
+  if (!toggle) return
+
+  const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark"
+
+  try {
+    window.localStorage.setItem(themeStorageKey, theme)
+  } catch (_error) {
+    // The theme still works for this page when storage is unavailable.
+  }
+
+  applyTheme(theme)
+})
+
+darkThemeQuery.addEventListener("change", event => {
+  if (!storedTheme()) applyTheme(event.matches ? "dark" : "light")
+})
+
 let Hooks = {}
 
 Hooks.Mermaid = {
   mounted() {
+    this.source = this.el.textContent
+    this.handleThemeChange = () => this.renderDiagram()
+    window.addEventListener("gust:theme-changed", this.handleThemeChange)
     this.renderDiagram()
   },
   updated() {
+    if (!this.el.querySelector("svg")) this.source = this.el.textContent
     this.renderDiagram()
+  },
+  destroyed() {
+    window.removeEventListener("gust:theme-changed", this.handleThemeChange)
   },
 
   renderDiagram() {
+    const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "base"
+    this.el.textContent = this.source.replace("theme: 'base'", `theme: '${theme}'`)
     this.el.removeAttribute("data-processed")
     mermaid.run({ nodes: [this.el] }).catch(error => {
       console.error("Mermaid failed to render", error)
@@ -70,7 +135,10 @@ const liveSocket = new LiveSocket("/live", Socket, {
 // Show progress bar on live navigation and form submits
 topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" })
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
-window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
+window.addEventListener("phx:page-loading-stop", _info => {
+  topbar.hide()
+  updateThemeControls(document.documentElement.dataset.theme || preferredTheme())
+})
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
