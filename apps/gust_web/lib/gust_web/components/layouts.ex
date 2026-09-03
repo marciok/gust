@@ -45,34 +45,100 @@ defmodule GustWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <div class="app-shell">
+    <div id="app-shell" class="app-shell">
       <div class="app-shell__body">
-        <aside class="sidebar">
+        <header id="mobile-app-bar" class="mobile-app-bar">
+          <.link navigate={~g"/dags"} class="mobile-app-bar__brand">
+            <img src={~g"/images/gust-logo.png"} alt="Gust" class="mobile-app-bar__logo" />
+            <span class="gust-wordmark">Gust</span>
+          </.link>
+          <button
+            type="button"
+            id="mobile-navigation-button"
+            class="mobile-app-bar__menu-button"
+            aria-label="Open navigation"
+            aria-controls="app-sidebar"
+            aria-expanded="false"
+            phx-click={mobile_navigation(:open)}
+          >
+            <.icon name="hero-bars-3" class="size-5" />
+          </button>
+        </header>
+
+        <button
+          type="button"
+          id="mobile-navigation-backdrop"
+          class="sidebar-backdrop"
+          aria-label="Close navigation"
+          tabindex="-1"
+          phx-click={mobile_navigation(:closed)}
+        ></button>
+
+        <aside
+          id="app-sidebar"
+          class="sidebar"
+          aria-label="Application navigation"
+          phx-window-keydown={mobile_navigation(:closed)}
+          phx-key="escape"
+        >
           <div class="sidebar__brand">
-            <img src={~g"/images/gust-logo.png"} alt="Gust Logo" />
-            <h1 class="gust-wordmark">Gust</h1>
+            <.link
+              navigate={~g"/dags"}
+              class="sidebar__brand-link"
+              phx-click={mobile_navigation(:closed)}
+            >
+              <img src={~g"/images/gust-logo.png"} alt="Gust" class="sidebar__logo" />
+              <span class="gust-wordmark">Gust</span>
+            </.link>
+            <button
+              type="button"
+              id="mobile-navigation-close"
+              class="sidebar__close"
+              aria-label="Close navigation"
+              phx-click={mobile_navigation(:closed)}
+            >
+              <.icon name="hero-x-mark" class="size-5" />
+            </button>
           </div>
-          <nav class="sidebar__links">
-            <.link navigate={~g"/dags"} class="sidebar__link">
+          <nav id="primary-navigation" class="sidebar__links" aria-label="Primary navigation">
+            <.link
+              id="nav-dags"
+              navigate={~g"/dags"}
+              class="sidebar__link"
+              phx-click={mobile_navigation(:closed)}
+            >
               <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
               <span>DAGs</span>
             </.link>
 
-            <.link navigate={~g"/secrets"} class="sidebar__link">
+            <.link
+              id="nav-secrets"
+              navigate={~g"/secrets"}
+              class="sidebar__link"
+              phx-click={mobile_navigation(:closed)}
+            >
               <.icon name="hero-lock-closed" class="h-5 w-5 text-sky-600" />
               <span>Secrets</span>
             </.link>
 
-            <.link navigate={~g"/system"} class="sidebar__link">
+            <.link
+              id="nav-system"
+              navigate={~g"/system"}
+              class="sidebar__link"
+              phx-click={mobile_navigation(:closed)}
+            >
               <.icon name="hero-server-stack" class="h-5 w-5 text-sky-600" />
               <span>System</span>
             </.link>
           </nav>
         </aside>
 
-        <main class="flex-1 overflow-y-auto">
-          <div class="flex min-h-full flex-col gap-6 px-3 py-4">
-            <div class="container mx-auto flex-1 w-full">
+        <main
+          id="app-content"
+          class={["min-w-0", "max-w-full", "flex-1", "overflow-y-auto"]}
+        >
+          <div class="app-shell__content">
+            <div class={["container", "mx-auto", "min-w-0", "max-w-full", "flex-1", "w-full"]}>
               {render_slot(@inner_block)}
             </div>
           </div>
@@ -82,6 +148,18 @@ defmodule GustWeb.Layouts do
       <.flash_group flash={@flash} />
     </div>
     """
+  end
+
+  defp mobile_navigation(:open) do
+    JS.add_class(%JS{}, "app-shell--mobile-navigation-open", to: "#app-shell")
+    |> JS.set_attribute({"aria-expanded", true}, to: "#mobile-navigation-button")
+    |> JS.focus(to: "#mobile-navigation-close")
+  end
+
+  defp mobile_navigation(:closed) do
+    JS.remove_class(%JS{}, "app-shell--mobile-navigation-open", to: "#app-shell")
+    |> JS.set_attribute({"aria-expanded", false}, to: "#mobile-navigation-button")
+    |> JS.focus(to: "#mobile-navigation-button")
   end
 
   @doc """

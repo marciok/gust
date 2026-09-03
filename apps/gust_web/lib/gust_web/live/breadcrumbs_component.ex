@@ -24,11 +24,11 @@ defmodule GustWeb.BreadcrumbsComponent do
       id="breadcrumbs-nav"
       class={[
         "breadcrumbs",
-        "flex items-center justify-between gap-4",
+        "flex flex-wrap items-center justify-between gap-2 sm:gap-4",
         "text-sm bg-white rounded shadow-sm overflow-hidden mb-4 px-4"
       ]}
     >
-      <ul class="min-w-0">
+      <ul class="min-w-0 max-w-full flex-1 flex-wrap">
         <li>
           <.link id="dags-link" navigate={~g"/dags"}>
             DAGs

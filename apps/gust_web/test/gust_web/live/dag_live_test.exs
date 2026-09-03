@@ -39,11 +39,18 @@ defmodule GustWeb.DagLiveTest do
     end
 
     test "lists all valid dags on dag folder", %{conn: conn, dag: dag, broken_dag: broken_dag} do
-      {:ok, _index_live, html} = live(conn, ~g"/dags")
+      {:ok, index_live, html} = live(conn, ~g"/dags")
 
       assert html =~ "DAGs Listing"
       assert html =~ dag.name
       assert html =~ broken_dag.name
+      assert has_element?(index_live, "#mobile-navigation-button[aria-controls='app-sidebar']")
+      assert has_element?(index_live, "#mobile-navigation-backdrop")
+      assert has_element?(index_live, "#primary-navigation #nav-dags")
+      assert has_element?(index_live, "#primary-navigation #nav-secrets")
+      assert has_element?(index_live, "#primary-navigation #nav-system")
+      assert has_element?(index_live, "#app-content.min-w-0.max-w-full")
+      assert has_element?(index_live, "#dag-index-header [data-slot='header-actions'].w-full")
     end
 
     test "shows the statuses of the ten most recent runs", %{conn: conn, dag: dag} do

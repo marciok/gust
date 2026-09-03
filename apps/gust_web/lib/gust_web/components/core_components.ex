@@ -292,7 +292,10 @@ defmodule GustWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
+    <header class={[
+      @actions != [] && "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6",
+      "pb-4"
+    ]}>
       <div>
         <h1 class="text-lg font-semibold leading-8">
           {render_slot(@inner_block)}
@@ -304,7 +307,7 @@ defmodule GustWeb.CoreComponents do
       <div
         :if={@actions != []}
         data-slot="header-actions"
-        class="flex-none rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm"
+        class="w-full flex-none rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm sm:w-auto"
       >
         {render_slot(@actions)}
       </div>

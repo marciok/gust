@@ -30,7 +30,7 @@
           <div class="flex w-full flex-wrap items-center justify-between gap-3">
             <div
               id="run-search-controls"
-              class="mx-auto flex h-8 w-full flex-nowrap items-center gap-2"
+              class="mx-auto flex h-auto w-full flex-wrap items-center gap-2"
             >
               <.form
                 for={@params_search_form}
@@ -144,7 +144,7 @@
     </section>
 
     <div class="dag-card__body">
-      <div id="runs-table-container" class="overflow-x-auto">
+      <div id="runs-table-container" class="table-viewport">
         <.form for={%{}} id="run-batch-form" phx-change="select_runs">
           <.table id="runs" rows={@streams.runs}>
             <:col :let={{_id, run}} label="Select">
