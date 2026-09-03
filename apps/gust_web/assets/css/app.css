@@ -26,12 +26,12 @@
   default: false;
   prefersdark: true;
   color-scheme: "dark";
-  --color-base-100: oklch(26% 0.018 252);
-  --color-base-200: oklch(22% 0.018 252);
-  --color-base-300: oklch(18% 0.018 252);
-  --color-base-content: oklch(94% 0.015 248);
-  --color-primary: oklch(68% 0.15 230);
-  --color-primary-content: oklch(16% 0.03 230);
+  --color-base-100: oklch(30% 0.018 252);
+  --color-base-200: oklch(20% 0.018 252);
+  --color-base-300: oklch(14% 0.018 252);
+  --color-base-content: oklch(96% 0.012 248);
+  --color-primary: oklch(72% 0.14 230);
+  --color-primary-content: oklch(14% 0.03 230);
   --color-secondary: oklch(68% 0.08 230);
   --color-secondary-content: oklch(16% 0.02 230);
   --color-accent: oklch(70% 0.12 185);
@@ -61,12 +61,12 @@
   default: true;
   prefersdark: false;
   color-scheme: "light";
-  --color-base-100: oklch(95% 0.01 220);
-  --color-base-200: oklch(92% 0.012 220);
-  --color-base-300: oklch(88% 0.015 220);
-  --color-base-content: oklch(26% 0.06 230);
-  --color-primary: oklch(60% 0.16 230);
-  --color-primary-content: oklch(95% 0.02 225);
+  --color-base-100: oklch(98% 0.008 220);
+  --color-base-200: oklch(93% 0.012 220);
+  --color-base-300: oklch(84% 0.018 220);
+  --color-base-content: oklch(22% 0.055 230);
+  --color-primary: oklch(52% 0.17 230);
+  --color-primary-content: oklch(98% 0.01 225);
   --color-secondary: oklch(52% 0.07 230);
   --color-secondary-content: oklch(95% 0.01 225);
   --color-accent: oklch(65% 0.12 185);
@@ -103,6 +103,12 @@
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* Provide a consistent, high-contrast keyboard focus indicator across both themes. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
 
 /* This file is for your main application CSS */
 
@@ -210,7 +216,7 @@
   }
 
   .dag-card {
-    @apply bg-base-100 text-base-content border border-base-300 rounded-xl shadow-sm overflow-hidden;
+    @apply bg-base-100 text-base-content border border-base-content/20 rounded-xl shadow-sm overflow-hidden;
   }
 
   .dag-card__alert {
@@ -222,7 +228,7 @@
   }
 
   .dag-card__header {
-    @apply flex flex-col gap-4 p-4 bg-base-200 border-b border-base-300;
+    @apply flex flex-col gap-4 p-4 bg-base-200 border-b border-base-content/15;
   }
 
   .dag-card__title-row {
@@ -274,11 +280,11 @@
   }
 
   .dag-card__meta-item {
-    @apply bg-base-100 rounded-lg border border-base-300 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)];
+    @apply bg-base-100 rounded-lg border border-base-content/20 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)];
   }
 
   .dag-card__meta-label {
-    @apply text-xs font-semibold uppercase tracking-wide text-base-content/60;
+    @apply text-xs font-semibold uppercase tracking-wide text-base-content/70;
   }
 
   .dag-card__meta-value {
@@ -298,7 +304,7 @@
   }
 
   .dag-card__footer {
-    @apply flex justify-between items-center gap-3 p-4 border-t border-base-300 bg-base-200;
+    @apply flex justify-between items-center gap-3 p-4 border-t border-base-content/15 bg-base-200;
   }
 
   .run-history__actions {
@@ -310,11 +316,11 @@
   }
 
   .system-panel {
-    @apply rounded-xl border border-base-300 bg-base-100 text-base-content shadow-sm;
+    @apply rounded-xl border border-base-content/20 bg-base-100 text-base-content shadow-sm;
   }
 
   .system-panel__header {
-    @apply border-b border-base-300 px-5 py-4;
+    @apply border-b border-base-content/15 px-5 py-4;
   }
 
   .system-panel__header--split {
@@ -338,7 +344,7 @@
   }
 
   .system-label {
-    @apply text-xs font-semibold uppercase tracking-wide text-base-content/60;
+    @apply text-xs font-semibold uppercase tracking-wide text-base-content/70;
   }
 
   .system-value {
@@ -358,11 +364,11 @@
   }
 
   .sidebar {
-    @apply w-64 shrink-0 bg-base-100 text-base-content border-r border-base-300 shadow-sm flex flex-col;
+    @apply w-64 shrink-0 bg-base-100 text-base-content border-r border-base-content/20 shadow-sm flex flex-col;
   }
 
   .sidebar__brand {
-    @apply p-5 border-b border-base-300 flex items-center gap-3;
+    @apply p-5 border-b border-base-content/15 flex items-center gap-3;
   }
 
   .sidebar__links {
@@ -370,7 +376,7 @@
   }
 
   .sidebar__footer {
-    @apply mt-auto border-t border-base-300 p-3;
+    @apply mt-auto border-t border-base-content/15 p-3;
   }
 
   .sidebar__link {
@@ -495,7 +501,7 @@
   }
 
   .app-footer {
-    @apply w-full rounded-xl border border-base-300 bg-base-100/80 px-4 py-3 text-xs text-base-content/60 shadow-sm backdrop-blur;
+    @apply w-full rounded-xl border border-base-content/20 bg-base-100/80 px-4 py-3 text-xs text-base-content/70 shadow-sm backdrop-blur;
   }
 
   .app-footer__content {
@@ -508,7 +514,7 @@
 
 
   .app-footer__value {
-    @apply border border-base-300 bg-base-100/80 px-2 py-1 text-[11px] font-medium text-base-content/75 shadow-sm;
+    @apply border border-base-content/20 bg-base-100/80 px-2 py-1 text-[11px] font-medium text-base-content/75 shadow-sm;
   }
 
   .run-params__search-form {
@@ -576,7 +582,7 @@
 
 @layer components {
   .log-filter {
-    @apply flex items-center gap-2 text-xs text-base-content/60 ml-auto;
+    @apply flex items-center gap-2 text-xs text-base-content/70 ml-auto;
   }
 
   .log-filter .fieldset {
@@ -635,7 +641,7 @@
     z-index: 30;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--color-base-300);
+    border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
     background: var(--color-base-100);
     padding: 0.5rem 0.75rem;
     box-shadow: var(--shadow-sm);
@@ -719,7 +725,7 @@
   .sidebar__brand {
     width: 100%;
     justify-content: space-between;
-    border-bottom: 1px solid var(--color-base-300);
+    border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
     padding: 0.75rem 1rem;
   }
 

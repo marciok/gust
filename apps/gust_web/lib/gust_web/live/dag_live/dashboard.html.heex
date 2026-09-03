@@ -59,7 +59,7 @@
           <!-- Task Grid -->
           <div class="flex w-full">
             <!-- Task names column -->
-            <div class="pr-2 border-r border-base-300 pt-2 w-1/6">
+            <div class="pr-2 border-r border-base-content/20 pt-2 w-1/6">
               <div class="flex items-center h-6 mb-2 border-b-2">
                 <span class="text-xs font-medium text-base-content">Run</span>
               </div>
@@ -121,7 +121,7 @@
     </div>
 
     <div class="dag-card__footer">
-      <div class="flex gap-2 items-center text-xs font-medium text-base-content/60">
+      <div class="flex gap-2 items-center text-xs font-medium text-base-content/70">
         <.link
           id="next-page"
           class="inline-flex items-center gap-1 px-3 py-2 hover:text-base-content"
@@ -131,8 +131,8 @@
         </.link>
       </div>
 
-      <div class="flex items-center gap-3 text-xs font-medium text-base-content/60">
-        <span class="text-xs text-base-content/60">
+      <div class="flex items-center gap-3 text-xs font-medium text-base-content/70">
+        <span class="text-xs text-base-content/70">
           page: {@page}
         </span>
       </div>
@@ -140,7 +140,7 @@
       <div class="flex gap-2 items-center">
         <.link
           id="prev-page"
-          class="inline-flex items-center gap-1 px-3 py-2 hover:text-base-content text-xs font-medium text-base-content/60"
+          class="inline-flex items-center gap-1 px-3 py-2 hover:text-base-content text-xs font-medium text-base-content/70"
           navigate={~g"/dags/#{@dag_def.name}/dashboard?page=#{handle_page(@page, :prev)}"}
         >
           Newer <.icon name="hero-arrow-right-solid" class="h-3 w-3" />
@@ -164,7 +164,7 @@
       <div class="dag-card__title-row">
         <div class="flex flex-col gap-1">
           <h3 class="dag-card__title text-base">Selected {@item_name}</h3>
-          <span :if={@item_id} class="text-sm text-base-content/60">ID {@item_id}</span>
+          <span :if={@item_id} class="text-sm text-base-content/70">ID {@item_id}</span>
         </div>
         <.status_badge :if={@item_status} status={@item_status} data-testid="status-badge" />
       </div>
@@ -271,33 +271,33 @@
     </section>
 
     <section :if={@expanded_item_ids != []} class="dag-card__body">
-      <div class="border-t border-base-300 -mx-4 mb-3" />
+      <div class="border-t border-base-content/20 -mx-4 mb-3" />
       <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
 
       <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
-        <table id="mapped-task-runs" class="min-w-full divide-y divide-base-300">
+        <table id="mapped-task-runs" class="min-w-full divide-y divide-base-content/15">
           <thead class="bg-base-200">
             <tr>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Index
               </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Status
               </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Task ID
               </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Updated
               </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Action
               </th>
             </tr>
           </thead>
           <tbody
             id="mapped-task-run-list"
-            class="bg-base-100 divide-y divide-base-300"
+            class="bg-base-100 divide-y divide-base-content/15"
             phx-update="stream"
           >
             <tr
@@ -340,7 +340,7 @@
     </section>
 
     <section :if={@expanded_item_ids == []} class="dag-card__body">
-      <div class="border-t border-base-300 -mx-4 mb-4" />
+      <div class="border-t border-base-content/20 -mx-4 mb-4" />
       <div class="flex flex-wrap items-center justify-between pb-3 gap-3">
         <h4 class="text-sm font-semibold text-base-content/75">Logs</h4>
         <.form for={%{}} id="log-filter" phx-change="filter_logs" class="log-filter">
@@ -364,10 +364,10 @@
       <div
         :if={@empty_logs}
         id="logs-empty-state"
-        class="flex items-start gap-3 rounded-lg border border-dashed border-base-300 bg-base-200 px-4 py-5"
+        class="flex items-start gap-3 rounded-lg border border-dashed border-base-content/25 bg-base-200 px-4 py-5"
       >
         <div class="min-w-0">
-          <p class="mt-1 text-sm text-base-content/60">
+          <p class="mt-1 text-sm text-base-content/70">
             The selected item has not emitted any logs yet.
           </p>
         </div>
@@ -377,31 +377,31 @@
         "overflow-x-auto overflow-y-auto max-h-96",
         @empty_logs && "hidden"
       ]}>
-        <table class="min-w-full divide-y divide-base-300">
+        <table class="min-w-full divide-y divide-base-content/15">
           <thead class="bg-base-200">
             <tr>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider w-32"
+                class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider w-32"
               >
                 Timestamp
               </th>
 
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider w-20"
+                class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider w-20"
               >
                 Attempt
               </th>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider w-20"
+                class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider w-20"
               >
                 Level
               </th>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-base-content/60 uppercase tracking-wider"
+                class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider"
               >
                 Content
               </th>
@@ -410,7 +410,7 @@
 
           <tbody
             id="log-list"
-            class="bg-base-100 divide-y divide-base-300"
+            class="bg-base-100 divide-y divide-base-content/15"
             phx-update="stream"
           >
             <tr
@@ -455,7 +455,7 @@
       </div>
     </section>
     <div class="dag-card__body">
-      <div class="bg-base-200 p-3 rounded-lg border border-base-300 overflow-auto">
+      <div class="bg-base-200 p-3 rounded-lg border border-base-content/20 overflow-auto">
         <pre class="mermaid" phx-hook="Mermaid" id="mermaid-chart">
 {"""
 ---

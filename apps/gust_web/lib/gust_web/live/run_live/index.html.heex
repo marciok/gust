@@ -1,5 +1,5 @@
 <Layouts.app flash={@flash}>
-  <div class="breadcrumbs text-sm bg-base-100 text-base-content rounded shadow-sm overflow-hidden mb-4 px-4">
+  <div class="breadcrumbs text-sm bg-base-100 text-base-content border border-base-content/20 rounded shadow-sm overflow-hidden mb-4 px-4">
     <ul>
       <li>
         <.link
@@ -24,7 +24,7 @@
         </div>
 
         <nav
-          class="flex w-full flex-col gap-3 border-t border-base-300 pt-3"
+          class="flex w-full flex-col gap-3 border-t border-base-content/15 pt-3"
           aria-label="Run list controls"
         >
           <div class="flex w-full flex-wrap items-center justify-between gap-3">
@@ -84,7 +84,7 @@
             <div class="flex flex-wrap items-center gap-2">
               <label
                 for="select-all-runs"
-                class="inline-flex h-8 items-center gap-2 rounded border border-base-300 bg-base-100 px-3 text-sm font-medium text-base-content/75"
+                class="inline-flex h-8 items-center gap-2 rounded border border-base-content/20 bg-base-100 px-3 text-sm font-medium text-base-content/75"
               >
                 <input
                   type="checkbox"
@@ -216,7 +216,7 @@
 
       <nav
         id="runs-pagination"
-        class="flex justify-center border-t border-base-300 pt-4"
+        class="flex justify-center border-t border-base-content/15 pt-4"
         aria-label="Runs pagination"
       >
         <div class="join">
