@@ -31,8 +31,11 @@
     </div>
   </div>
   <div phx-update="stream" id="dags">
-    <div id="dags-empty" class="hidden only:block rounded-lg bg-white p-6 text-center shadow-sm">
-      <p class="text-sm text-slate-600">
+    <div
+      id="dags-empty"
+      class="hidden only:block rounded-lg border border-base-content/20 bg-base-100 p-6 text-center shadow-sm"
+    >
+      <p class="text-sm text-base-content/70">
         {if(@failed_runs_only?,
           do: "No DAGs have failures among their ten most recent runs.",
           else: "No DAGs found."

@@ -33,17 +33,41 @@ import "prismjs/components/prism-python.js"
 import "prismjs/plugins/line-numbers/prism-line-numbers.js"
 import "prismjs/plugins/line-highlight/prism-line-highlight.js"
 
+const darkThemeQuery = window.matchMedia("(prefers-color-scheme: dark)")
+
+const systemTheme = () => (darkThemeQuery.matches ? "dark" : "light")
+
+const applyTheme = theme => {
+  document.documentElement.dataset.theme = theme
+  window.dispatchEvent(new CustomEvent("gust:theme-changed", { detail: { theme } }))
+}
+
+applyTheme(systemTheme())
+
+darkThemeQuery.addEventListener("change", event => {
+  applyTheme(event.matches ? "dark" : "light")
+})
+
 let Hooks = {}
 
 Hooks.Mermaid = {
   mounted() {
+    this.source = this.el.textContent
+    this.handleThemeChange = () => this.renderDiagram()
+    window.addEventListener("gust:theme-changed", this.handleThemeChange)
     this.renderDiagram()
   },
   updated() {
+    if (!this.el.querySelector("svg")) this.source = this.el.textContent
     this.renderDiagram()
+  },
+  destroyed() {
+    window.removeEventListener("gust:theme-changed", this.handleThemeChange)
   },
 
   renderDiagram() {
+    const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "base"
+    this.el.textContent = this.source.replace("theme: 'base'", `theme: '${theme}'`)
     this.el.removeAttribute("data-processed")
     mermaid.run({ nodes: [this.el] }).catch(error => {
       console.error("Mermaid failed to render", error)

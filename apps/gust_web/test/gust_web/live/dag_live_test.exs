@@ -46,6 +46,7 @@ defmodule GustWeb.DagLiveTest do
       assert html =~ broken_dag.name
       assert has_element?(index_live, "#mobile-navigation-button[aria-controls='app-sidebar']")
       assert has_element?(index_live, "#mobile-navigation-backdrop")
+
       assert has_element?(index_live, "#primary-navigation #nav-dags")
       assert has_element?(index_live, "#primary-navigation #nav-secrets")
       assert has_element?(index_live, "#primary-navigation #nav-system")

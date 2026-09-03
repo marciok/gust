@@ -49,7 +49,7 @@ defmodule GustWeb.Layouts do
       <div class="app-shell__body">
         <header id="mobile-app-bar" class="mobile-app-bar">
           <.link navigate={~g"/dags"} class="mobile-app-bar__brand">
-            <img src={~g"/images/gust-logo.png"} alt="Gust" class="mobile-app-bar__logo" />
+            <img src={~g"/images/gust-logo.svg"} alt="Gust" class="mobile-app-bar__logo" />
             <span class="gust-wordmark">Gust</span>
           </.link>
           <button
@@ -82,14 +82,8 @@ defmodule GustWeb.Layouts do
           phx-key="escape"
         >
           <div class="sidebar__brand">
-            <.link
-              navigate={~g"/dags"}
-              class="sidebar__brand-link"
-              phx-click={mobile_navigation(:closed)}
-            >
-              <img src={~g"/images/gust-logo.png"} alt="Gust" class="sidebar__logo" />
-              <span class="gust-wordmark">Gust</span>
-            </.link>
+            <img src={~g"/images/gust-logo.svg"} alt="Gust" class="sidebar__logo" />
+            <span class="gust-wordmark">Gust</span>
             <button
               type="button"
               id="mobile-navigation-close"
@@ -209,10 +203,4 @@ defmodule GustWeb.Layouts do
     </div>
     """
   end
-
-  @doc """
-  Provides dark vs light theme toggle based on themes defined in app.css.
-
-  See <head> in root.html.heex which applies the theme before page load.
-  """
 end
