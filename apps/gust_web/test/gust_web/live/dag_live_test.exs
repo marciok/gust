@@ -47,16 +47,6 @@ defmodule GustWeb.DagLiveTest do
       assert has_element?(index_live, "#mobile-navigation-button[aria-controls='app-sidebar']")
       assert has_element?(index_live, "#mobile-navigation-backdrop")
 
-      assert has_element?(
-               index_live,
-               "#mobile-theme-toggle[data-theme-toggle][aria-pressed='false']"
-             )
-
-      assert has_element?(
-               index_live,
-               "#sidebar-theme-toggle[data-theme-toggle][aria-pressed='false']"
-             )
-
       assert has_element?(index_live, "#primary-navigation #nav-dags")
       assert has_element?(index_live, "#primary-navigation #nav-secrets")
       assert has_element?(index_live, "#primary-navigation #nav-system")

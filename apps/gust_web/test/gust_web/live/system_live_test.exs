@@ -44,6 +44,13 @@ defmodule GustWeb.SystemLiveTest do
              to_string(Gust.PGNotifier.Worker)
   end
 
+  test "reports that the theme follows the system preference", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~g"/system")
+
+    assert has_element?(view, "#theme-preference")
+    assert has_element?(view, "#theme-preference", "System preference")
+  end
+
   test "format_uptime/1 presents minutes, hours, and days compactly" do
     assert GustWeb.SystemLive.format_uptime(59) == "0m"
     assert GustWeb.SystemLive.format_uptime(3_660) == "1h 1m"

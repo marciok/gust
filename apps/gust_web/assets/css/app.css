@@ -403,26 +403,6 @@
     @apply flex min-h-full min-w-0 max-w-full flex-col gap-6 px-3 py-4;
   }
 
-  .theme-toggle {
-    @apply inline-flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-base-content/75 transition-colors hover:bg-base-200 hover:text-base-content;
-  }
-
-  .theme-toggle--compact {
-    @apply min-w-11 w-11 justify-center p-0;
-  }
-
-  .theme-toggle__icon {
-    @apply shrink-0;
-  }
-
-  .theme-toggle__icon--sun {
-    display: none;
-  }
-
-  .mobile-app-bar__actions {
-    @apply flex items-center gap-1;
-  }
-
   @media (max-width: 639px) {
     .app-shell__content {
       @apply gap-4 px-2 py-3;
@@ -492,12 +472,20 @@
     -webkit-text-fill-color: transparent;
   }
 
-  [data-theme="dark"] .theme-toggle__icon--moon {
-    display: none;
-  }
+  @media (prefers-color-scheme: dark) {
+    .app-shell {
+      background-image:
+        radial-gradient(60% 60% at 20% 25%, rgb(14 116 144 / 18%), transparent 60%),
+        radial-gradient(55% 55% at 80% 20%, rgb(30 64 175 / 18%), transparent 60%),
+        radial-gradient(50% 50% at 70% 70%, rgb(51 65 85 / 24%), transparent 60%),
+        linear-gradient(120deg, rgb(15 23 42 / 20%), rgb(2 6 23 / 5%));
+    }
 
-  [data-theme="dark"] .theme-toggle__icon--sun {
-    display: inline-block;
+    .gust-wordmark {
+      background: linear-gradient(135deg, rgba(248, 250, 252, 1), rgba(186, 230, 253, 0.9));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
   }
 
   .app-footer {

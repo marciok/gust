@@ -52,20 +52,17 @@ defmodule GustWeb.Layouts do
             <img src={~g"/images/gust-logo.svg"} alt="Gust" class="mobile-app-bar__logo" />
             <span class="gust-wordmark">Gust</span>
           </.link>
-          <div class="mobile-app-bar__actions">
-            <.theme_toggle id="mobile-theme-toggle" compact />
-            <button
-              type="button"
-              id="mobile-navigation-button"
-              class="mobile-app-bar__menu-button"
-              aria-label="Open navigation"
-              aria-controls="app-sidebar"
-              aria-expanded="false"
-              phx-click={mobile_navigation(:open)}
-            >
-              <.icon name="hero-bars-3" class="size-5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            id="mobile-navigation-button"
+            class="mobile-app-bar__menu-button"
+            aria-label="Open navigation"
+            aria-controls="app-sidebar"
+            aria-expanded="false"
+            phx-click={mobile_navigation(:open)}
+          >
+            <.icon name="hero-bars-3" class="size-5" />
+          </button>
         </header>
 
         <button
@@ -128,9 +125,6 @@ defmodule GustWeb.Layouts do
               <span>System</span>
             </.link>
           </nav>
-          <div class="sidebar__footer">
-            <.theme_toggle id="sidebar-theme-toggle" />
-          </div>
         </aside>
 
         <main
@@ -207,32 +201,6 @@ defmodule GustWeb.Layouts do
         <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
       </.flash>
     </div>
-    """
-  end
-
-  @doc """
-  Provides dark vs light theme toggle based on themes defined in app.css.
-
-  The client-side theme controller in app.js applies and persists the theme.
-  """
-  attr :id, :string, required: true
-  attr :compact, :boolean, default: false
-
-  def theme_toggle(assigns) do
-    ~H"""
-    <button
-      type="button"
-      id={@id}
-      class={["theme-toggle", @compact && "theme-toggle--compact"]}
-      data-theme-toggle
-      aria-label="Switch to dark mode"
-      aria-pressed="false"
-      title="Switch to dark mode"
-    >
-      <.icon name="hero-moon" class="theme-toggle__icon theme-toggle__icon--moon size-5" />
-      <.icon name="hero-sun" class="theme-toggle__icon theme-toggle__icon--sun size-5" />
-      <span class={[@compact && "sr-only", !@compact && "theme-toggle__label"]}>Dark mode</span>
-    </button>
     """
   end
 end
