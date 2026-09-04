@@ -67,6 +67,7 @@ defmodule Gust.DAG.Runner.TaskExecution do
     retry_at = DateTime.add(DateTime.utc_now(), delay, :millisecond)
 
     {:ok, task} = Flows.schedule_task_retry(task, retry_at)
+
     {:ok, %Flows.Task{run_id: run_id, status: task_status, id: task_id} = task} =
       Flows.update_task_attempt(task, task.attempt + 1)
 
