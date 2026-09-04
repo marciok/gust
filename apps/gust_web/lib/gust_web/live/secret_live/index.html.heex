@@ -10,8 +10,8 @@
     </.header>
   </div>
 
-  <div class="card bg-white shadow-md rounded mb-6">
-    <div class="p-4 overflow-x-auto">
+  <div class="card bg-base-100 text-base-content border border-base-content/20 shadow-md rounded mb-6">
+    <div class={["table-viewport", "p-4"]}>
       <.table id="secrets" rows={@streams.secrets}>
         <:col :let={{_id, secret}} label="Name">
           <span class="font-medium">{secret.name}</span>
@@ -41,14 +41,14 @@
   </div>
 
   <%= if @live_action in [:new, :edit]  do %>
-    <.form :let={f} for={@form} id="secret-form" phx-change="validate" phx-submit="save">
+    <.form for={@form} id="secret-form" phx-change="validate" phx-submit="save">
       <div class="mt-10">
-        <div class="card bg-white shadow-md p-6 space-y-6">
+        <div class="card bg-base-100 text-base-content border border-base-content/20 shadow-md p-6 space-y-6">
           <div>
             <label class="label">
               <span class="label-text">Name</span>
             </label>
-            <.input field={f[:name]} type="text" class="input input-bordered w-full" />
+            <.input field={@form[:name]} type="text" class="input input-bordered w-full" />
           </div>
 
           <div>
@@ -56,7 +56,7 @@
               <span class="label-text">Value Type</span>
             </label>
             <.input
-              field={f[:value_type]}
+              field={@form[:value_type]}
               type="select"
               options={[:string, :json]}
               class="select select-bordered w-full"
@@ -68,7 +68,7 @@
               <span class="label-text">Value</span>
             </label>
             <.input
-              field={f[:value]}
+              field={@form[:value]}
               type="textarea"
               class="textarea textarea-bordered w-full h-24"
             />

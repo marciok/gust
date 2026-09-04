@@ -41,6 +41,14 @@ defmodule Gust.PubSub do
     )
   end
 
+  def broadcast_task_updated(task_id) do
+    Phoenix.PubSub.broadcast(
+      __MODULE__,
+      "#{@topic_task}:#{task_id}",
+      {:task, :updated, %{task_id: task_id}}
+    )
+  end
+
   def broadcast_run_status(run_id, status, task_id \\ nil) do
     Phoenix.PubSub.broadcast(
       __MODULE__,
