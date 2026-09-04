@@ -166,7 +166,12 @@
           <h3 class="dag-card__title text-base">Selected {@item_name}</h3>
           <span :if={@item_id} class="text-sm text-base-content/70">ID {@item_id}</span>
         </div>
-        <.status_badge :if={@item_status} status={@item_status} data-testid="status-badge" />
+        <.live_component
+          module={GustWeb.SelectedItemStatusComponent}
+          id="selected-item-status"
+          status={@item_status}
+          item={@selected_item}
+        />
       </div>
     </section>
 

@@ -488,6 +488,7 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     state = :sys.get_state(runner)
     assert %{restart_timer: timer} = state.coord.retrying[task.id]
     assert is_reference(timer)
+    assert %DateTime{} = Flows.get_task!(task.id).retry_at
 
     assert {:ok, %Flows.Task{id: task_id, status: :retrying}} =
              RunGateway.call(run, {:cancel_task, task.id})
@@ -496,6 +497,7 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
 
     assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
     assert Flows.get_task!(task.id).status == :failed
+    assert Flows.get_task!(task.id).retry_at == nil
     assert Flows.get_run!(run.id).status == :failed
   end
 
