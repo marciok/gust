@@ -134,6 +134,43 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert render(element(dashboard_live, "#selected-item")) =~ "ID #{run.id}"
     end
 
+    test "only shows the retry tooltip while the selected task is awaiting its retry", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      retry_at = DateTime.add(DateTime.utc_now(), 30, :second)
+      {:ok, retrying_task} = Flows.schedule_task_retry(task, retry_at)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(
+               dashboard_live,
+               "#status-badge-container.tooltip.tooltip-open[data-tip]"
+             )
+
+      {:ok, _failed_task} = Flows.update_task_status(retrying_task, :failed)
+      Gust.PubSub.broadcast_run_status(run.id, :failed, retrying_task.id)
+
+      refute has_element?(dashboard_live, "#status-badge-container.tooltip")
+      refute has_element?(dashboard_live, "#status-badge-container[data-tip]")
+    end
+
+    test "does not add a retry tooltip to another task status", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      refute has_element?(dashboard_live, "#status-badge-container.tooltip")
+      refute has_element?(dashboard_live, "#status-badge-container[data-tip]")
+    end
+
     test "pinned run details load the selected run into history", %{
       conn: conn,
       dag: dag,

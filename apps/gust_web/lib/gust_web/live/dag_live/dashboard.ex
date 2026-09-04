@@ -467,7 +467,9 @@ defmodule GustWeb.DagLive.Dashboard do
 
   defp assign_run_reload(socket, run) do
     if socket.assigns.item_id == run.id do
-      socket |> assign_item_attrs(run)
+      socket
+      |> assign(:selected_item, run)
+      |> assign_item_attrs(run)
     else
       socket
     end
@@ -477,15 +479,19 @@ defmodule GustWeb.DagLive.Dashboard do
     cond do
       task_id in socket.assigns.expanded_item_ids ->
         task = Flows.get_task!(task_id)
-        statuses = Flows.get_task_statuses_by_name(task.name, task.run_id)
+        tasks = Flows.get_tasks_by_name(task.name, task.run_id)
 
         socket
-        |> assign(:item_status, aggregate_status(statuses))
+        |> assign(:selected_item, tasks)
+        |> assign(:item_status, get_status(tasks))
         |> stream_insert(:expanded_items, task)
 
       socket.assigns.item_id == task_id ->
         task = Flows.get_task!(task_id)
-        assign_item_attrs(socket, task)
+
+        socket
+        |> assign(:selected_item, task)
+        |> assign_item_attrs(task)
 
       true ->
         socket

@@ -163,6 +163,25 @@ defmodule Gust.DAG.Runner.TaskExecutionTest do
     assert run_id == run.id
   end
 
+  test "schedules a retry with a persisted deadline and broadcasts the status", %{
+    run: run,
+    task: task
+  } do
+    Gust.PubSub.subscribe_run(run.id)
+    before_schedule = DateTime.utc_now()
+
+    assert %Flows.Task{id: task_id, status: :retrying, attempt: 2, retry_at: retry_at} =
+             TaskExecution.schedule_retry(task, 5_000)
+
+    assert task_id == task.id
+    assert DateTime.diff(retry_at, before_schedule, :millisecond) >= 5_000
+
+    assert_receive {:dag, :run_status, %{run_id: run_id, task_id: ^task_id, status: :retrying}}
+
+    assert run_id == run.id
+    assert Flows.get_task!(task.id).retry_at == retry_at
+  end
+
   test "raises when status persistence fails", %{task: task} do
     assert_raise MatchError, fn -> TaskExecution.update_status!(task, :not_a_status) end
   end

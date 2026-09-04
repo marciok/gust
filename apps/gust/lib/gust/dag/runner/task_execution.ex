@@ -63,6 +63,17 @@ defmodule Gust.DAG.Runner.TaskExecution do
 
   def maybe_report_error(_task, _status, _error, _dag_name), do: :ok
 
+  def schedule_retry(task, delay) do
+    retry_at = DateTime.add(DateTime.utc_now(), delay, :millisecond)
+
+    {:ok, task} = Flows.schedule_task_retry(task, retry_at)
+    {:ok, %Flows.Task{run_id: run_id, status: task_status, id: task_id} = task} =
+      Flows.update_task_attempt(task, task.attempt + 1)
+
+    PubSub.broadcast_run_status(run_id, task_status, task_id)
+    task
+  end
+
   def finish(task, status) do
     case status do
       :ok -> update_status!(task, :succeeded)

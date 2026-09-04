@@ -26,6 +26,7 @@ defmodule Gust.Flows.Task do
     field :params, :map, default: %{}
     field :waiting_for, :string
     field :wait_satisfied_at, :utc_datetime
+    field :retry_at, :utc_datetime_usec
     field :attempt, :integer, default: 1
     field :map_index, :integer
     belongs_to :run, Gust.Flows.Run
@@ -52,6 +53,7 @@ defmodule Gust.Flows.Task do
           params: map(),
           waiting_for: String.t() | nil,
           wait_satisfied_at: DateTime.t() | nil,
+          retry_at: DateTime.t() | nil,
           attempt: integer(),
           map_index: integer() | nil,
           run_id: integer() | nil,
@@ -77,6 +79,7 @@ defmodule Gust.Flows.Task do
       :map_index
     ])
     |> validate_required([:name, :status, :run_id, :result, :error, :params])
+    |> clear_retry_at()
     |> task_identity_constraints()
   end
 
@@ -95,10 +98,19 @@ defmodule Gust.Flows.Task do
       :params,
       :waiting_for,
       :wait_satisfied_at,
+      :retry_at,
       :map_index
     ])
     |> validate_required([:name, :status, :run_id, :result, :error, :params])
+    |> clear_retry_at()
     |> task_identity_constraints()
+  end
+
+  defp clear_retry_at(changeset) do
+    case get_field(changeset, :status) do
+      :retrying -> changeset
+      _status -> put_change(changeset, :retry_at, nil)
+    end
   end
 
   defp task_identity_constraints(changeset) do
