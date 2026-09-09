@@ -5,7 +5,7 @@ defmodule GustPy.TaskMessenger do
 
   @callback decode(binary()) :: {:ok, map()} | {:error, term()}
   @callback handle_next(map()) :: :noreply | {:reply, map()} | {:done, done_message()}
-  @callback reply(term(), map()) :: :ok
+  @callback reply(non_neg_integer(), map()) :: :ok
 
   def decode(data), do: impl().decode(data)
   def handle_next(msg), do: impl().handle_next(msg)

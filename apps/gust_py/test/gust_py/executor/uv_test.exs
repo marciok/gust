@@ -25,14 +25,10 @@ defmodule GustPy.Executor.UVTest do
 
     old_gust_dags = Application.get_env(:gust, :dags_folder)
     old_uv_dir = Application.get_env(:gust_py, :uv_working_dir)
-    old_uv_test_output = System.get_env("UV_TEST_OUTPUT")
-
-    System.delete_env("UV_TEST_OUTPUT")
 
     on_exit(fn ->
       restore_app_env(:gust, :dags_folder, old_gust_dags)
       restore_app_env(:gust_py, :uv_working_dir, old_uv_dir)
-      restore_env_var("UV_TEST_OUTPUT", old_uv_test_output)
 
       case old_path do
         nil -> System.delete_env("PATH")
@@ -56,67 +52,61 @@ defmodule GustPy.Executor.UVTest do
     assert output =~ "ARGS=run gust hello"
   end
 
-  test "open_port/1 passes args and sets UV_WORKING_DIR from gust_py override", %{
-    tmp_dir: tmp_dir
-  } do
+  test "run/1 returns an error when uv is not found on PATH" do
+    System.put_env("PATH", "")
+
+    assert {:error, :uv_not_found} = UV.run(["hello"])
+  end
+
+  test "run_exec/1 passes args and sets UV_WORKING_DIR from gust_py override" do
     Application.put_env(:gust, :dags_folder, "/tmp/dags")
     Application.put_env(:gust_py, :uv_working_dir, "/custom/uv")
 
-    output_file = Path.join(tmp_dir, "port_output.txt")
-    port = UV.open_port(["--write-file", output_file, "alpha", "beta"])
+    os_pid = UV.run_exec(["alpha", "beta"])
 
-    assert is_port(port)
-    assert_receive {^port, {:exit_status, 0}}, 1_000
+    assert is_integer(os_pid)
+    output = collect_stdout(os_pid)
 
-    contents = File.read!(output_file)
-    assert contents =~ "UV_WORKING_DIR=/custom/uv"
-    assert contents =~ "ARGS=alpha beta"
+    assert output =~ "UV_WORKING_DIR=/custom/uv"
+    assert output =~ "ARGS=alpha beta"
   end
 
-  test "start_task_via_port/3 passes the dag info and encoded context", %{
-    tmp_dir: tmp_dir
-  } do
+  test "start_task/3 passes the dag info and encoded context" do
     Application.put_env(:gust, :dags_folder, "/tmp/dags")
     Application.delete_env(:gust_py, :uv_working_dir)
 
-    output_file = Path.join(tmp_dir, "task_output.txt")
-    System.put_env("UV_TEST_OUTPUT", output_file)
+    dag_def = %Gust.DAG.Definition{
+      name: "demo_dag",
+      mod: "DemoDag",
+      file_path: "/tmp/dags/demo.py"
+    }
 
-    dag_def = %Gust.DAG.Definition{name: "demo_dag", file_path: "/tmp/dags/demo.py"}
     context = %{"attempt" => 1, "owner" => "gust"}
     expected_ctx = Jason.encode!(context)
 
-    port = UV.start_task_via_port(dag_def, "task_alpha", context)
+    os_pid = UV.start_task(dag_def, "task_alpha", context)
 
-    assert is_port(port)
-    assert_receive {^port, {:exit_status, 0}}, 1_000
+    assert is_integer(os_pid)
+    output = collect_stdout(os_pid)
 
-    contents = File.read!(output_file)
-    assert contents =~ "UV_WORKING_DIR=/tmp/dags"
+    assert output =~ "UV_WORKING_DIR=/tmp/dags"
 
-    assert contents =~
-             "ARGS=run gust task run --file /tmp/dags/demo.py --dag nil --task task_alpha --ctx-json #{expected_ctx}"
+    assert output =~
+             "ARGS=run gust task run --file /tmp/dags/demo.py --dag DemoDag --task task_alpha --ctx-json #{expected_ctx}"
+  end
+
+  defp collect_stdout(os_pid, acc \\ "") do
+    receive do
+      {:stdout, ^os_pid, data} -> collect_stdout(os_pid, acc <> data)
+      {:DOWN, ^os_pid, :process, _pid, _reason} -> acc
+    after
+      1_000 -> flunk("timed out waiting for process output and exit")
+    end
   end
 
   defp uv_script do
     """
     #!/bin/sh
-    if [ -n "$UV_TEST_OUTPUT" ]; then
-      {
-        echo "UV_WORKING_DIR=$UV_WORKING_DIR"
-        echo "ARGS=$*"
-      } > "$UV_TEST_OUTPUT"
-      exit 0
-    fi
-    if [ "$1" = "--write-file" ]; then
-      file="$2"
-      shift 2
-      {
-        echo "UV_WORKING_DIR=$UV_WORKING_DIR"
-        echo "ARGS=$*"
-      } > "$file"
-      exit 0
-    fi
     echo "UV_WORKING_DIR=$UV_WORKING_DIR"
     echo "ARGS=$*"
     """
@@ -124,7 +114,4 @@ defmodule GustPy.Executor.UVTest do
 
   defp restore_app_env(app, key, nil), do: Application.delete_env(app, key)
   defp restore_app_env(app, key, value), do: Application.put_env(app, key, value)
-
-  defp restore_env_var(key, nil), do: System.delete_env(key)
-  defp restore_env_var(key, value), do: System.put_env(key, value)
 end

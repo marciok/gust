@@ -71,7 +71,16 @@ defmodule GustWeb.MixProject do
       {:bandit, "~> 1.5"},
       {:igniter, "~> 0.6", optional: true}
     ]
+    |> maybe_add_gust_py()
     |> add_heroicons()
+  end
+
+  defp maybe_add_gust_py(deps) do
+    if System.get_env("GUST_WITH_PYTHON") == "true" do
+      deps ++ [{:gust_py, in_umbrella: true}]
+    else
+      deps
+    end
   end
 
   defp gust_dep() do

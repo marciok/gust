@@ -4,10 +4,11 @@ defmodule GustPy.TaskMessenger.JSON do
   @behaviour GustPy.TaskMessenger
 
   @enforce_keys [:type]
-  defstruct [:type, :msg, :op, :name, :run_id, :data, :ok, :trace, :pid]
+  defstruct [:type, :msg, :op, :name, :run_id, :data, :ok, :trace]
 
   require Logger
 
+  alias GustPy.TaskMessenger.FrameCodec
   alias GustPy.TaskWorker.Error
   alias __MODULE__, as: Msg
 
@@ -41,10 +42,6 @@ defmodule GustPy.TaskMessenger.JSON do
     {:done, {:result, result_value(result)}}
   end
 
-  def handle_next(%Msg{type: :start, pid: os_python_pid}) do
-    {:start, os_python_pid}
-  end
-
   def handle_next(%Msg{type: :error, ok: false, trace: trace}) do
     {:done, {:error, Error.new(:task_failed, trace)}}
   end
@@ -55,9 +52,9 @@ defmodule GustPy.TaskMessenger.JSON do
   end
 
   @impl true
-  def reply(target, %{ok: ok} = payload) when is_boolean(ok) do
+  def reply(os_pid, %{ok: ok} = payload) when is_boolean(ok) do
     response = payload |> Map.put_new(:type, "reply") |> Jason.encode!()
-    Port.command(target, response)
+    :exec.send(os_pid, FrameCodec.encode(response))
     :ok
   end
 
@@ -83,10 +80,6 @@ defmodule GustPy.TaskMessenger.JSON do
 
   defp new(%{"type" => "log", "msg" => msg}) do
     %Msg{type: :log, msg: msg}
-  end
-
-  defp new(%{"type" => "start", "pid" => os_python_pid}) do
-    %Msg{type: :start, pid: os_python_pid}
   end
 
   defp new(%{"type" => "call", "op" => "get_secret_by_name", "name" => name}) do
