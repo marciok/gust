@@ -30,14 +30,21 @@ defmodule GustPy.Executor.UV do
 
   @impl true
   def run(args_list) do
-    System.cmd(exec(), ["run", "gust" | args_list], env: %{@working_dir_flag => working_dir()})
+    case exec() do
+      {:error, error} ->
+        {:error, error}
+
+      {:ok, uv} ->
+        System.cmd(uv, ["run", "gust" | args_list], env: %{@working_dir_flag => working_dir()})
+    end
   end
 
   def run_exec(args_list) do
     working_dir = working_dir()
+    {:ok, uv} = exec()
 
     {:ok, _exec_pid, os_pid} =
-      :exec.run([exec() | args_list], [
+      :exec.run([uv | args_list], [
         :stdin,
         {:stdout, self()},
         {:stderr, self()},
@@ -56,5 +63,8 @@ defmodule GustPy.Executor.UV do
     Application.get_env(:gust_py, :uv_working_dir, dag_folder)
   end
 
-  defp exec, do: System.find_executable("uv")
+  defp exec do
+    uv = System.find_executable("uv")
+    if uv, do: {:ok, uv}, else: {:error, :uv_not_found}
+  end
 end

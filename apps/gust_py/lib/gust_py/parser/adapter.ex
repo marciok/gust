@@ -18,6 +18,12 @@ defmodule GustPy.Parser.Adapter do
          {:ok, dag_def} <- parse_dag_def(dag_json, name) do
       {:ok, dag_def}
     else
+      {:error, :uv_not_found} ->
+        error =
+          {[], "`uv` executable not found on your PATH", ""}
+
+        {:error, error}
+
       [] ->
         error = {[], "Not a GustPy file", ""}
         {:error, error}

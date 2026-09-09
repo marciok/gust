@@ -52,6 +52,12 @@ defmodule GustPy.Executor.UVTest do
     assert output =~ "ARGS=run gust hello"
   end
 
+  test "run/1 returns an error when uv is not found on PATH" do
+    System.put_env("PATH", "")
+
+    assert {:error, :uv_not_found} = UV.run(["hello"])
+  end
+
   test "run_exec/1 passes args and sets UV_WORKING_DIR from gust_py override" do
     Application.put_env(:gust, :dags_folder, "/tmp/dags")
     Application.put_env(:gust_py, :uv_working_dir, "/custom/uv")
