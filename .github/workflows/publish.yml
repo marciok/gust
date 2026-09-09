@@ -85,20 +85,46 @@ jobs:
         with:
           context: .
           file: apps/gust/Dockerfile
+          target: final
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=gust
           cache-to: type=gha,mode=max,scope=gust
+
+      - name: Build gust-python Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/gust/Dockerfile
+          target: python
+          build-args: GUST_WITH_PYTHON=true
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=gust-python
+          cache-to: type=gha,mode=max,scope=gust-python
 
       - name: Build gust-web Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/gust_web/Dockerfile
+          target: final
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=gust-web
           cache-to: type=gha,mode=max,scope=gust-web
+
+      - name: Build gust-web-python Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/gust_web/Dockerfile
+          target: python
+          build-args: GUST_WITH_PYTHON=true
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=gust-web-python
+          cache-to: type=gha,mode=max,scope=gust-web-python
 
   release-assets:
     name: Publish GitHub release assets
@@ -335,8 +361,20 @@ jobs:
         include:
           - image: gust
             dockerfile: apps/gust/Dockerfile
+            target: final
+            build-args: ""
+          - image: gust-python
+            dockerfile: apps/gust/Dockerfile
+            target: python
+            build-args: GUST_WITH_PYTHON=true
           - image: gust-web
             dockerfile: apps/gust_web/Dockerfile
+            target: final
+            build-args: ""
+          - image: gust-web-python
+            dockerfile: apps/gust_web/Dockerfile
+            target: python
+            build-args: GUST_WITH_PYTHON=true
 
     steps:
       - name: Check out repository
@@ -365,6 +403,8 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          build-args: ${{ matrix.build-args }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
