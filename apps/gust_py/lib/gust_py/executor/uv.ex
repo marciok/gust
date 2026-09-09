@@ -6,24 +6,24 @@ defmodule GustPy.Executor.UV do
   @working_dir_flag "UV_WORKING_DIR"
 
   @impl true
-  def start_task_via_port(dag_def, task_name, context) do
+  def start_task(dag_def, task_name, context) do
     args = task_args(dag_def, task_name, context)
-    open_port(args)
+    run_exec(args)
   end
 
   defp task_args(dag_def, task_name, task_context) do
     [
-      ~c"run",
-      ~c"gust",
-      ~c"task",
-      ~c"run",
-      ~c"--file",
+      "run",
+      "gust",
+      "task",
+      "run",
+      "--file",
       dag_def.file_path,
-      ~c"--dag",
+      "--dag",
       dag_def.mod,
-      ~c"--task",
+      "--task",
       task_name,
-      ~c"--ctx-json",
+      "--ctx-json",
       Jason.encode!(task_context)
     ]
   end
@@ -33,18 +33,22 @@ defmodule GustPy.Executor.UV do
     System.cmd(exec(), ["run", "gust" | args_list], env: %{@working_dir_flag => working_dir()})
   end
 
-  def open_port(args_list) do
-    working_dir = working_dir() |> to_charlist()
-    uv = exec() |> to_charlist()
+  def run_exec(args_list) do
+    working_dir = working_dir()
 
-    Port.open({:spawn_executable, uv}, [
-      :binary,
-      :use_stdio,
-      :exit_status,
-      {:packet, 4},
-      {:env, [{to_charlist(@working_dir_flag), working_dir}]},
-      {:args, args_list}
-    ])
+    {:ok, _exec_pid, os_pid} =
+      :exec.run([exec() | args_list], [
+        :stdin,
+        {:stdout, self()},
+        {:stderr, :print},
+        :monitor,
+        {:group, 0},
+        :kill_group,
+        {:kill_timeout, 5},
+        {:env, [{@working_dir_flag, working_dir}]}
+      ])
+
+    os_pid
   end
 
   defp working_dir do
