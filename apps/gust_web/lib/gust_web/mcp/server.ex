@@ -53,7 +53,21 @@ defmodule GustWeb.MCP.Server do
     jsonrpc(id, Resources.Server.reply(action, body.params))
   end
 
+  def handle(%Body{id: id}) when id not in [nil, ""] do
+    jsonrpc_error(id, -32_601, "Method not found")
+  end
+
+  def handle(%Body{}), do: :nocontent
+
   defp jsonrpc(id, result) do
     %{"jsonrpc" => @jsonrpc_version, "id" => id, "result" => result}
+  end
+
+  defp jsonrpc_error(id, code, message) do
+    %{
+      "jsonrpc" => @jsonrpc_version,
+      "id" => id,
+      "error" => %{"code" => code, "message" => message}
+    }
   end
 end
