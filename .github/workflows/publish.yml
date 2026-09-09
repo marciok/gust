@@ -69,6 +69,7 @@ jobs:
         working-directory: apps/gust_web
         run: |
           mix deps.get
+          mix compile
           mix assets.deploy
 
       - name: Build Hex packages
@@ -159,6 +160,7 @@ jobs:
         working-directory: apps/gust_web
         run: |
           mix deps.get
+          mix compile
           mix assets.deploy
 
       - name: Archive built assets
@@ -287,6 +289,7 @@ jobs:
           PUBLISH_DEP: true
         run: |
           mix deps.get
+          mix compile
           mix assets.deploy
           mix hex.build
           mix hex.publish --yes
