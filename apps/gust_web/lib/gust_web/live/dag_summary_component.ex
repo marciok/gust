@@ -55,7 +55,7 @@ defmodule GustWeb.DagSummaryComponent do
           <span class={[
             "dag-card__state",
             @dag.enabled && "bg-success text-success-content",
-            !@dag.enabled && "bg-slate-200 text-slate-700"
+            !@dag.enabled && "bg-base-300 text-base-content/75"
           ]}>
             {if(@dag.enabled, do: "Enabled", else: "Paused")}
           </span>

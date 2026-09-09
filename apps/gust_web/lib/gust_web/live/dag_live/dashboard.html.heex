@@ -54,83 +54,85 @@
     </section>
 
     <div class="dag-card__body">
-      <div class="min-w-max">
-        <!-- Task Grid -->
-        <div class="flex w-full">
-          <!-- Task names column -->
-          <div class="pr-2 border-r border-gray-200 pt-2 w-1/6">
-            <div class="flex items-center h-6 mb-2 border-b-2">
-              <span class="text-xs font-medium text-gray-800 ">Run</span>
-            </div>
-
-            <div :for={name <- @dag_def.task_list} class="flex items-center gap-1 h-6 mb-2">
-              <span class="text-xs font-medium text-gray-800">
-                {name}
-                <strong :if={mapped_task?(@dag_def, name)} id={"#{name}-map-badge"}>
-                  []
-                </strong>
-              </span>
-            </div>
-          </div>
-          <!-- Run columns -->
-          <div
-            class="flex overflow-x-auto w-5/6"
-            phx-update="stream"
-            id="run_history"
-          >
-            <%= for {id, %Run{status: status, id: run_id, tasks: ran_tasks} = run} <- @streams.runs do %>
-              <% tasks_by_name = Enum.group_by(ran_tasks, & &1.name) %>
-              <div class={"px-1 rounded #{selected_run_class(run_id, @selected_item)}"} id={id}>
-                <.link navigate={
-                  dashboard_item_path(
-                    @dag_def.name,
-                    run_id,
-                    @page,
-                    @pinned_run_id
-                  )
-                }>
-                  <div class="flex justify-center mb-2 pt-2">
-                    <.task_cell id={"run-status-cell-#{run_id}"} status={status} />
-                  </div>
-                </.link>
-
-                <div :for={task_name <- @dag_def.task_list} class="flex justify-center mb-2">
-                  <.interactive_task_cell
-                    task_data={task_cell_data(task_name, tasks_by_name, @selected_item)}
-                    name={task_name}
-                    run_id={run_id}
-                    navigate={
-                      dashboard_item_path(
-                        @dag_def.name,
-                        run_id,
-                        @page,
-                        @pinned_run_id,
-                        [{"task_name", task_name}]
-                      )
-                    }
-                    data-testid={"#{task_name}-at-run-#{run_id}-link"}
-                  />
-                </div>
+      <div class={["table-viewport", "max-w-full", "overflow-x-auto"]}>
+        <div class="min-w-max">
+          <!-- Task Grid -->
+          <div class="flex w-full">
+            <!-- Task names column -->
+            <div class="pr-2 border-r border-base-content/20 pt-2 w-1/6">
+              <div class="flex items-center h-6 mb-2 border-b-2">
+                <span class="text-xs font-medium text-base-content">Run</span>
               </div>
-            <% end %>
+
+              <div :for={name <- @dag_def.task_list} class="flex items-center gap-1 h-6 mb-2">
+                <span class="text-xs font-medium text-base-content">
+                  {name}
+                  <strong :if={mapped_task?(@dag_def, name)} id={"#{name}-map-badge"}>
+                    []
+                  </strong>
+                </span>
+              </div>
+            </div>
+            <!-- Run columns -->
+            <div
+              class="flex overflow-x-auto w-5/6"
+              phx-update="stream"
+              id="run_history"
+            >
+              <%= for {id, %Run{status: status, id: run_id, tasks: ran_tasks} = run} <- @streams.runs do %>
+                <% tasks_by_name = Enum.group_by(ran_tasks, & &1.name) %>
+                <div class={"px-1 rounded #{selected_run_class(run_id, @selected_item)}"} id={id}>
+                  <.link navigate={
+                    dashboard_item_path(
+                      @dag_def.name,
+                      run_id,
+                      @page,
+                      @pinned_run_id
+                    )
+                  }>
+                    <div class="flex justify-center mb-2 pt-2">
+                      <.task_cell id={"run-status-cell-#{run_id}"} status={status} />
+                    </div>
+                  </.link>
+
+                  <div :for={task_name <- @dag_def.task_list} class="flex justify-center mb-2">
+                    <.interactive_task_cell
+                      task_data={task_cell_data(task_name, tasks_by_name, @selected_item)}
+                      name={task_name}
+                      run_id={run_id}
+                      navigate={
+                        dashboard_item_path(
+                          @dag_def.name,
+                          run_id,
+                          @page,
+                          @pinned_run_id,
+                          [{"task_name", task_name}]
+                        )
+                      }
+                      data-testid={"#{task_name}-at-run-#{run_id}-link"}
+                    />
+                  </div>
+                </div>
+              <% end %>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <div class="dag-card__footer">
-      <div class="flex gap-2 items-center text-xs font-medium text-slate-600">
+      <div class="flex gap-2 items-center text-xs font-medium text-base-content/70">
         <.link
           id="next-page"
-          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900"
+          class="inline-flex items-center gap-1 px-3 py-2 hover:text-base-content"
           navigate={~g"/dags/#{@dag_def.name}/dashboard?page=#{handle_page(@page, :next)}"}
         >
           <.icon name="hero-arrow-left-solid" class="h-3 w-3" /> Older
         </.link>
       </div>
 
-      <div class="flex items-center gap-3 text-xs font-medium text-slate-600">
-        <span class="text-xs text-slate-600">
+      <div class="flex items-center gap-3 text-xs font-medium text-base-content/70">
+        <span class="text-xs text-base-content/70">
           page: {@page}
         </span>
       </div>
@@ -138,7 +140,7 @@
       <div class="flex gap-2 items-center">
         <.link
           id="prev-page"
-          class="inline-flex items-center gap-1 px-3 py-2 hover:text-slate-900 text-xs font-medium text-slate-600"
+          class="inline-flex items-center gap-1 px-3 py-2 hover:text-base-content text-xs font-medium text-base-content/70"
           navigate={~g"/dags/#{@dag_def.name}/dashboard?page=#{handle_page(@page, :prev)}"}
         >
           Newer <.icon name="hero-arrow-right-solid" class="h-3 w-3" />
@@ -146,7 +148,7 @@
       </div>
     </div>
 
-    <div class="flex pb-3 justify-center bg-slate-50">
+    <div class="flex pb-3 justify-center bg-base-200">
       <.link
         id="all-runs"
         class="btn btn-xs btn-soft"
@@ -162,9 +164,14 @@
       <div class="dag-card__title-row">
         <div class="flex flex-col gap-1">
           <h3 class="dag-card__title text-base">Selected {@item_name}</h3>
-          <span :if={@item_id} class="text-sm text-slate-600">ID {@item_id}</span>
+          <span :if={@item_id} class="text-sm text-base-content/70">ID {@item_id}</span>
         </div>
-        <.status_badge :if={@item_status} status={@item_status} data-testid="status-badge" />
+        <.live_component
+          module={GustWeb.SelectedItemStatusComponent}
+          id="selected-item-status"
+          status={@item_status}
+          item={@selected_item}
+        />
       </div>
     </section>
 
@@ -196,7 +203,7 @@
     </section>
 
     <section :if={@item_params && map_size(@item_params) > 0} class="dag-card__body">
-      <h4 id="run-params-title" class="text-sm font-semibold text-slate-700">Params</h4>
+      <h4 id="run-params-title" class="text-sm font-semibold text-base-content/75">Params</h4>
       <div class="mt-2">
         <.json_viewer
           id="run-params"
@@ -213,9 +220,9 @@
       <div
         id="task-error"
         role="alert"
-        class={["alert", "alert-error", "items-start", "px-4", "py-3"]}
+        class={["alert", "alert-error", "flex", "items-start", "gap-4", "px-4", "py-3"]}
       >
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <p class={["text-sm", "font-semibold", "leading-5"]}>
             {@item_error["type"] || "Task error"}
           </p>
@@ -244,11 +251,21 @@
             >{format_stacktrace(@item_error["stacktrace"])}</pre>
           </div>
         </div>
+        <.link
+          :if={ExternalReference.valid?(@item_error["external_reference"])}
+          id="task-error-external-link"
+          href={@item_error["external_reference"]}
+          target="_blank"
+          rel="noopener noreferrer"
+          class={["btn", "btn-sm", "btn-outline", "ml-auto", "shrink-0", "self-end"]}
+        >
+          <.icon name="hero-arrow-top-right-on-square" class="size-4" /> Open in reporter
+        </.link>
       </div>
     </section>
 
     <section :if={@item_result && map_size(@item_result) > 0} class="dag-card__body">
-      <h4 id="task-result-title" class="text-sm font-semibold text-slate-700">Result</h4>
+      <h4 id="task-result-title" class="text-sm font-semibold text-base-content/75">Result</h4>
       <div class="mt-2">
         <.json_viewer
           id="task-result"
@@ -259,33 +276,33 @@
     </section>
 
     <section :if={@expanded_item_ids != []} class="dag-card__body">
-      <div class="border-t border-slate-200/70 -mx-4 mb-3" />
-      <h4 class="text-sm font-semibold text-slate-700">Task runs</h4>
+      <div class="border-t border-base-content/20 -mx-4 mb-3" />
+      <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
 
       <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
-        <table id="mapped-task-runs" class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-slate-50">
+        <table id="mapped-task-runs" class="min-w-full divide-y divide-base-content/15">
+          <thead class="bg-base-200">
             <tr>
-              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Index
               </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Status
               </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Task ID
               </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Updated
               </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                 Action
               </th>
             </tr>
           </thead>
           <tbody
             id="mapped-task-run-list"
-            class="bg-white divide-y divide-gray-200"
+            class="bg-base-100 divide-y divide-base-content/15"
             phx-update="stream"
           >
             <tr
@@ -298,10 +315,10 @@
               <td class="px-3 py-2 whitespace-nowrap">
                 <.status_badge status={task.status} />
               </td>
-              <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-800 font-mono">
+              <td class="px-3 py-2 whitespace-nowrap text-xs text-base-content font-mono">
                 {task.id}
               </td>
-              <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-800">
+              <td class="px-3 py-2 whitespace-nowrap text-xs text-base-content">
                 {strftime(task.updated_at)}
               </td>
               <td class="px-3 py-2 whitespace-nowrap">
@@ -328,9 +345,9 @@
     </section>
 
     <section :if={@expanded_item_ids == []} class="dag-card__body">
-      <div class="border-t border-slate-200/70 -mx-4 mb-4" />
+      <div class="border-t border-base-content/20 -mx-4 mb-4" />
       <div class="flex flex-wrap items-center justify-between pb-3 gap-3">
-        <h4 class="text-sm font-semibold text-slate-700">Logs</h4>
+        <h4 class="text-sm font-semibold text-base-content/75">Logs</h4>
         <.form for={%{}} id="log-filter" phx-change="filter_logs" class="log-filter">
           <.input
             id="log-filter-level"
@@ -352,10 +369,10 @@
       <div
         :if={@empty_logs}
         id="logs-empty-state"
-        class="flex items-start gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5"
+        class="flex items-start gap-3 rounded-lg border border-dashed border-base-content/25 bg-base-200 px-4 py-5"
       >
         <div class="min-w-0">
-          <p class="mt-1 text-sm text-slate-600">
+          <p class="mt-1 text-sm text-base-content/70">
             The selected item has not emitted any logs yet.
           </p>
         </div>
@@ -365,31 +382,31 @@
         "overflow-x-auto overflow-y-auto max-h-96",
         @empty_logs && "hidden"
       ]}>
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-slate-50">
+        <table class="min-w-full divide-y divide-base-content/15">
+          <thead class="bg-base-200">
             <tr>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-32"
+                class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider w-32"
               >
                 Timestamp
               </th>
 
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-20"
+                class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider w-20"
               >
                 Attempt
               </th>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-20"
+                class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider w-20"
               >
                 Level
               </th>
               <th
                 scope="col"
-                class="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider"
+                class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider"
               >
                 Content
               </th>
@@ -398,7 +415,7 @@
 
           <tbody
             id="log-list"
-            class="bg-white divide-y divide-gray-200"
+            class="bg-base-100 divide-y divide-base-content/15"
             phx-update="stream"
           >
             <tr
@@ -414,7 +431,7 @@
               }
               id={id}
             >
-              <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-800 font-mono">
+              <td class="px-3 py-2 whitespace-nowrap text-xs text-base-content font-mono">
                 {inserted_at}
               </td>
               <td class="px-3 py-2 whitespace-nowrap text-center align-middle">
@@ -423,7 +440,7 @@
               <td class="px-3 py-2 whitespace-nowrap">
                 <.log_badge level={level} />
               </td>
-              <td class="px-3 py-2 text-xs text-gray-800 bg-slate-100">
+              <td class="px-3 py-2 text-xs text-base-content bg-base-200">
                 {content}
               </td>
             </tr>
@@ -443,19 +460,12 @@
       </div>
     </section>
     <div class="dag-card__body">
-      <div class="bg-slate-50 p-3 rounded-lg border border-slate-200/70 overflow-auto">
+      <div class="bg-base-200 p-3 rounded-lg border border-base-content/20 overflow-auto">
         <pre class="mermaid" phx-hook="Mermaid" id="mermaid-chart">
 {"""
 ---
 config:
   theme: 'base'
-  themeVariables:
-    primaryColor: '#e8f2ff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0ea5e9'
-    lineColor: '#475569'
-    secondaryColor: '#c7e8ff'
-    tertiaryColor: '#f8fafc'
 ---
     #{mermaid_chart(@dag_def.tasks, @mermaid_task_statuses, @selected_item)}
 """}

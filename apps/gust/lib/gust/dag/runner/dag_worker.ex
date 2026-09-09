@@ -147,8 +147,8 @@ defmodule Gust.DAG.Runner.DAGWorker do
         {:noreply, %{state | coord: coord}}
 
       {:reschedule, coord, task, time} ->
-        TaskExecution.update_status!(task, :retrying)
-        {:ok, task} = Flows.update_task_attempt(task, task.attempt + 1)
+        task = TaskExecution.schedule_retry(task, time)
+
         ref = Process.send_after(self(), {:retry_task, task.id}, time)
         coord = Coord.update_restart_timer(coord, task, ref)
 

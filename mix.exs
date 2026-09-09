@@ -8,6 +8,7 @@ defmodule Gust.Umbrella.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
+      releases: releases(),
       listeners: [Phoenix.CodeReloader],
       test_coverage: [tool: ExCoveralls]
     ]
@@ -16,6 +17,23 @@ defmodule Gust.Umbrella.MixProject do
   def cli do
     [
       preferred_envs: [precommit: :test]
+    ]
+  end
+
+  defp releases do
+    applications =
+      if System.get_env("GUST_WITH_PYTHON") == "true" do
+        [gust: :permanent, gust_py: :permanent]
+      else
+        [gust: :permanent]
+      end
+
+    [
+      gust: [
+        applications: applications,
+        version: {:from_app, :gust},
+        rel_templates_path: "apps/gust/rel"
+      ]
     ]
   end
 

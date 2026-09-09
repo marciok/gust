@@ -73,6 +73,12 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       assert html =~ dag.name
+
+      assert has_element?(
+               dashboard_live,
+               ".table-viewport.max-w-full.overflow-x-auto #run_history"
+             )
+
       assert has_element?(dashboard_live, "#run-status-cell-#{run.id}.task-grid-cell")
       assert has_element?(dashboard_live, "##{task.name}-at-run-#{run.id}.task-grid-cell")
     end
@@ -126,6 +132,43 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert has_element?(dashboard_live, ".breadcrumbs")
       assert render(element(dashboard_live, "#selected-item")) =~ "Selected Run #{run.id}"
       assert render(element(dashboard_live, "#selected-item")) =~ "ID #{run.id}"
+    end
+
+    test "only shows the retry tooltip while the selected task is awaiting its retry", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      retry_at = DateTime.add(DateTime.utc_now(), 30, :second)
+      {:ok, retrying_task} = Flows.schedule_task_retry(task, retry_at)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(
+               dashboard_live,
+               "#status-badge-container.tooltip.tooltip-open[data-tip]"
+             )
+
+      {:ok, _failed_task} = Flows.update_task_status(retrying_task, :failed)
+      Gust.PubSub.broadcast_run_status(run.id, :failed, retrying_task.id)
+
+      refute has_element?(dashboard_live, "#status-badge-container.tooltip")
+      refute has_element?(dashboard_live, "#status-badge-container[data-tip]")
+    end
+
+    test "does not add a retry tooltip to another task status", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      refute has_element?(dashboard_live, "#status-badge-container.tooltip")
+      refute has_element?(dashboard_live, "#status-badge-container[data-tip]")
     end
 
     test "pinned run details load the selected run into history", %{
@@ -402,6 +445,40 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert task_error_html =~ error[:value]
       assert task_error_html =~ error_msg
       refute has_element?(dashboard_live, "#task-error-stacktrace")
+    end
+
+    test "links a task error to its external reporter and refreshes the link", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      error = %{
+        type: "RuntimeError",
+        message: "ops...",
+        external_reference: "https://errors.example.com/events/event-123"
+      }
+
+      {:ok, task} = Flows.update_task_error(task, error)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      assert has_element?(
+               dashboard_live,
+               "#task-error-external-link[href='https://errors.example.com/events/event-123'][target='_blank'][rel='noopener noreferrer']"
+             )
+
+      unsafe_error = %{
+        "type" => "RuntimeError",
+        "message" => "ops...",
+        "external_reference" => "javascript:alert(1)"
+      }
+
+      {:ok, _task} = Flows.update_task_error(task, unsafe_error)
+      Gust.PubSub.broadcast_task_updated(task.id)
+
+      refute has_element?(dashboard_live, "#task-error-external-link")
     end
 
     test "does not display a persisted task error while the task is running", %{

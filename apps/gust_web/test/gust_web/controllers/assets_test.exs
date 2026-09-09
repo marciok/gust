@@ -116,10 +116,11 @@ defmodule GustWeb.Dashboard.AssetsTest do
 
   describe "dashboard images" do
     test "serves images from gust_web under the dashboard path", %{conn: conn} do
-      conn = get(conn, ~g"/images/gust-logo.png")
+      conn =
+        Phoenix.ConnTest.dispatch(conn, GustWeb.Endpoint, :get, ~g"/images/gust-logo.svg", nil)
 
       assert conn.status == 200
-      assert get_resp_header(conn, "content-type") == ["image/png"]
+      assert get_resp_header(conn, "content-type") == ["image/svg+xml"]
       assert conn.resp_body != ""
     end
   end

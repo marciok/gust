@@ -1,8 +1,8 @@
 defmodule GustPy.MixProject do
   use Mix.Project
 
-  @version "0.1.11"
-  @gust_version "0.1.38"
+  @version "0.1.12"
+  @gust_version "0.1.39"
 
   def project do
     [
@@ -33,6 +33,7 @@ defmodule GustPy.MixProject do
   defp deps do
     [
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:erlexec, "~> 2.0"},
       gust_dep()
     ]
   end

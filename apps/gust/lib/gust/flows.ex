@@ -286,6 +286,18 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Marks a task as retrying and persists when its next attempt starts.
+  """
+  def schedule_task_retry(%Task{} = task, retry_at) do
+    task
+    |> Ecto.Changeset.change(
+      status: :retrying,
+      retry_at: retry_at
+    )
+    |> Repo.update()
+  end
+
+  @doc """
   Updates a task map index and its persisted parameters.
   """
   def update_task_mapping(task, map_index, params) do
@@ -343,6 +355,25 @@ defmodule Gust.Flows do
   def update_task_error(task, error) do
     Task.changeset(task, %{error: error})
     |> Repo.update()
+  end
+
+  @doc """
+  Adds an external reporter reference to a failed task's error.
+
+  A non-failed task is treated as stale so a delayed reporter response cannot
+  overwrite the state of a task that has moved on.
+  """
+  def attach_task_error_reference(task_id, url) do
+    case Repo.get(Task, task_id) do
+      %Task{status: :failed} = task ->
+        update_task_error(task, Map.put(task.error, "external_reference", url))
+
+      %Task{} ->
+        {:error, :stale_task}
+
+      nil ->
+        {:error, :stale_task}
+    end
   end
 
   @doc """

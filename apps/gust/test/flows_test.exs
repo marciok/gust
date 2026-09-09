@@ -527,6 +527,23 @@ defmodule FlowsTest do
       assert status == new_status
     end
 
+    test "schedule_task_retry/2 persists the next attempt and update_task_status/2 clears it" do
+      dag = dag_fixture(%{name: "scheduled_task_retry"})
+      run = run_fixture(%{dag_id: dag.id})
+      task = task_fixture(%{run_id: run.id, name: "retrying_task"})
+      retry_at = DateTime.add(DateTime.utc_now(), 30, :second)
+
+      assert {:ok, %Task{status: :retrying, attempt: 1, retry_at: ^retry_at} = task} =
+               Flows.schedule_task_retry(task, retry_at)
+
+      assert {:ok, %Task{attempt: 2} = task} = Flows.update_task_attempt(task, task.attempt + 1)
+
+      assert {:ok, %Task{status: :running, retry_at: nil}} =
+               Flows.update_task_status(task, :running)
+
+      assert %Task{status: :running, retry_at: nil} = Flows.get_task!(task.id)
+    end
+
     test "update_task_result/2 persists the result without changing the error" do
       dag = dag_fixture(%{name: "update_task_result"})
       run = run_fixture(%{dag_id: dag.id})
@@ -566,6 +583,7 @@ defmodule FlowsTest do
                 attempt: 1,
                 waiting_for: nil,
                 wait_satisfied_at: nil,
+                retry_at: nil,
                 map_index: 2,
                 params: %{"item" => "keep"}
               }} = Flows.prepare_task_restart(task)

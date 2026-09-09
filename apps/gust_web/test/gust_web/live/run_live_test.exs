@@ -238,7 +238,7 @@ defmodule GustWeb.RunLiveTest do
       refute index_live |> has_element?("#runs-#{prev_page_run.id}")
       refute index_live |> has_element?("#runs-#{current_page_run.id}")
 
-      assert index_live |> has_element?("#runs-table-container + #runs-pagination")
+      assert index_live |> has_element?("#runs-table-container.table-viewport + #runs-pagination")
       assert index_live |> has_element?("#run-page-2.btn-active[aria-current='page']")
       refute index_live |> has_element?("#run-page-3")
       refute index_live |> has_element?("#previous-page[disabled]")

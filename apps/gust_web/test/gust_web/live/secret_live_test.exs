@@ -18,10 +18,11 @@ defmodule GustWeb.SecretLiveTest do
     setup [:create_secret]
 
     test "lists all secrets", %{conn: conn, secret: secret} do
-      {:ok, _index_live, html} = live(conn, ~g"/secrets")
+      {:ok, index_live, html} = live(conn, ~g"/secrets")
 
       assert html =~ "Listing Secrets"
       assert html =~ secret.name
+      assert has_element?(index_live, ".table-viewport #secrets")
     end
 
     test "saves new secret", %{conn: conn} do
@@ -59,7 +60,7 @@ defmodule GustWeb.SecretLiveTest do
 
       assert_patch(index_live, ~g"/secrets/#{secret}/edit")
 
-      secret_value_html = index_live |> element("#secret-form_value") |> render()
+      secret_value_html = index_live |> element("#secret_value") |> render()
 
       case Regex.run(~r/<textarea[^>]*>(.*?)<\/textarea>/, secret_value_html) do
         [_, value] -> assert value == ""
