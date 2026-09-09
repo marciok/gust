@@ -33,6 +33,7 @@ defmodule GustPy.MixProject do
   defp deps do
     [
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:erlexec, "~> 2.0"},
       gust_dep()
     ]
   end

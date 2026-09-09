@@ -3,6 +3,7 @@ defmodule GustPy.TaskMessenger.JSONTest do
   import ExUnit.CaptureLog
   import Gust.FlowsFixtures
 
+  alias GustPy.TaskMessenger.FrameCodec
   alias GustPy.TaskMessenger.JSON
   alias GustPy.TaskWorker.Error
 
@@ -40,13 +41,6 @@ defmodule GustPy.TaskMessenger.JSONTest do
       payload = %{"type" => "result", "ok" => true, "data" => %{"value" => 123}}
 
       assert {:ok, %JSON{type: :result, ok: true, data: %{"value" => 123}}} =
-               JSON.decode(Jason.encode!(payload))
-    end
-
-    test "decodes start message" do
-      payload = %{"type" => "start", "pid" => 12_345}
-
-      assert {:ok, %JSON{type: :start, pid: 12_345}} =
                JSON.decode(Jason.encode!(payload))
     end
 
@@ -138,13 +132,6 @@ defmodule GustPy.TaskMessenger.JSONTest do
       assert {:done, {:result, 123}} = JSON.handle_next(msg)
     end
 
-    test "returns start with os python pid" do
-      os_python_pid = 12_345
-
-      assert {:start, ^os_python_pid} =
-               JSON.handle_next(%JSON{type: :start, pid: os_python_pid})
-    end
-
     test "returns done with error" do
       msg = %JSON{type: :error, ok: false, trace: "boom"}
 
@@ -160,20 +147,17 @@ defmodule GustPy.TaskMessenger.JSONTest do
   end
 
   describe "reply/2" do
-    test "encodes payload and sends it to the port" do
-      port = Port.open({:spawn, "cat"}, [:binary, :exit_status])
+    test "encodes payload as a framed message and sends it to the os process" do
+      {:ok, _pid, os_pid} = :exec.run(["/bin/cat"], [:stdin, {:stdout, self()}, :monitor])
 
-      on_exit(fn ->
-        if Port.info(port) do
-          Port.close(port)
-        end
-      end)
+      on_exit(fn -> :exec.stop(os_pid) end)
 
       payload = %{ok: true, data: %{value: "secret"}}
       expected = payload |> Map.put_new(:type, "reply") |> Jason.encode!()
+      expected_frame = FrameCodec.encode(expected)
 
-      assert :ok = JSON.reply(port, payload)
-      assert_receive {^port, {:data, ^expected}}
+      assert :ok = JSON.reply(os_pid, payload)
+      assert_receive {:stdout, ^os_pid, ^expected_frame}
     end
   end
 

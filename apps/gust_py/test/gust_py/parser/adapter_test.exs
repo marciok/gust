@@ -153,5 +153,13 @@ defmodule GustPy.Parser.AdapterTest do
       assert {:error, {[line: ""], "Parse file command failed, exit: 1", ""}} =
                Adapter.parse_file(@file_path)
     end
+
+    test "returns an error when the uv executable is not found" do
+      GustPy.ExecutorMock
+      |> expect(:run, fn ["parse", "--file", @file_path] -> {:error, :uv_not_found} end)
+
+      assert {:error, {[], message, ""}} = Adapter.parse_file(@file_path)
+      assert message =~ "`uv` executable not found"
+    end
   end
 end
