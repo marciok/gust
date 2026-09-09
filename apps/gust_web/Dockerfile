@@ -107,5 +107,4 @@ RUN uv python install "${PYTHON_VERSION}" --default \
 
 USER nobody
 
-# Keep the regular image as the default target when --target is omitted.
 FROM runtime AS final
