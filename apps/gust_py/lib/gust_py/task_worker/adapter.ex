@@ -31,7 +31,8 @@ defmodule GustPy.TaskWorker.Adapter do
     {:noreply, handle_stream_data(state, data)}
   end
 
-  def handle_info({:stderr, os_pid, _data}, %{os_pid: os_pid} = state) do
+  def handle_info({:stderr, os_pid, data}, %{os_pid: os_pid} = state) do
+    Logger.warning(data)
     {:noreply, state}
   end
 

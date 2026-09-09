@@ -40,7 +40,7 @@ defmodule GustPy.Executor.UV do
       :exec.run([exec() | args_list], [
         :stdin,
         {:stdout, self()},
-        {:stderr, :print},
+        {:stderr, self()},
         :monitor,
         {:group, 0},
         :kill_group,

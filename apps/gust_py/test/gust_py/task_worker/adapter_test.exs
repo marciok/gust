@@ -185,9 +185,13 @@ defmodule GustPy.TaskWorker.AdapterTest do
       assert returned_state.buffer == <<>>
     end
 
-    test "ignores stderr data", %{state: %{os_pid: os_pid} = state} do
-      assert {:noreply, returned_state} = Adapter.handle_info({:stderr, os_pid, "boom"}, state)
+    test "logs stderr data without changing state", %{state: %{os_pid: os_pid} = state} do
+      {result, log} =
+        with_log(fn -> Adapter.handle_info({:stderr, os_pid, "boom"}, state) end)
+
+      assert {:noreply, returned_state} = result
       assert returned_state == state
+      assert log =~ "boom"
     end
   end
 
