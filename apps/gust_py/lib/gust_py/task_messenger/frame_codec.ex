@@ -11,7 +11,7 @@ defmodule GustPy.TaskMessenger.FrameCodec do
 
   defp take_frames(<<len::unsigned-big-integer-size(32), rest::binary>>, acc)
        when byte_size(rest) >= len do
-    <<frame::binary-size(len), remaining::binary>> = rest
+    <<frame::binary-size(^len), remaining::binary>> = rest
     take_frames(remaining, [frame | acc])
   end
 
