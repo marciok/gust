@@ -35,6 +35,7 @@ defmodule Gust.FlowsFixtures do
     run
   end
 
+  @spec task_fixture(map()) :: Gust.Flows.Task.t()
   def task_fixture(attrs \\ %{}) do
     {:ok, task} =
       Gust.Flows.create_test_task(attrs)
