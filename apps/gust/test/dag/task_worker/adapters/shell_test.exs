@@ -40,12 +40,22 @@ defmodule Gust.DAG.TaskWorker.Adapters.ShellTest do
     assert {:stop, :normal, ^state2} =
              Shell.handle_info({:DOWN, 42, :process, self(), :normal}, state2)
 
-    assert_receive {:task_result, %{status: :success, stdout: "hello\n", stderr: "warn\n", exit_code: 0}, 123, :ok}
+    assert_receive {:task_result,
+                    %{status: :success, stdout: "hello\n", stderr: "warn\n", exit_code: 0}, 123,
+                    :ok}
   end
 
   test "appends list-based output chunks before finalizing", %{task: task, dag_def: dag_def} do
     flush_mailbox()
-    state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: ["hello"], stderr: ["warn"]}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: self(),
+      os_pid: 42,
+      stdout: ["hello"],
+      stderr: ["warn"]
+    }
 
     assert {:noreply, state1} = Shell.handle_info({:stdout, 42, " world"}, state)
     assert {:noreply, state2} = Shell.handle_info({:stderr, 42, "!"}, state1)
@@ -54,12 +64,21 @@ defmodule Gust.DAG.TaskWorker.Adapters.ShellTest do
              Shell.handle_info({:DOWN, 42, :process, self(), :normal}, state2)
 
     assert_receive {:task_result,
-                    %{status: :success, stdout: " worldhello", stderr: "!warn", exit_code: 0}, 123, :ok}
+                    %{status: :success, stdout: " worldhello", stderr: "!warn", exit_code: 0},
+                    123, :ok}
   end
 
   test "reports numeric exit statuses without signal mapping", %{task: task, dag_def: dag_def} do
     flush_mailbox()
-    state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: "oops", stderr: "problem"}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: self(),
+      os_pid: 42,
+      stdout: "oops",
+      stderr: "problem"
+    }
 
     assert {:stop, :normal, ^state} =
              Shell.handle_info({:DOWN, 42, :process, self(), {:exit_status, 0}}, state)
@@ -74,9 +93,20 @@ defmodule Gust.DAG.TaskWorker.Adapters.ShellTest do
                     }, 123, :error}
   end
 
-  test "reports signal termination when exit_status resolves to a signal", %{task: task, dag_def: dag_def} do
+  test "reports signal termination when exit_status resolves to a signal", %{
+    task: task,
+    dag_def: dag_def
+  } do
     flush_mailbox()
-    state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: ["oops"], stderr: ["problem"]}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: self(),
+      os_pid: 42,
+      stdout: ["oops"],
+      stderr: ["problem"]
+    }
 
     assert {:stop, :normal, ^state} =
              Shell.handle_info({:DOWN, 42, :process, self(), {:exit_status, 7}}, state)
@@ -92,9 +122,20 @@ defmodule Gust.DAG.TaskWorker.Adapters.ShellTest do
                     }, 123, :error}
   end
 
-  test "reports signal-based termination with atom exit codes and core dump info", %{task: task, dag_def: dag_def} do
+  test "reports signal-based termination with atom exit codes and core dump info", %{
+    task: task,
+    dag_def: dag_def
+  } do
     flush_mailbox()
-    state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: "boom", stderr: "bad"}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: self(),
+      os_pid: 42,
+      stdout: "boom",
+      stderr: "bad"
+    }
 
     assert {:stop, :normal, ^state} =
              Shell.handle_info({:DOWN, 42, :process, self(), {:signal, :sigbus, true}}, state)
@@ -110,9 +151,20 @@ defmodule Gust.DAG.TaskWorker.Adapters.ShellTest do
                     }, 123, :error}
   end
 
-  test "falls back to a single chunk when stdout and stderr are nil", %{task: task, dag_def: dag_def} do
+  test "falls back to a single chunk when stdout and stderr are nil", %{
+    task: task,
+    dag_def: dag_def
+  } do
     flush_mailbox()
-    state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: nil, stderr: nil}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: self(),
+      os_pid: 42,
+      stdout: nil,
+      stderr: nil
+    }
 
     assert {:noreply, state1} = Shell.handle_info({:stdout, 42, "hello"}, state)
     assert {:noreply, state2} = Shell.handle_info({:stderr, 42, "warn"}, state1)
@@ -126,7 +178,15 @@ defmodule Gust.DAG.TaskWorker.Adapters.ShellTest do
 
   test "reports signal termination without a core dump", %{task: task, dag_def: dag_def} do
     flush_mailbox()
-    state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: "boom", stderr: "bad"}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: self(),
+      os_pid: 42,
+      stdout: "boom",
+      stderr: "bad"
+    }
 
     assert {:stop, :normal, ^state} =
              Shell.handle_info({:DOWN, 42, :process, self(), {:signal, :sigterm, false}}, state)
@@ -146,7 +206,15 @@ defmodule Gust.DAG.TaskWorker.Adapters.ShellTest do
     flush_mailbox()
     task = %Task{id: 999, run_id: 456, attempt: 2, name: "fallback_cmd", params: %{}}
     dag_def = %{command: "printf 'dag-default'"}
-    state = %{task: task, dag_def: dag_def, owner_pid: owner_pid, os_pid: nil, stdout: [], stderr: []}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: owner_pid,
+      os_pid: nil,
+      stdout: [],
+      stderr: []
+    }
 
     assert {:noreply, %{task: ^task, os_pid: pid}} = Shell.handle_info(:run, state)
     assert is_integer(pid)
@@ -156,10 +224,54 @@ defmodule Gust.DAG.TaskWorker.Adapters.ShellTest do
     flush_mailbox()
     task = %Task{id: 111, run_id: 456, attempt: 3, name: "coerced_cmd", params: %{command: :echo}}
     dag_def = %Definition{name: "demo", adapter: :shell}
-    state = %{task: task, dag_def: dag_def, owner_pid: owner_pid, os_pid: nil, stdout: [], stderr: []}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: owner_pid,
+      os_pid: nil,
+      stdout: [],
+      stderr: []
+    }
 
     assert {:noreply, %{task: ^task, os_pid: pid}} = Shell.handle_info(:run, state)
     assert is_integer(pid)
+  end
+
+  test "runs a task when the command is already a binary string", %{owner_pid: owner_pid} do
+    flush_mailbox()
+
+    task = %Task{
+      id: 321,
+      run_id: 456,
+      attempt: 4,
+      name: "binary_cmd",
+      params: %{"command" => "printf 'binary-path'"}
+    }
+
+    dag_def = %Definition{name: "demo", adapter: :shell}
+
+    state = %{
+      task: task,
+      dag_def: dag_def,
+      owner_pid: owner_pid,
+      os_pid: nil,
+      stdout: [],
+      stderr: []
+    }
+
+    assert {:noreply, %{task: ^task, os_pid: pid}} = Shell.handle_info(:run, state)
+    assert is_integer(pid)
+  end
+
+  test "raises when the shell runtime rejects the command at startup", %{owner_pid: owner_pid} do
+    flush_mailbox()
+    task = %Task{id: 642, run_id: 456, attempt: 5, name: "empty_cmd", params: %{"command" => ""}}
+    state = %{task: task, dag_def: %{}, owner_pid: owner_pid, os_pid: nil, stdout: [], stderr: []}
+
+    assert_raise RuntimeError, ~r/failed to start shell task:/, fn ->
+      Shell.handle_info(:run, state)
+    end
   end
 
   test "raises when no command is configured for the task or dag", %{owner_pid: owner_pid} do
