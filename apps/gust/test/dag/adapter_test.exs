@@ -16,6 +16,7 @@ defmodule Gust.DAG.AdapterTest do
       assert Adapter.impl!(:elixir, :parser) == Gust.DAG.Parser.Adapters.Elixir
       assert Adapter.impl!(:elixir, :runtime) == Gust.DAG.Runtime.Adapters.Elixir
       assert Adapter.impl!(:elixir, :task_worker) == Gust.DAG.TaskWorker.Adapters.Elixir
+      assert Adapter.impl!(:shell, :task_worker) == Gust.DAG.TaskWorker.Adapters.Shell
     end
 
     test "fetches configured adapter implementation for a key" do

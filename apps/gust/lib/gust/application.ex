@@ -48,6 +48,8 @@ defmodule Gust.Application do
 
   @impl true
   def start(_type, _args) do
+    LoggerBackends.add(Gust.DAG.Logger.Database)
+
     env = System.get_env("MIX_ENV") || Mix.env() |> to_string()
     folder = Application.get_env(:gust, :dags_folder)
 

@@ -103,7 +103,7 @@ defmodule DAG.Logger.DatabaseTest do
       log_id = List.first(logs).id
       assert_receive {:task, :log, %{task_id: ^task_id, log_id: ^log_id}}
 
-      assert :ok = Logger.configure_backend(Database, foo: :bar)
+      assert :ok = LoggerBackends.configure(Database, foo: :bar)
     end
   end
 
