@@ -1,7 +1,6 @@
 defmodule DAG.TaskWorker.Adapters.ElixirTest do
   @moduledoc false
 
-  require Logger
   use Gust.DataCase, async: false
   import Gust.FlowsFixtures
   alias Gust.DAG.TaskWorker.Adapters.Elixir, as: TaskWorker

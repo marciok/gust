@@ -128,6 +128,35 @@ end
 ![ss-3](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-03.png)
 ![ss-4](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-04.png)
 
+### Shell tasks
+
+Gust also supports shell-backed tasks for command execution workflows. The shell adapter runs a command from `task.params["command"]`, or falls back to `dag_def.command` when the DAG definition provides one. Stdout and stderr are captured and returned to the runtime as structured task output.
+
+```elixir
+defmodule MyShellDag do
+  use Gust.DSL
+
+  task :backup, ctx: %{params: params} do
+    %{
+      "command" => "tar -czf /tmp/backup.tar.gz /var/data",
+      "timeout" => 30_000
+    }
+  end
+end
+```
+
+At runtime, Gust launches the command using the shell adapter, tracks the OS process, and emits a result like:
+
+```elixir
+%{
+  status: :success,
+  stdout: "...",
+  stderr: "...",
+  exit_code: 0
+}
+```
+
+If the process exits with a non-zero status, the task result is returned as an error payload with the captured output and exit code intact. For signal-based termination, the `exit_code` contains the signal atom name (for example `:sigterm` or `:sigkill`) rather than a numeric exit status.
 
 --- 
 
@@ -180,6 +209,7 @@ provider.
 ## Features
 
   - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
+  - Shell-backed tasks for running OS commands and capturing stdout, stderr, and exit codes.
   - Parallel task mapping with `:map_over`, creating one task instance per upstream list item.
   - Conditional task skipping with `:skip_if`; dependent downstream tasks are skipped when an upstream task is skipped.
   - Durable task waiting with `:wait_for`, so a DAG can pause until another DAG, webhook, or external process resumes it.

@@ -32,7 +32,6 @@ defmodule GustWeb.LiveComponentTest do
   end
 
   ## Test helpers
-  require Phoenix.LiveViewTest
 
   @doc """
   Spawns a Driver process to mount a LiveComponent in isolation as the sole rendered element.
