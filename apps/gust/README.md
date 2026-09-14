@@ -25,7 +25,8 @@ The `mix gust.cli` task defaults `GUST_ROLE` to `console` automatically, and rel
 ## Guides
 
 - [Writing DAGs](guides/writing_dags.md) — the `Gust.DSL` in practice.
-- [Runtime Roles & Multi-node Setup](guides/runtime_roles.md) — run dispatcher
-  config and a full multi-node example.
+- [Configuration](guides/configuration.md) — run dispatcher config and DAG
+  adapters.
+- [Gust Roles](guides/roles.md) — `GUST_ROLE` and multi-node setup.
 - [Error Tracking](guides/error_tracking.md) — reporting terminal task
   failures.
