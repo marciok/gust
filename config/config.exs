@@ -34,7 +34,7 @@ config :gust_web, GustWeb.Endpoint,
     formats: [html: GustWeb.ErrorHTML, json: GustWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Gust.PubSub,
+  pubsub_server: GustWeb.PubSub,
   live_view: [signing_salt: "SCG6tRFf"]
 
 # Configure esbuild (the version is required)
@@ -59,14 +59,26 @@ config :tailwind,
     cd: Path.expand("../apps/gust_web", __DIR__)
   ]
 
+config :gust,
+  dag_adapter: [
+    shell: %{
+      parser: GustShell.Parser.Adapter,
+      runtime: GustShell.Runtime.Adapter,
+      task_worker: GustShell.TaskWorker.Adapter
+    }
+  ]
+
 config :gust, dag_logger: Gust.DAG.Logger.Database
 # Configures Elixir's Logger
 config :logger, :default_formatter,
-  format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id, :task_id, :attempt]
+  format: {Gust.LoggerFormatter, :format},
+  metadata: [:request_id, :task_id, :attempt, :file, :line]
 
-# Use Jason for JSON parsing in Phoenix
-config :phoenix, :json_library, Jason
+# Use Jason for Phoenix JSON serialization to support LiveView internals and render payloads.
+config :phoenix, :json_library, Glazer.JSON
+
+# Compile-time/build-time environment (so that we don't need to rely on Mix.env() at runtime)
+config :gust, env: config_env()
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

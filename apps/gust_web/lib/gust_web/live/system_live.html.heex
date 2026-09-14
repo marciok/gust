@@ -84,5 +84,75 @@
         </ul>
       </div>
     </section>
+
+    <section id="dag-sources-panel" class="system-panel">
+      <div class="system-panel__header">
+        <h2 class="system-panel__title">DAG Sources</h2>
+      </div>
+      <div class="system-panel__body">
+        <div :if={@dag_source_rows == []} class="system-empty">
+          No DAG sources are configured.
+        </div>
+
+        <div
+          :if={@dag_source_rows != []}
+          class="overflow-hidden rounded-lg border border-base-content/15"
+        >
+          <table class="min-w-full table-fixed divide-y divide-base-content/15 text-left text-sm">
+            <thead class="bg-base-200 text-base-content/80">
+              <tr>
+                <th class="w-32 px-3 py-3 font-semibold">Source ID</th>
+                <th class="w-56 px-3 py-3 font-semibold">Source</th>
+                <th class="w-28 px-3 py-3 font-semibold">Type</th>
+                <th class="w-40 px-3 py-3 font-semibold">Path</th>
+                <th class="w-24 px-3 py-3 font-semibold">Status</th>
+                <th class="w-24 px-3 py-3 font-semibold text-right">Enabled</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-base-content/10 bg-base-100">
+              <tr :for={source <- @dag_source_rows} class="even:bg-base-200/40">
+                <td class="truncate px-3 py-3 font-medium text-base-content">{source.id}</td>
+                <td class="truncate px-3 py-3 text-base-content/75">{source.source}</td>
+                <td class="truncate px-3 py-3 text-base-content/75">{source.type}</td>
+                <td class="truncate px-3 py-3 text-base-content/75">{source.path}</td>
+                <td class="px-3 py-3">
+                  <span class={[
+                    "inline-flex rounded-full px-2 py-1 text-xs font-medium",
+                    source.status == :running && "bg-success/15 text-success",
+                    source.status == :paused && "bg-warning/15 text-warning",
+                    source.status == :stopped && "bg-base-300 text-base-content/75",
+                    source.status == :unavailable && "bg-base-200 text-base-content/60"
+                  ]}>
+                    {case source.status do
+                      :running -> "Running"
+                      :paused -> "Paused"
+                      :stopped -> "Stopped"
+                      _ -> "Unavailable"
+                    end}
+                  </span>
+                </td>
+                <td class="px-3 py-3 text-right">
+                  <label
+                    class="inline-flex cursor-pointer items-center justify-end gap-2"
+                    for={"dag-source-toggle-#{source.id}"}
+                  >
+                    <input
+                      id={"dag-source-toggle-#{source.id}"}
+                      type="checkbox"
+                      checked={source.status == :running}
+                      disabled={source.status == :unavailable}
+                      phx-click="toggle_dag_source_status"
+                      phx-value-id={source.id}
+                      class="toggle toggle-success"
+                      aria-label={"Enable or disable #{source.id}"}
+                    />
+                  </label>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </div>
 </Layouts.app>

@@ -15,7 +15,7 @@ defmodule DAG.Parser.Adapters.ElixirTest do
 
   describe "extension/0" do
     test "returns .ex" do
-      assert ".ex" == Adapter.extension()
+      assert [".ex"] == Adapter.extensions()
     end
   end
 

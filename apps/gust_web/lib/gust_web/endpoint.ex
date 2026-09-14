@@ -44,10 +44,14 @@ defmodule GustWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Keep the exact request bytes so webhook signature checks can validate
+  # against the original payload. Re-encoding parsed params can change
+  # whitespace/key ordering and break HMAC verification.
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
-    json_decoder: Phoenix.json_library()
+    json_decoder: Phoenix.json_library(),
+    body_reader: {GustWeb.Plugs.RawBodyReader, :read_body, []}
 
   plug Plug.MethodOverride
   plug Plug.Head

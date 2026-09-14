@@ -13,6 +13,7 @@ defmodule DAG.DefinitionTest do
     assert dfn.messages == []
     assert dfn.file_path == ""
     assert dfn.options == []
+    assert dfn.source == nil
     assert dfn.adapter == :elixir
 
     assert Map.keys(dfn) |> Enum.sort() ==
@@ -25,6 +26,7 @@ defmodule DAG.DefinitionTest do
                :mod,
                :name,
                :options,
+               :source,
                :stages,
                :task_list,
                :tasks
@@ -64,6 +66,6 @@ defmodule DAG.DefinitionTest do
                  "downstream" => []
                }
              }
-           } = Jason.decode!(json)
+           } = Glazer.JSON.decode!(json)
   end
 end

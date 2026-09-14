@@ -25,8 +25,8 @@ defmodule Gust.Flows.Dag do
     dag
     |> cast(attrs, [:name, :enabled])
     |> validate_required([:name])
-    |> validate_format(:name, ~r/^[a-z0-9_]+$/,
-      message: "must be lowercase, no spaces, only letters, numbers, and underscores"
+    |> validate_format(:name, ~r/^[a-z0-9_-]+$/,
+      message: "must be lowercase, no spaces, only letters, numbers, underscores, and hyphens"
     )
     |> unique_constraint(:name)
   end

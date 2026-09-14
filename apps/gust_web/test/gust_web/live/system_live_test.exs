@@ -44,11 +44,31 @@ defmodule GustWeb.SystemLiveTest do
              to_string(Gust.PGNotifier.Worker)
   end
 
+  test "updates the visible source status when a source status change is broadcast", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~g"/system")
+
+    assert has_element?(view, "#dag-source-toggle-default-folder")
+
+    Gust.PubSub.broadcast_source_status("default-folder", :paused)
+
+    assert render(view) =~ "Paused"
+  end
+
   test "reports that the theme follows the system preference", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~g"/system")
 
     assert has_element?(view, "#theme-preference")
     assert has_element?(view, "#theme-preference", "System preference")
+  end
+
+  test "shows the DAG sources table on the system page", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~g"/system")
+
+    assert has_element?(view, "#dag-sources-panel")
+    assert has_element?(view, "#dag-sources-panel", "DAG Sources")
+    assert has_element?(view, "th", "Source")
+    assert has_element?(view, "th", "Status")
+    assert has_element?(view, "input[type=checkbox][phx-click='toggle_dag_source_status']")
   end
 
   test "format_uptime/1 presents minutes, hours, and days compactly" do

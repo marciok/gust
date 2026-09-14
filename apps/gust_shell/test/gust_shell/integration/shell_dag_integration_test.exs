@@ -57,6 +57,60 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
     assert_receive {:task_result, %{stdout: "hello", stderr: "warning", exit_code: 0}, 123, :ok}
   end
 
+  test "clears inherited environment variables from child processes" do
+    original = System.get_env("ABC")
+
+    on_exit(fn ->
+      case original do
+        nil -> System.delete_env("ABC")
+        value -> System.put_env("ABC", value)
+      end
+    end)
+
+    System.put_env("ABC", "from_parent")
+
+    assert {:ok, [stdout: [output]]} =
+             :exec.run("echo $ABC", [:sync, :stdout, {:env, [:clear]}])
+
+    assert String.trim(output) == ""
+  end
+
+  test "clears inherited environment variables for YAML-defined shell tasks" do
+    original = System.get_env("ABC")
+
+    on_exit(fn ->
+      case original do
+        nil -> System.delete_env("ABC")
+        value -> System.put_env("ABC", value)
+      end
+    end)
+
+    System.put_env("ABC", "from_parent")
+
+    assert {:ok, definition} =
+             parse_shell_dag("""
+             tasks:
+               - name: clear_env
+                 run: echo $ABC
+                 env:
+                   OTHER: visible
+             """)
+
+    state = %{
+      task: %{id: 125, attempt: 1, name: "clear_env", params: %{}},
+      dag_def: definition,
+      owner_pid: self(),
+      opts: Map.fetch!(definition.tasks, "clear_env")
+    }
+
+    assert {:noreply, running} = GustShell.TaskWorker.Adapter.handle_info(:run, state)
+    on_exit(fn -> :exec.stop(running.os_pid) end)
+    await_exit(running)
+
+    assert_receive {:task_result, %{stdout: stdout}, 125, :ok}
+    assert String.trim(stdout) == ""
+  end
+
   test "reports a real command failure with captured output" do
     assert {:ok, definition} =
              parse_shell_dag("""

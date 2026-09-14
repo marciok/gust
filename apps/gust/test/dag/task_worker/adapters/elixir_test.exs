@@ -124,7 +124,6 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       dag_content = """
         defmodule SuccessfulTaskDag do
           use Gust.DSL
-          require Logger
 
           task :#{task.name} do
             Process.sleep(100)

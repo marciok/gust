@@ -1,6 +1,8 @@
 # Writing DAGs
 
-DAGs are plain Elixir modules that `use Gust.DSL`. Each `task` block declares
+## Elixir DAGs
+
+Elixir DAGs are plain Elixir modules that `use Gust.DSL`. Each `task` block declares
 its downstream tasks, and Gust resolves execution order from that graph.
 
 ```elixir
@@ -62,6 +64,72 @@ defmodule HelloWorld do
   end
 end
 ```
+
+## Shell DAGs
+
+Shell DAGs are YAML files in your DAG folder. The file name becomes the DAG name,
+so `backup_files.yml` creates the `backup_files` DAG:
+
+```yaml
+# `schedule` and `on_finished_callback` are optional.
+schedule: "0 3 * * *"
+
+tasks:
+  - name: backup_data
+    run: "tar -czf backup.tar.gz /data"
+    cd: "/var/backups"
+    downstream: [upload_backup]
+    save: true
+
+  - name: upload_backup
+    run: "aws s3 cp backup.tar.gz s3://my-bucket/"
+    cd: "/var/backups"
+    env:
+      AWS_PROFILE: production
+```
+
+Each task runs its `run` command in a shell, and parallel execution is automatic
+for tasks without dependencies. Shell DAGs are useful when the workflow is mostly
+command-line actions, and they support task metadata such as `save`, `env`, `cd`,
+and templated values from run params and secrets.
+
+See [the shell DAG guide](../../gust_shell/guides/writing_shell_dags.md) for the
+full reference.
+
+## Python DAGs
+
+Python DAGs let you reuse existing Python workflow definitions with the `gust`
+Python package. Tasks are methods decorated with `@task`, and the DAG class can
+still define scheduling and callbacks:
+
+```python
+from gust import Dag, task, log, get_secret_by_name
+
+class HelloWorld(Dag):
+
+    def __init__(self):
+        super().__init__(schedule="* * * * *", on_finished_callback="notify_something")
+
+    def notify_something(self, status, run):
+        print("DAG is done!")
+
+    @task(downstream=["second_task"], save=True)
+    def first_task(self, ctx):
+        secret = get_secret_by_name("SECRET")
+        log(f"I know your secret: {secret}")
+        return {"result": "Hi!"}
+
+    @task()
+    def second_task(self, ctx):
+        print("next step")
+```
+
+Python DAGs are a good fit when your team already has Python-based orchestration
+logic or wants to keep workflow definitions close to the code that produces their
+inputs and outputs.
+
+See [the Python DAG guide](../../gust_py/guides/writing_python_dags.md) for the
+full reference.
 
 ## Features used above
 

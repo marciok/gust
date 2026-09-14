@@ -3,6 +3,7 @@ defmodule GustWeb.DagLive.Index do
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.PubSub
+  alias GustWeb.LiveView.Helpers
   use GustWeb, :live_view
 
   @impl true
@@ -41,6 +42,21 @@ defmodule GustWeb.DagLive.Index do
     run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
 
     {:noreply, socket |> put_flash(:info, "Run #{run.id} triggered")}
+  end
+
+  @impl true
+  def handle_event("toggle_dag_monitor_status", _params, socket) do
+    {:noreply, toggle_dag_monitor_status(socket)}
+  end
+
+  @impl true
+  def handle_event("pause_dag_source", %{"value" => source_id}, socket) do
+    {:noreply, Helpers.pause(socket, source_id)}
+  end
+
+  @impl true
+  def handle_event("resume_dag_source", %{"value" => source_id}, socket) do
+    {:noreply, Helpers.resume(socket, source_id)}
   end
 
   defp list_dags(failed_runs_only?) do
@@ -106,6 +122,28 @@ defmodule GustWeb.DagLive.Index do
 
     socket = stream_delete(socket, :broken_dags, %{id: dag.name})
     {:noreply, socket}
+  end
+
+  defp toggle_dag_monitor_status(socket) do
+    case Process.whereis(Gust.FileMonitor.Worker) do
+      nil ->
+        put_flash(socket, :warning, "DAG monitor is unavailable.")
+
+      _pid ->
+        case Gust.FileMonitor.Worker.status() do
+          :running ->
+            Helpers.pause(socket)
+
+          :paused ->
+            Helpers.resume(socket)
+
+          {:error, reason} ->
+            put_flash(socket, :error, "DAG monitor is unavailable: #{inspect(reason)}")
+
+          _ ->
+            put_flash(socket, :warning, "DAG monitor status could not be changed.")
+        end
+    end
   end
 
   defp assign_filter_form(socket, failed_runs_only?) do

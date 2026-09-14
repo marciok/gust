@@ -110,7 +110,7 @@ defmodule GustWeb.DagRunComponents do
       assign(
         assigns,
         :json,
-        Jason.encode_to_iodata!(assigns.value, pretty: true, escape_html: true)
+        Glazer.JSON.encode!(assigns.value, pretty: true)
       )
 
     ~H"""

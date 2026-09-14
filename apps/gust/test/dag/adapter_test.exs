@@ -11,7 +11,7 @@ defmodule Gust.DAG.AdapterTest do
 
   describe "impl!/2" do
     test "returns default elixir implementation when no config is provided" do
-      Application.put_env(:gust, :dag_adapter, [])
+      put_adapter_env([])
 
       assert Adapter.impl!(:elixir, :parser) == Gust.DAG.Parser.Adapters.Elixir
       assert Adapter.impl!(:elixir, :runtime) == Gust.DAG.Runtime.Adapters.Elixir
@@ -19,7 +19,7 @@ defmodule Gust.DAG.AdapterTest do
     end
 
     test "fetches configured adapter implementation for a key" do
-      Application.put_env(:gust, :dag_adapter,
+      put_adapter_env(
         elixir: %{
           parser: Gust.DAG.Parser.Adapters.Elixir,
           runtime: :runtime_impl,
@@ -39,7 +39,7 @@ defmodule Gust.DAG.AdapterTest do
     end
 
     test "raises when the adapter is not configured" do
-      Application.put_env(:gust, :dag_adapter, [])
+      put_adapter_env([])
 
       assert_raise KeyError, fn ->
         Adapter.impl!(:missing, :parser)
@@ -47,7 +47,7 @@ defmodule Gust.DAG.AdapterTest do
     end
 
     test "raises when the key is missing from the adapter config" do
-      Application.put_env(:gust, :dag_adapter,
+      put_adapter_env(
         custom: %{
           parser: :parser_impl
         }
@@ -59,7 +59,7 @@ defmodule Gust.DAG.AdapterTest do
     end
 
     test "merges custom elixir config with defaults and keeps additional adapters" do
-      Application.put_env(:gust, :dag_adapter,
+      put_adapter_env(
         elixir: %{
           runtime: :custom_runtime
         },
@@ -79,7 +79,7 @@ defmodule Gust.DAG.AdapterTest do
 
   describe "parser_module!/1" do
     test "returns the parser module for the adapter" do
-      Application.put_env(:gust, :dag_adapter,
+      put_adapter_env(
         elixir: %{
           parser: Gust.DAG.Parser.Adapters.Elixir,
           runtime: :runtime_impl,
@@ -93,7 +93,7 @@ defmodule Gust.DAG.AdapterTest do
 
   describe "parser_modules/0" do
     test "deduplicates shared parser implementations across adapters" do
-      Application.put_env(:gust, :dag_adapter,
+      put_adapter_env(
         elixir: %{
           parser: Gust.DAG.Parser.Adapters.Elixir,
           runtime: :runtime_impl,
@@ -115,7 +115,7 @@ defmodule Gust.DAG.AdapterTest do
 
   describe "parser_for_extension/1" do
     test "returns a parser module that matches the extension" do
-      Application.put_env(:gust, :dag_adapter,
+      put_adapter_env(
         elixir: %{
           parser: Gust.DAG.Parser.Adapters.Elixir,
           runtime: :runtime_impl,
@@ -127,7 +127,7 @@ defmodule Gust.DAG.AdapterTest do
     end
 
     test "returns nil when no parser matches the extension" do
-      Application.put_env(:gust, :dag_adapter,
+      put_adapter_env(
         elixir: %{
           parser: Gust.DAG.Parser.Adapters.Elixir,
           runtime: :runtime_impl,
@@ -137,5 +137,9 @@ defmodule Gust.DAG.AdapterTest do
 
       assert Adapter.parser_for_extension(".unknown") == nil
     end
+  end
+
+  defp put_adapter_env(config) do
+    Application.put_env(:gust, :dag_adapter, config)
   end
 end

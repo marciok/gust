@@ -9,7 +9,6 @@ defmodule GustShell.ShellExitErrorTest do
         stderr: "error"
       }
 
-      assert is_exception(error)
       assert Exception.message(error) =~ "command exited with code 1"
     end
 

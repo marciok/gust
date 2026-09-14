@@ -5,6 +5,7 @@ defmodule Gust.PubSub do
   @topic_run "dag:run"
   @topic_task "dag:task"
   @topic_file "dag:file"
+  @topic_source "dag:source"
   @run_dispatch "run_dispatch"
   @runs_claimed "runs_claimed"
 
@@ -76,6 +77,14 @@ defmodule Gust.PubSub do
     Phoenix.PubSub.broadcast(__MODULE__, "#{@topic_file}:#{name}", payload)
   end
 
+  def broadcast_source_status(source_id, status) do
+    Phoenix.PubSub.broadcast(
+      __MODULE__,
+      @topic_source,
+      {:dag_source, :status_changed, %{source_id: source_id, status: status}}
+    )
+  end
+
   ## Subscriptions
   #
   def subscribe_runs_claimed do
@@ -108,5 +117,9 @@ defmodule Gust.PubSub do
   # Subscribe to all runs under a given DAG
   def subscribe_runs_for_dag(dag_id) do
     Phoenix.PubSub.subscribe(__MODULE__, "#{@topic_run}:#{dag_id}")
+  end
+
+  def subscribe_dag_source_status do
+    Phoenix.PubSub.subscribe(__MODULE__, @topic_source)
   end
 end

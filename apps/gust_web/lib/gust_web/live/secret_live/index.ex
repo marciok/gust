@@ -3,6 +3,7 @@ defmodule GustWeb.SecretLive.Index do
 
   alias Gust.Flows
   alias Gust.Flows.Secret
+  alias GustWeb.LiveView.Helpers
 
   @impl true
   def mount(_params, _session, socket) do
@@ -56,6 +57,43 @@ defmodule GustWeb.SecretLive.Index do
     {:ok, _} = Flows.delete_secret(secret)
 
     {:noreply, socket |> stream_delete(:secrets, secret)}
+  end
+
+  @impl true
+  def handle_event("toggle_dag_monitor_status", _params, socket) do
+    {:noreply, toggle_dag_monitor_status(socket)}
+  end
+
+  @impl true
+  def handle_event("pause_dag_source", %{"value" => source_id}, socket) do
+    {:noreply, Helpers.pause(socket, source_id)}
+  end
+
+  @impl true
+  def handle_event("resume_dag_source", %{"value" => source_id}, socket) do
+    {:noreply, Helpers.resume(socket, source_id)}
+  end
+
+  defp toggle_dag_monitor_status(socket) do
+    case Process.whereis(Gust.FileMonitor.Worker) do
+      nil ->
+        put_flash(socket, :warning, "DAG monitor is unavailable.")
+
+      _pid ->
+        case Gust.FileMonitor.Worker.status() do
+          :running ->
+            Helpers.pause(socket)
+
+          :paused ->
+            Helpers.resume(socket)
+
+          {:error, reason} ->
+            put_flash(socket, :error, "DAG monitor is unavailable: #{inspect(reason)}")
+
+          _ ->
+            put_flash(socket, :warning, "DAG monitor status could not be changed.")
+        end
+    end
   end
 
   defp save_secret(socket, :new, secret_params) do

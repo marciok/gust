@@ -89,15 +89,14 @@ defmodule Gust.DAG.TaskWorker.Adapters.Elixir do
   end
 
   defp validate_serializable(result) do
-    case Jason.encode(result) do
-      {:ok, _json} ->
-        {:ok, result}
-
-      {:error, error} ->
-        raise(
-          "Task result is not JSON-serializable: #{Exception.message(error)} (#{inspect(result)})"
-        )
-    end
+    Glazer.JSON.encode!(result)
+    {:ok, result}
+  rescue
+    error ->
+      reraise(
+        "Task result is not JSON-serializable: #{Exception.message(error)} (#{inspect(result)})",
+        __STACKTRACE__
+      )
   end
 
   defp error_with_stacktrace(error, stacktrace),

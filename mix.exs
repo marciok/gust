@@ -79,7 +79,8 @@ defmodule Gust.Umbrella.MixProject do
       # run `mix setup` in all child apps
       setup: ["cmd mix setup"],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"],
-      lint: ["credo --strict"]
+      lint: ["credo --strict"],
+      compile: ["cmd mix compile"]
     ]
   end
 end

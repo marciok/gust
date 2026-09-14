@@ -52,6 +52,6 @@ defmodule Mix.Tasks.Gust.CliTest do
     assert %{
              "status" => "ok",
              "definition" => %{"name" => "marcio"}
-           } = Jason.decode!(json)
+           } = Glazer.JSON.decode!(json)
   end
 end

@@ -10,14 +10,14 @@ defmodule GustPy.TaskMessenger.JSONTest do
   describe "decode/1" do
     test "decodes log message" do
       payload = %{"type" => "log", "msg" => "hello"}
-      assert {:ok, %JSON{type: :log, msg: "hello"}} = JSON.decode(Jason.encode!(payload))
+      assert {:ok, %JSON{type: :log, msg: "hello"}} = JSON.decode(Glazer.JSON.encode!(payload))
     end
 
     test "decodes call message for get_secret_by_name" do
       payload = %{"type" => "call", "op" => "get_secret_by_name", "name" => "SOME_NAME"}
 
       assert {:ok, %JSON{type: :call, op: :get_secret_by_name, name: "SOME_NAME"}} =
-               JSON.decode(Jason.encode!(payload))
+               JSON.decode(Glazer.JSON.encode!(payload))
     end
 
     test "decodes call message for get_task_by_name_run when task exists" do
@@ -34,30 +34,32 @@ defmodule GustPy.TaskMessenger.JSONTest do
                 op: :get_task_by_name_run,
                 name: "task_alpha",
                 run_id: 42
-              }} = JSON.decode(Jason.encode!(payload))
+              }} = JSON.decode(Glazer.JSON.encode!(payload))
     end
 
     test "decodes result message" do
       payload = %{"type" => "result", "ok" => true, "data" => %{"value" => 123}}
 
       assert {:ok, %JSON{type: :result, ok: true, data: %{"value" => 123}}} =
-               JSON.decode(Jason.encode!(payload))
+               JSON.decode(Glazer.JSON.encode!(payload))
     end
 
     test "decodes error message" do
       payload = %{"type" => "error", "ok" => false, "trace" => "boom"}
 
       assert {:ok, %JSON{type: :error, ok: false, trace: "boom"}} =
-               JSON.decode(Jason.encode!(payload))
+               JSON.decode(Glazer.JSON.encode!(payload))
     end
 
     test "decodes unknown message types" do
       payload = %{"type" => "weird", "data" => %{"ok" => true}}
-      assert {:ok, %JSON{type: :unknown, data: ^payload}} = JSON.decode(Jason.encode!(payload))
+
+      assert {:ok, %JSON{type: :unknown, data: ^payload}} =
+               JSON.decode(Glazer.JSON.encode!(payload))
     end
 
     test "returns error on invalid json" do
-      assert {:error, %Jason.DecodeError{}} = JSON.decode("not-json")
+      assert {:error, %{__exception__: true}} = JSON.decode("not-json")
     end
   end
 
@@ -153,7 +155,7 @@ defmodule GustPy.TaskMessenger.JSONTest do
       on_exit(fn -> :exec.stop(os_pid) end)
 
       payload = %{ok: true, data: %{value: "secret"}}
-      expected = payload |> Map.put_new(:type, "reply") |> Jason.encode!()
+      expected = payload |> Map.put_new(:type, "reply") |> Glazer.JSON.encode!()
       expected_frame = FrameCodec.encode(expected)
 
       assert :ok = JSON.reply(os_pid, payload)
