@@ -30,7 +30,8 @@ defmodule GustWeb.MixProject do
           "mix.exs",
           "README.md"
         ]
-      ]
+      ],
+      docs: docs()
     ]
   end
 
@@ -127,4 +128,18 @@ defmodule GustWeb.MixProject do
       ]
     ]
   end
+
+  defp docs do
+    [
+      main: "readme",
+      logo: "priv/static/images/gust-logo.svg",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/marciok/gust",
+      extras: extras(),
+      groups_for_extras: groups_for_extras()
+    ]
+  end
+
+  defp extras, do: ["README.md"] ++ Path.wildcard("guides/*.md")
+  defp groups_for_extras, do: [Guides: Path.wildcard("guides/*.md")]
 end
