@@ -84,8 +84,17 @@ defmodule GustShell.TaskWorker.Adapter do
   defp render(command, exec_opts, task) do
     exec_opts =
       Enum.map(exec_opts, fn
-        {:env, env} -> {:env, Enum.map(env, fn {key, value} -> {key, Template.render(value, task)} end)}
-        option -> option
+        {:env, env} ->
+          env_entries =
+            env
+            |> Enum.reject(&(&1 == :clear))
+            |> Enum.map(fn {key, value} -> {key, Template.render(value, task)} end)
+            |> then(&[:clear | &1])
+
+          {:env, env_entries}
+
+        option ->
+          option
       end)
 
     {:ok, Template.render(command, task), exec_opts}

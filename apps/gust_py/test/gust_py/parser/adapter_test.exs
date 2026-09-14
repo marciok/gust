@@ -48,7 +48,7 @@ defmodule GustPy.Parser.AdapterTest do
 
   describe "extension/0" do
     test "returns .py" do
-      assert ".py" == Adapter.extension()
+      assert [".py"] == Adapter.extensions()
     end
   end
 
@@ -56,7 +56,7 @@ defmodule GustPy.Parser.AdapterTest do
     test "returns a parsed dag definition from executor output" do
       GustPy.ExecutorMock
       |> expect(:run, fn ["parse", "--file", @file_path] ->
-        {Jason.encode!(@valid_dag), 0}
+        {Glazer.JSON.encode!(@valid_dag), 0}
       end)
 
       assert {:ok, %Definition{} = dag_def} = Adapter.parse_file(@file_path)
@@ -116,7 +116,7 @@ defmodule GustPy.Parser.AdapterTest do
 
       GustPy.ExecutorMock
       |> expect(:run, fn ["parse", "--file", @file_path] ->
-        {Jason.encode!(dag), 0}
+        {Glazer.JSON.encode!(dag), 0}
       end)
 
       assert {:ok, %Definition{} = dag_def} = Adapter.parse_file(@file_path)
@@ -126,7 +126,7 @@ defmodule GustPy.Parser.AdapterTest do
     test "returns parsing error when executor reports a parse error" do
       GustPy.ExecutorMock
       |> expect(:run, fn ["parse", "--file", @file_path] ->
-        {Jason.encode!(@invalid_dag), 0}
+        {Glazer.JSON.encode!(@invalid_dag), 0}
       end)
 
       assert {:error,

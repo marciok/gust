@@ -1,11 +1,17 @@
 defmodule Gust.DAG.Folder do
   @moduledoc false
 
-  def verify!("test", _folder), do: :ok
+  def verify!(env, folder) do
+    case verify(env, folder) do
+      :ok -> :ok
+      {:error, reason} -> raise reason
+    end
+  end
 
-  def verify!(_env, folder) do
-    File.dir?(folder) || raise "DAG folder does not exist!: #{folder}"
-    :ok
+  def verify(env, _folder) when env in [:test, "test"], do: :ok
+
+  def verify(_env, folder) do
+    if File.dir?(folder), do: :ok, else: {:error, "DAG folder does not exist!: #{folder}"}
   end
 
   def list_files(folder, extension) do

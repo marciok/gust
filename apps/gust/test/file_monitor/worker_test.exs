@@ -17,6 +17,15 @@ defmodule FileMonitor.WorkerTest do
   setup :set_mox_from_context
 
   setup %{tmp_dir: tmp_dir} do
+    # Set short debounce delay for tests
+    Application.put_env(:gust, :file_reload_delay, 50)
+
+    Application.put_env(
+      :gust,
+      :dag_source_monitor_status_path,
+      Path.join(tmp_dir, ".dag_source_monitor_status")
+    )
+
     Application.put_env(:gust, :dag_adapter,
       elixir: %{
         parser: Gust.DAGParserAdapterMock,
@@ -26,7 +35,7 @@ defmodule FileMonitor.WorkerTest do
     )
 
     Gust.DAGParserAdapterMock
-    |> stub(:extension, fn -> ".ex" end)
+    |> stub(:extensions, fn -> [".ex"] end)
 
     Gust.FileMonitorMock
     |> expect(:start_link, fn keywords ->
@@ -45,7 +54,49 @@ defmodule FileMonitor.WorkerTest do
     Gust.PubSub.subscribe_all_files("update")
     Process.monitor(pid)
 
+    on_exit(fn ->
+      Application.put_env(:gust, :file_reload_delay, 1_000)
+    end)
+
     %{dag_watcher_pid: pid}
+  end
+
+  test "persists monitor status to disk and restores it after restart", %{
+    tmp_dir: tmp_dir,
+    dag_watcher_pid: pid
+  } do
+    status_path = Path.join(tmp_dir, ".dag_source_monitor_status")
+
+    assert Gust.FileMonitor.Worker.status() == :running
+    assert status_from_disk(status_path) == "running"
+
+    assert :ok == Gust.FileMonitor.Worker.pause()
+    assert status_from_disk(status_path) == "paused"
+
+    Process.unlink(pid)
+    GenServer.stop(pid)
+
+    Gust.FileMonitorMock
+    |> stub(:start_link, fn keywords ->
+      assert [dirs: [tmp_dir], latency: 0] == keywords
+      {:ok, spawn_link(fn -> :ok end)}
+    end)
+
+    Gust.FileMonitorMock
+    |> stub(:watch, fn _pid -> :ok end)
+
+    {:ok, restarted_pid} =
+      GenServer.start_link(Gust.FileMonitor.Worker, %{dags_folder: tmp_dir, loader: self()})
+
+    assert GenServer.call(restarted_pid, :status) == :paused
+  end
+
+  defp status_from_disk(path) do
+    path
+    |> File.read!()
+    |> String.trim()
+    |> String.split(~r/\s+/, trim: true)
+    |> List.last()
   end
 
   test "ignore debounce events", %{tmp_dir: tmp_dir, dag_watcher_pid: pid} do

@@ -89,7 +89,7 @@ defmodule FusionPrompt do
       ])
 
     parsed =
-      case Jason.decode(strip_code_fence(analysis)) do
+      case Glazer.JSON.decode(strip_code_fence(analysis)) do
         {:ok, map} -> map
         {:error, _} -> %{"raw" => analysis}
       end
@@ -133,7 +133,7 @@ defmodule FusionPrompt do
     token = open_router_token()
 
     body =
-      Jason.encode!(%{
+      Glazer.JSON.encode!(%{
         model: model,
         messages: messages
       })
@@ -149,7 +149,7 @@ defmodule FusionPrompt do
          ) do
       {:ok, %{status_code: 200, body: response_body}} ->
         response_body
-        |> Jason.decode!()
+        |> Glazer.JSON.decode!()
         |> get_in(["choices", Access.at(0), "message", "content"]) || ""
 
       {:ok, %{status_code: status, body: error_body}} ->
@@ -231,7 +231,7 @@ defmodule FusionPrompt do
     #{prompt}
 
     Judge's structured analysis (JSON):
-    #{Jason.encode!(analysis)}
+    #{Glazer.JSON.encode!(analysis)}
 
     Panel responses:
     #{panel}

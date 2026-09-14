@@ -87,7 +87,7 @@ defmodule Gust.CLITest do
                  "hello" => %{"downstream" => ["say_bye"], "upstream" => []}
                }
              }
-           } = CLI.exec(["dag_definition", dag_name]) |> Jason.decode!()
+           } = CLI.exec(["dag_definition", dag_name]) |> Glazer.JSON.decode!()
   end
 
   test "exec/1 returns definition status when loading the dag definition fails", %{
@@ -104,6 +104,6 @@ defmodule Gust.CLITest do
     assert %{
              "status" => "error",
              "error" => "{[line: 9], \"parsing error\", \"unexpected token\"}"
-           } = CLI.exec(["dag_definition", dag_name]) |> Jason.decode!()
+           } = CLI.exec(["dag_definition", dag_name]) |> Glazer.JSON.decode!()
   end
 end
