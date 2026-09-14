@@ -32,6 +32,9 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 ---
 
+<img width="1920" height="1080" alt="gust-demo-1 5speed" src="https://github.com/user-attachments/assets/f44e16be-fb88-49f0-b9ca-ed307fd1aa30" />
+
+
 ## Table of Contents
 
 - [Motivation](#motivation)
@@ -51,11 +54,6 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 As a CTO and founder, I was tired of spending buckets of money to set up and manage [Airflow](https://airflow.apache.org/), dealing with multiple databases, countless processes, Docker complexity, and of course its outdated and buggy UI. So we decided to build something that kept what we liked about Airflow and ditched what we didn’t. The result is Gust: a platform that’s 10× more efficient, faster, and far easier to set up.
 
 Gust is the perfect fit for our needs, and I encourage you to try it and push it even further. There’s still plenty of room for improvements and new features. If you spot something or want to contribute an idea, don’t be shy! Drop an Issue or submit a PR.
-
----
-## In Action
-
-https://github.com/user-attachments/assets/250ec668-4275-4aa5-a022-b3ba758c515c
 
 ---
 ## Overview
