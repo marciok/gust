@@ -47,6 +47,9 @@ Gust strips that away. One system, minimal moving parts, efficient and with a UI
 
 ---
 
+<img width="1920" height="1080" alt="gust-demo-1 5speed" src="https://github.com/user-attachments/assets/f44e16be-fb88-49f0-b9ca-ed307fd1aa30" />
+
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -55,11 +58,6 @@ Gust strips that away. One system, minimal moving parts, efficient and with a UI
 - [Guides](#guides)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
 - [Benchmark](#benchmark)
-
----
-## In Action
-
-https://github.com/user-attachments/assets/250ec668-4275-4aa5-a022-b3ba758c515c
 
 ---
 ## Overview
