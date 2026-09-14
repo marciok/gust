@@ -22,6 +22,8 @@ defmodule GustPy.MixProject do
         links: %{"GitHub" => "https://github.com/marciok/gust"},
         files: [
           "lib",
+          "assets",
+          "guides",
           "mix.exs",
           "README.md"
         ]

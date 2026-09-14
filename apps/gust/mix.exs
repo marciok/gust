@@ -21,7 +21,16 @@ defmodule Gust.MixProject do
       description: "A DAG-Based Workflow Orchestration Engine for Elixir",
       package: [
         licenses: ["Apache-2.0"],
-        links: %{"GitHub" => "https://github.com/marciok/gust"}
+        links: %{"GitHub" => "https://github.com/marciok/gust"},
+        files: [
+          "lib",
+          "priv",
+          "assets",
+          "guides",
+          "mix.exs",
+          "README.md",
+          ".formatter.exs"
+        ]
       ],
       docs: docs()
     ]
