@@ -8,9 +8,9 @@ defmodule Gust.DAG.Adapter do
       task_worker: Gust.DAG.TaskWorker.Adapters.Elixir
     },
     shell: %{
-      parser: Gust.DAG.Parser.Adapters.Elixir,
-      runtime: Gust.DAG.Runtime.Adapters.Elixir,
-      task_worker: Gust.DAG.TaskWorker.Adapters.Shell
+      parser: GustShell.Parser.Adapter,
+      runtime: GustShell.Runtime.Adapter,
+      task_worker: GustShell.TaskWorker.Adapter
     }
   ]
 
@@ -28,6 +28,7 @@ defmodule Gust.DAG.Adapter do
     adapters()
     |> Keyword.values()
     |> Enum.map(&Map.fetch!(&1, :parser))
+    |> Enum.uniq()
   end
 
   def parser_for_extension(extension) do

@@ -22,11 +22,9 @@ defmodule Gust.Umbrella.MixProject do
 
   defp releases do
     applications =
-      if System.get_env("GUST_WITH_PYTHON") == "true" do
-        [gust: :permanent, gust_py: :permanent]
-      else
-        [gust: :permanent]
-      end
+      [gust: :permanent]
+      |> maybe_add_release_app(:gust_py, "GUST_WITH_PYTHON")
+      |> maybe_add_release_app(:gust_shell, "GUST_WITH_SHELL")
 
     [
       gust: [
@@ -35,6 +33,14 @@ defmodule Gust.Umbrella.MixProject do
         rel_templates_path: "apps/gust/rel"
       ]
     ]
+  end
+
+  defp maybe_add_release_app(applications, app, env_var) do
+    if System.get_env(env_var) == "true" do
+      Keyword.put(applications, app, :permanent)
+    else
+      applications
+    end
   end
 
   # Dependencies can be Hex packages:
