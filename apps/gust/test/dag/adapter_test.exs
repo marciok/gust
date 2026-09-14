@@ -101,13 +101,13 @@ defmodule Gust.DAG.AdapterTest do
           task_worker: :task_worker_impl
         },
         shell: %{
-          parser: Gust.DAG.Parser.Adapters.Elixir,
+          parser: GustShell.Parser.Adapter,
           runtime: :runtime_impl,
-          task_worker: Gust.DAG.TaskWorker.Adapters.Shell
+          task_worker: GustShell.TaskWorker.Adapter
         }
       )
 
-      assert Adapter.parser_modules() == [Gust.DAG.Parser.Adapters.Elixir]
+      assert Adapter.parser_modules() == [Gust.DAG.Parser.Adapters.Elixir, GustShell.Parser.Adapter]
     end
   end
 
