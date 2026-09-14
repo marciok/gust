@@ -179,14 +179,6 @@ orchestration.
 
 <img width="1600" height="600" alt="Gust vs Airflow benchmark" src="https://github.com/user-attachments/assets/34be8e55-49d8-4d61-a1b0-aa5eb738420b" />
 
-The benchmark uses an equivalent three-step pipeline in both systems:
-
-1. Fetch data from a mock HTTP server.
-2. Transform the payload and write intermediate data to disk.
-3. Send the transformed payload back to the mock server.
-
-The goal is to measure how each orchestrator behaves at rest and under
-bursty parallel execution.
 
 See the [gust-benchmark](https://github.com/marciok/gust-benchmark) repo for
 the full methodology, results, and how to reproduce it.
