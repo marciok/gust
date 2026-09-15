@@ -1,10 +1,6 @@
 defmodule GustShell.TaskWorker.AdapterOptionsTest do
   use ExUnit.Case, async: true
 
-  alias Gust.DAG.Definition
-  alias GustShell.TaskWorker.Adapter
-  alias Gust.Flows.Task
-
   import Mox
 
   setup :verify_on_exit!
@@ -21,19 +17,19 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
   describe "normalize_exec_option - working directory options" do
     test "cd option is passed through" do
       options = %{"cd" => "/tmp"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:cd, "/tmp"} in opts
     end
 
     test "cwd is normalized to cd" do
       options = %{"cwd" => "/var"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:cd, "/var"} in opts
     end
 
     test "working_dir is normalized to cd" do
       options = %{"working_dir" => "/home"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:cd, "/home"} in opts
     end
   end
@@ -41,7 +37,7 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
   describe "normalize_exec_option - environment variables" do
     test "env as a map is converted to list of tuples" do
       options = %{"env" => %{"FOO" => "bar", "BAZ" => "qux"}}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
 
       env_opt = Enum.find(opts, fn
         {:env, _} -> true
@@ -55,15 +51,16 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
 
     test "env as a list is passed through" do
       env_list = [{"VAR1", "val1"}, {"VAR2", "val2"}]
-      options = %{"env" => env_list}
-      opts = build_exec_opts(options)
+      options = %{"env" => env_list, "monitor" => "false"}
+      opts = call_normalize_options(options)
 
-      assert {:env, ^env_list} in opts
+      assert {:env, env_list} in opts
+      assert not Keyword.has_key?(opts, :monitor)
     end
 
     test "env values are converted to strings" do
       options = %{"env" => %{"NUM" => 123, "ATOM" => :test}}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
 
       env_opt = Enum.find(opts, fn
         {:env, _} -> true
@@ -79,31 +76,31 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
   describe "normalize_exec_option - user and group" do
     test "user option is passed through" do
       options = %{"user" => "app"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:user, "app"} in opts
     end
 
     test "group option is passed through" do
       options = %{"group" => 1000}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:group, 1000} in opts
     end
 
     test "kill_group boolean is normalized" do
       options = %{"kill_group" => true}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :kill_group in opts
     end
 
     test "kill_group string 'true' is normalized" do
       options = %{"kill_group" => "true"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :kill_group in opts
     end
 
     test "kill_group false is filtered out" do
       options = %{"kill_group" => false}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :kill_group not in opts
     end
   end
@@ -111,37 +108,37 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
   describe "normalize_exec_option - PTY options" do
     test "pty boolean option" do
       options = %{"pty" => true}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :pty in opts
     end
 
     test "pty string 'true' is normalized" do
       options = %{"pty" => "true"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :pty in opts
     end
 
     test "pty false is filtered out" do
       options = %{"pty" => false}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :pty not in opts
     end
 
     test "pty_echo boolean option" do
       options = %{"pty_echo" => true}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :pty_echo in opts
     end
 
     test "pty_echo string 'true' is normalized" do
       options = %{"pty_echo" => "true"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :pty_echo in opts
     end
 
     test "pty_echo false is filtered out" do
       options = %{"pty_echo" => false}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :pty_echo not in opts
     end
   end
@@ -149,31 +146,31 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
   describe "normalize_exec_option - process management" do
     test "kill_timeout with value" do
       options = %{"kill_timeout" => 10}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:kill_timeout, 10} in opts
     end
 
-    test "monitor boolean is normalized" do
+    test "monitor is filtered out" do
       options = %{"monitor" => true}
-      opts = build_exec_opts(options)
-      assert :monitor in opts
+      opts = call_normalize_options(options)
+      assert :monitor not in opts
     end
 
     test "monitor false is filtered out" do
       options = %{"monitor" => false}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :monitor not in opts
     end
 
     test "nice option" do
       options = %{"nice" => 5}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:nice, 5} in opts
     end
 
     test "success_exit_code option" do
       options = %{"success_exit_code" => 0}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:success_exit_code, 0} in opts
     end
   end
@@ -181,55 +178,55 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
   describe "normalize_exec_option - advanced options" do
     test "stdin as boolean" do
       options = %{"stdin" => true}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :stdin in opts
     end
 
     test "stdin as file path" do
       options = %{"stdin" => "/tmp/input.txt"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:stdin, "/tmp/input.txt"} in opts
     end
 
     test "stdout as boolean" do
       options = %{"stdout" => true}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :stdout in opts
     end
 
     test "stdout as file path" do
       options = %{"stdout" => "/tmp/output.txt"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:stdout, "/tmp/output.txt"} in opts
     end
 
     test "stderr as boolean" do
       options = %{"stderr" => true}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert :stderr in opts
     end
 
     test "stderr as file path" do
       options = %{"stderr" => "/tmp/error.txt"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:stderr, "/tmp/error.txt"} in opts
     end
 
     test "debug option" do
       options = %{"debug" => 2}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:debug, 2} in opts
     end
 
     test "executable option" do
       options = %{"executable" => "/bin/bash"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:executable, "/bin/bash"} in opts
     end
 
     test "cgroup option" do
       options = %{"cgroup" => "my_group"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:cgroup, "my_group"} in opts
     end
   end
@@ -237,7 +234,7 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
   describe "normalize_exec_option - unknown options" do
     test "unknown options are filtered out" do
       options = %{"unknown" => "value", "another" => 123}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
 
       # Should not contain the unknown options
       refute Enum.any?(opts, fn opt ->
@@ -256,7 +253,7 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
         "user" => "app"
       }
 
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
 
       assert {:cd, "/tmp"} in opts
       assert {:user, "app"} in opts
@@ -270,19 +267,19 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
   describe "normalize_option_key - key normalization" do
     test "atom keys are handled" do
       options = %{cd: "/tmp", env: %{}}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:cd, "/tmp"} in opts
     end
 
     test "string keys are handled" do
       options = %{"cd" => "/tmp", "env" => %{}}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:cd, "/tmp"} in opts
     end
 
     test "case-sensitive key matching" do
       options = %{"CD" => "/tmp"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       # "CD" should not match "cd"
       refute Enum.any?(opts, fn
         {:cd, _} -> true
@@ -292,7 +289,7 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
 
     test "whitespace in keys is trimmed" do
       options = %{"  cd  " => "/tmp"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
       assert {:cd, "/tmp"} in opts
     end
   end
@@ -311,14 +308,14 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
         "nice" => 10
       }
 
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
 
       assert {:cd, "/backups"} in opts
       assert {:nice, 10} in opts
       assert {:kill_timeout, 30} in opts
       assert {:user, "backup"} in opts
       assert {:group, 1000} in opts
-      assert :monitor in opts
+      assert :monitor not in opts
 
       env_opt = Enum.find(opts, fn
         {:env, _} -> true
@@ -331,28 +328,11 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
 
     test "minimal configuration only run command" do
       options = %{"run" => "echo hello"}
-      opts = build_exec_opts(options)
+      opts = call_normalize_options(options)
 
       # With minimal options, should still have valid exec options
       assert is_list(opts)
     end
-  end
-
-  # Helper to extract exec options from a task
-  defp build_exec_opts(options) do
-    task = %Task{
-      id: 1,
-      run_id: 1,
-      attempt: 1,
-      name: "test",
-      params: Map.put(options, "run", "dummy command")
-    }
-
-    dag_def = %Definition{name: "demo", adapter: :shell}
-
-    # We need to simulate what the adapter does internally
-    # Extract the private function behavior through inspection
-    call_normalize_options(options)
   end
 
   defp call_normalize_options(options) do
@@ -381,22 +361,21 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
 
     case key do
       :cd -> {:cd, value}
+      :cgroup -> {:cgroup, value}
+      :debug -> {:debug, value}
       :env -> {:env, normalize_env(value)}
-      :stdin -> normalize_stdio(:stdin, value)
-      :stdout -> normalize_stdio(:stdout, value)
-      :stderr -> normalize_stdio(:stderr, value)
-      :monitor -> if value in [true, "true"], do: :monitor, else: nil
-      :kill_group -> if value in [true, "true"], do: :kill_group, else: nil
-      :pty -> if value in [true, "true"], do: :pty, else: nil
-      :pty_echo -> if value in [true, "true"], do: :pty_echo, else: nil
+      :executable -> {:executable, value}
       :group -> {:group, value}
-      :user -> {:user, value}
+      :kill_group -> if value in [true, "true"], do: :kill_group, else: nil
       :kill_timeout -> {:kill_timeout, value}
       :nice -> {:nice, value}
+      :pty -> if value in [true, "true"], do: :pty, else: nil
+      :pty_echo -> if value in [true, "true"], do: :pty_echo, else: nil
+      :stderr -> normalize_stdio(:stderr, value)
+      :stdin -> normalize_stdio(:stdin, value)
+      :stdout -> normalize_stdio(:stdout, value)
       :success_exit_code -> {:success_exit_code, value}
-      :debug -> {:debug, value}
-      :executable -> {:executable, value}
-      :cgroup -> {:cgroup, value}
+      :user -> {:user, value}
       _ -> nil
     end
   end
@@ -413,7 +392,6 @@ defmodule GustShell.TaskWorker.AdapterOptionsTest do
       "kill_timeout" -> :kill_timeout
       "group" -> :group
       "kill_group" -> :kill_group
-      "monitor" -> :monitor
       "user" -> :user
       "nice" -> :nice
       "success_exit_code" -> :success_exit_code

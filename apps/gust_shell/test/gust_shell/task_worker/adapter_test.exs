@@ -112,14 +112,17 @@ defmodule GustShell.TaskWorker.AdapterTest do
       flush_mailbox()
       state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: "oops", stderr: "problem", opts: %{}}
 
+      # Exit status encoding: exit_code shifted left 8 bits (for normal exit)
+      # Exit code 5 should be encoded as (5 << 8) = 1280 for proper decoding by :exec.status
+      exit_status = Bitwise.bsl(5, 8)
       assert {:stop, :normal, ^state} =
-               Adapter.handle_info({:DOWN, 42, :process, self(), {:exit_status, 1}}, state)
+               Adapter.handle_info({:DOWN, 42, :process, self(), {:exit_status, exit_status}}, state)
 
       assert_receive {:task_result,
                       %{
                         status: :error,
-                        message: "command exited with status 1",
-                        exit_code: 1,
+                        message: "command exited with status 5",
+                        exit_code: 5,
                         stdout: "oops",
                         stderr: "problem"
                       }, 123, :error}
@@ -218,7 +221,7 @@ defmodule GustShell.TaskWorker.AdapterTest do
 
       flush_mailbox()
 
-      assert {:stop, :normal, _state} = Adapter.handle_info(:run, state)
+      assert {:stop, %RuntimeError{message: "shell task requires a command in task.params['run']"}, _state} = Adapter.handle_info(:run, state)
 
       assert_receive {:task_result, %RuntimeError{}, 999, :error}
     end
@@ -232,8 +235,8 @@ defmodule GustShell.TaskWorker.AdapterTest do
       # Task params set env
       task_with_env = %{task | params: %{"run" => "echo test", "env" => %{"FOO" => "bar"}}}
 
-      # Runtime opts set user
-      runtime_opts = %{"user" => "app"}
+      # Runtime opts set other options (not user, which requires elevated privileges)
+      runtime_opts = %{"kill_timeout" => 5000}
 
       state = %{
         task: task_with_env,
@@ -285,8 +288,7 @@ defmodule GustShell.TaskWorker.AdapterTest do
 
       # Send stdout for different PID - should be ignored
       assert {:noreply, unchanged_state} = Adapter.handle_info({:stdout, 99, "ignored"}, state)
-
-      assert unchanged_state.stdout == "initial"
+      assert %{stdout: "initial"} = unchanged_state
     end
 
     test "ignores stderr for mismatched os_pid", %{task: task, dag_def: dag_def} do
@@ -294,8 +296,7 @@ defmodule GustShell.TaskWorker.AdapterTest do
 
       # Send stderr for different PID - should be ignored
       assert {:noreply, unchanged_state} = Adapter.handle_info({:stderr, 99, "ignored"}, state)
-
-      assert unchanged_state.stderr == "initial"
+      assert %{stderr: "initial"} = unchanged_state
     end
 
     test "ignores DOWN message for mismatched os_pid", %{task: task, dag_def: dag_def} do

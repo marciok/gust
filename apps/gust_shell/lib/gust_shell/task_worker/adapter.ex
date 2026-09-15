@@ -11,8 +11,7 @@ defmodule GustShell.TaskWorker.Adapter do
     :stderr,
     :monitor,
     {:group, 0},
-    :kill_group,
-    {:kill_timeout, 5}
+    :kill_group
   ]
 
   @impl true
@@ -39,8 +38,18 @@ defmodule GustShell.TaskWorker.Adapter do
     {:noreply, %{state | stdout: append_output(state.stdout, data)}}
   end
 
+  def handle_info({:stdout, _other_pid, _data}, state) do
+    # Ignore stdout from mismatched PIDs
+    {:noreply, state}
+  end
+
   def handle_info({:stderr, os_pid, data}, %{os_pid: os_pid} = state) do
     {:noreply, %{state | stderr: append_output(state.stderr, data)}}
+  end
+
+  def handle_info({:stderr, _other_pid, _data}, state) do
+    # Ignore stderr from mismatched PIDs
+    {:noreply, state}
   end
 
   def handle_info({:DOWN, os_pid, :process, _pid, reason}, %{os_pid: os_pid} = state) do
@@ -50,6 +59,11 @@ defmodule GustShell.TaskWorker.Adapter do
     send(state.owner_pid, {:task_result, result, state.task.id, status})
 
     {:stop, :normal, state}
+  end
+
+  def handle_info({:DOWN, _other_pid, :process, _pid, _reason}, state) do
+    # Ignore DOWN messages from mismatched PIDs
+    {:noreply, state}
   end
 
   def handle_cast({:kill}, %{os_pid: os_pid} = state) do
@@ -102,22 +116,22 @@ defmodule GustShell.TaskWorker.Adapter do
 
     case key do
       :cd -> {:cd, value}
+      :cgroup -> {:cgroup, value}
+      :debug -> {:debug, value}
       :env -> {:env, normalize_env(value)}
-      :stdin -> normalize_stdio(:stdin, value)
-      :stdout -> normalize_stdio(:stdout, value)
-      :stderr -> normalize_stdio(:stderr, value)
-      :monitor -> if value in [true, "true"], do: :monitor, else: nil
+      :executable -> {:executable, value}
+      :group -> {:group, value}
       :kill_group -> if value in [true, "true"], do: :kill_group, else: nil
+      :kill_timeout -> {:kill_timeout, value}
+      :monitor -> if value in [true, "true"], do: :monitor, else: nil
+      :nice -> {:nice, value}
       :pty -> if value in [true, "true"], do: :pty, else: nil
       :pty_echo -> if value in [true, "true"], do: :pty_echo, else: nil
-      :group -> {:group, value}
-      :user -> {:user, value}
-      :kill_timeout -> {:kill_timeout, value}
-      :nice -> {:nice, value}
+      :stderr -> normalize_stdio(:stderr, value)
+      :stdin -> normalize_stdio(:stdin, value)
+      :stdout -> normalize_stdio(:stdout, value)
       :success_exit_code -> {:success_exit_code, value}
-      :debug -> {:debug, value}
-      :executable -> {:executable, value}
-      :cgroup -> {:cgroup, value}
+      :user -> {:user, value}
       _ -> nil
     end
   end
@@ -127,25 +141,25 @@ defmodule GustShell.TaskWorker.Adapter do
     |> to_string()
     |> String.trim()
     |> case do
-      "cwd" -> :cd
-      "working_dir" -> :cd
       "cd" -> :cd
+      "cgroup" -> :cgroup
+      "cwd" -> :cd
+      "debug" -> :debug
       "env" -> :env
-      "kill_timeout" -> :kill_timeout
+      "executable" -> :executable
       "group" -> :group
       "kill_group" -> :kill_group
+      "kill_timeout" -> :kill_timeout
       "monitor" -> :monitor
-      "user" -> :user
       "nice" -> :nice
-      "success_exit_code" -> :success_exit_code
-      "pty" -> :pty
       "pty_echo" -> :pty_echo
+      "pty" -> :pty
+      "stderr" -> :stderr
       "stdin" -> :stdin
       "stdout" -> :stdout
-      "stderr" -> :stderr
-      "debug" -> :debug
-      "executable" -> :executable
-      "cgroup" -> :cgroup
+      "success_exit_code" -> :success_exit_code
+      "user" -> :user
+      "working_dir" -> :cd
       _ -> nil
     end
   end
@@ -157,7 +171,9 @@ defmodule GustShell.TaskWorker.Adapter do
   defp normalize_env(value) when is_list(value), do: value
   defp normalize_env(value), do: value
 
-  defp normalize_stdio(key, true), do: key
+  defp normalize_stdio(key, value) when value in [true, "true"], do: key
+  defp normalize_stdio(key, null) when null in [:null, "null"], do: {key, :null}
+  defp normalize_stdio(key, close) when close in [:close, "close"], do: {key, :close}
   defp normalize_stdio(key, value) when is_binary(value), do: {key, value}
   defp normalize_stdio(_key, _value), do: nil
 
@@ -207,7 +223,7 @@ defmodule GustShell.TaskWorker.Adapter do
   defp send_task_error(%{task: task, owner_pid: owner_pid} = state, error) do
     DagLogger.unset()
     send(owner_pid, {:task_result, error, task.id, :error})
-    {:stop, :normal, state}
+    {:stop, error, state}
   end
 
   defp append_output(nil, chunk), do: [chunk]
