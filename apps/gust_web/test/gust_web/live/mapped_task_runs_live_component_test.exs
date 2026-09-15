@@ -22,16 +22,12 @@ defmodule GustWeb.MappedTaskRunsLiveComponentTest do
 
   test "renders a row for each mapped task instance", %{
     conn: conn,
-    dag: dag,
     succeeded_task: succeeded_task,
     failed_task: failed_task
   } do
     {:ok, component, _html} =
       live_component_isolated(conn, GustWeb.MappedTaskRunsComponent, %{
-        tasks: [succeeded_task, failed_task],
-        dag_name: dag.name,
-        page: 1,
-        pinned_run_id: nil
+        tasks: [succeeded_task, failed_task]
       })
 
     assert has_element?(component, "#mapped-task-runs")
@@ -39,20 +35,21 @@ defmodule GustWeb.MappedTaskRunsLiveComponentTest do
     assert has_element?(component, "#mapped-task-run-#{failed_task.id}")
     assert render(element(component, "#mapped-task-run-#{succeeded_task.id}")) =~ "succeeded"
     assert render(element(component, "#mapped-task-run-#{failed_task.id}")) =~ "failed"
+
+    assert has_element?(
+             component,
+             "#show-mapped-task-#{succeeded_task.id}[phx-value-task-id='#{succeeded_task.id}']"
+           )
   end
 
   test "filters task rows by status", %{
     conn: conn,
-    dag: dag,
     succeeded_task: succeeded_task,
     failed_task: failed_task
   } do
     {:ok, component, _html} =
       live_component_isolated(conn, GustWeb.MappedTaskRunsComponent, %{
-        tasks: [succeeded_task, failed_task],
-        dag_name: dag.name,
-        page: 1,
-        pinned_run_id: nil
+        tasks: [succeeded_task, failed_task]
       })
 
     component
@@ -78,47 +75,5 @@ defmodule GustWeb.MappedTaskRunsLiveComponentTest do
 
     assert has_element?(component, "#mapped-task-run-#{succeeded_task.id}")
     assert has_element?(component, "#mapped-task-run-#{failed_task.id}")
-  end
-
-  test "Show link navigates to the task's indexed dashboard view", %{
-    conn: conn,
-    dag: dag,
-    succeeded_task: task
-  } do
-    {:ok, component, _html} =
-      live_component_isolated(conn, GustWeb.MappedTaskRunsComponent, %{
-        tasks: [task],
-        dag_name: dag.name,
-        page: 3,
-        pinned_run_id: nil
-      })
-
-    component
-    |> element("#show-mapped-task-#{task.id}")
-    |> render_click()
-
-    assert_redirect(
-      component,
-      "/dags/#{dag.name}/dashboard?run_id=#{task.run_id}&task_name=#{task.name}&task_index=#{task.map_index}&page=3"
-    )
-  end
-
-  test "Show link uses the pinned run id when set", %{conn: conn, dag: dag, succeeded_task: task} do
-    {:ok, component, _html} =
-      live_component_isolated(conn, GustWeb.MappedTaskRunsComponent, %{
-        tasks: [task],
-        dag_name: dag.name,
-        page: 1,
-        pinned_run_id: 999
-      })
-
-    component
-    |> element("#show-mapped-task-#{task.id}")
-    |> render_click()
-
-    assert_redirect(
-      component,
-      "/dags/#{dag.name}/dashboard?run_id=#{task.run_id}&task_name=#{task.name}&task_index=#{task.map_index}&pinned_run_id=999"
-    )
   end
 end

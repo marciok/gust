@@ -280,9 +280,6 @@
       module={GustWeb.MappedTaskRunsComponent}
       id="mapped-task-runs"
       tasks={@selected_item}
-      dag_name={@dag_def.name}
-      page={@page}
-      pinned_run_id={@pinned_run_id}
     />
 
     <section :if={@expanded_item_ids == []} class="dag-card__body">

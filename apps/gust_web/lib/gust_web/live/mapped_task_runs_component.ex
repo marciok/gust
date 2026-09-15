@@ -36,18 +36,6 @@ defmodule GustWeb.MappedTaskRunsComponent do
   defp status_matches?(_task, ""), do: true
   defp status_matches?(task, status), do: to_string(task.status) == status
 
-  defp task_show_path(task, dag_name, page, pinned_run_id) do
-    query_params =
-      [{"run_id", task.run_id}, {"task_name", task.name}, {"task_index", task.map_index}] ++
-        history_position_params(page, pinned_run_id)
-
-    query = URI.encode_query(query_params)
-    ~g"/dags/#{dag_name}/dashboard?#{query}"
-  end
-
-  defp history_position_params(page, nil), do: [{"page", page}]
-  defp history_position_params(_page, pinned_run_id), do: [{"pinned_run_id", pinned_run_id}]
-
   @impl true
   def render(assigns) do
     ~H"""
@@ -113,13 +101,14 @@ defmodule GustWeb.MappedTaskRunsComponent do
                 {strftime(task.updated_at)}
               </td>
               <td class="px-3 py-2 whitespace-nowrap">
-                <.link
+                <button
                   class="btn btn-xs btn-soft"
-                  navigate={task_show_path(task, @dag_name, @page, @pinned_run_id)}
+                  phx-click="show_mapped_task"
+                  phx-value-task-id={task.id}
                   id={"show-mapped-task-#{task.id}"}
                 >
                   Show
-                </.link>
+                </button>
               </td>
             </tr>
           </tbody>

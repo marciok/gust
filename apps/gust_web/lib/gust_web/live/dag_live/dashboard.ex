@@ -338,6 +338,22 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   @impl true
+  def handle_event("show_mapped_task", %{"task-id" => task_id}, socket) do
+    task = Flows.get_task!(task_id)
+
+    path =
+      dashboard_item_path(
+        socket.assigns.dag_def.name,
+        task.run_id,
+        socket.assigns.page,
+        socket.assigns.pinned_run_id,
+        [{"task_name", task.name}, {"task_index", task.map_index}]
+      )
+
+    {:noreply, push_navigate(socket, to: path)}
+  end
+
+  @impl true
   def handle_event("trigger_run", %{"id" => id}, socket) do
     dag_id = String.to_integer(id)
     {:ok, run} = Flows.create_run(%{dag_id: dag_id})

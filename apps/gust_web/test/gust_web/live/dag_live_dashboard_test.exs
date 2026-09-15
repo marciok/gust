@@ -1412,6 +1412,58 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert has_element?(dashboard_live, "#mapped-task-run-#{task.id}")
     end
 
+    test "navigates to the indexed mapped task view when Show is clicked", %{conn: conn} do
+      dag_name = "mapped_show_navigation_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      _task =
+        task_fixture(%{run_id: run.id, name: task_name, status: :succeeded, map_index: 0})
+
+      mapped_task =
+        task_fixture(%{run_id: run.id, name: task_name, status: :failed, map_index: 1})
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_show_navigation_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      dashboard_live
+      |> element("#show-mapped-task-#{mapped_task.id}")
+      |> render_click()
+
+      assert_redirect(
+        dashboard_live,
+        ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}&task_index=1&page=1"
+      )
+    end
+
     test "preserves the mapped task status filter across live updates", %{conn: conn} do
       dag_name = "mapped_status_filter_live_dag"
       dag = dag_fixture(%{name: dag_name})
