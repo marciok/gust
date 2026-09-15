@@ -1267,7 +1267,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       other_run = run_fixture(%{dag_id: dag.id})
       task_name = "insert_models"
 
-      first = task_fixture(%{run_id: run.id, name: task_name, map_index: 0})
+      first = %Flows.Task{} = task_fixture(%{run_id: run.id, name: task_name, map_index: 0})
       second = task_fixture(%{run_id: run.id, name: task_name, map_index: 1})
       _other_task = task_fixture(%{run_id: run.id, name: "other_task", map_index: 0})
       _other_run_task = task_fixture(%{run_id: other_run.id, name: task_name, map_index: 0})

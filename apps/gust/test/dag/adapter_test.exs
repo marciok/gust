@@ -16,6 +16,7 @@ defmodule Gust.DAG.AdapterTest do
       assert Adapter.impl!(:elixir, :parser) == Gust.DAG.Parser.Adapters.Elixir
       assert Adapter.impl!(:elixir, :runtime) == Gust.DAG.Runtime.Adapters.Elixir
       assert Adapter.impl!(:elixir, :task_worker) == Gust.DAG.TaskWorker.Adapters.Elixir
+      assert Adapter.impl!(:shell, :task_worker) == GustShell.TaskWorker.Adapter
     end
 
     test "fetches configured adapter implementation for a key" do
@@ -88,6 +89,28 @@ defmodule Gust.DAG.AdapterTest do
       )
 
       assert Adapter.parser_module!(:elixir) == Gust.DAG.Parser.Adapters.Elixir
+    end
+  end
+
+  describe "parser_modules/0" do
+    test "deduplicates shared parser implementations across adapters" do
+      Application.put_env(:gust, :dag_adapter,
+        elixir: %{
+          parser: Gust.DAG.Parser.Adapters.Elixir,
+          runtime: :runtime_impl,
+          task_worker: :task_worker_impl
+        },
+        shell: %{
+          parser: GustShell.Parser.Adapter,
+          runtime: :runtime_impl,
+          task_worker: GustShell.TaskWorker.Adapter
+        }
+      )
+
+      assert Adapter.parser_modules() == [
+               Gust.DAG.Parser.Adapters.Elixir,
+               GustShell.Parser.Adapter
+             ]
     end
   end
 

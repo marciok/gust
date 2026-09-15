@@ -40,6 +40,7 @@ config :gust_web, GustWeb.Endpoint,
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
+  default: [path: "esbuild"],
   gust_web: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
@@ -63,8 +64,6 @@ config :gust, dag_logger: Gust.DAG.Logger.Database
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id, :task_id, :attempt]
-
-config :logger, backends: [:console, Gust.DAG.Logger.Database]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
