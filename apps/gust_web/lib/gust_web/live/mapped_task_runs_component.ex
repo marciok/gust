@@ -11,7 +11,7 @@ defmodule GustWeb.MappedTaskRunsComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:status, status)
+     |> assign_status(status)
      |> assign_new(:status_options, fn -> status_filter_options(Task) end)
      |> stream_tasks(assigns.tasks, status)}
   end
@@ -20,8 +20,14 @@ defmodule GustWeb.MappedTaskRunsComponent do
   def handle_event("filter_status", %{"status" => status}, socket) do
     {:noreply,
      socket
-     |> assign(:status, status)
+     |> assign_status(status)
      |> stream_tasks(socket.assigns.tasks, status)}
+  end
+
+  defp assign_status(socket, status) do
+    socket
+    |> assign(:status, status)
+    |> assign(:status_form, to_form(%{"status" => status}))
   end
 
   defp stream_tasks(socket, tasks, status) do
@@ -44,7 +50,7 @@ defmodule GustWeb.MappedTaskRunsComponent do
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
         <.form
-          for={%{}}
+          for={@status_form}
           id="mapped-task-status-filter"
           phx-change="filter_status"
           phx-target={@myself}
@@ -52,8 +58,7 @@ defmodule GustWeb.MappedTaskRunsComponent do
         >
           <.input
             id="mapped-task-status-filter-select"
-            value={@status}
-            name="status"
+            field={@status_form[:status]}
             type="select"
             options={@status_options}
             class="select select-bordered select-sm h-8 w-36"
