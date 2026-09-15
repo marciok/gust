@@ -1,8 +1,8 @@
 defmodule GustPy.MixProject do
   use Mix.Project
 
-  @version "0.1.12"
-  @gust_version "0.1.39"
+  @version "0.1.13"
+  @gust_version "0.1.40"
 
   def project do
     [
@@ -22,10 +22,13 @@ defmodule GustPy.MixProject do
         links: %{"GitHub" => "https://github.com/marciok/gust"},
         files: [
           "lib",
+          "assets",
+          "guides",
           "mix.exs",
           "README.md"
         ]
-      ]
+      ],
+      docs: docs()
     ]
   end
 
@@ -47,4 +50,18 @@ defmodule GustPy.MixProject do
   end
 
   defp publish_dep?(), do: System.get_env("PUBLISH_DEP") == "true"
+
+  defp docs do
+    [
+      main: "readme",
+      logo: "assets/gust-logo.svg",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/marciok/gust",
+      extras: extras(),
+      groups_for_extras: groups_for_extras()
+    ]
+  end
+
+  defp extras, do: ["README.md"] ++ Path.wildcard("guides/*.md")
+  defp groups_for_extras, do: [Guides: Path.wildcard("guides/*.md")]
 end

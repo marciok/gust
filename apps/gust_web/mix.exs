@@ -1,7 +1,7 @@
 defmodule GustWeb.MixProject do
   use Mix.Project
 
-  @version "0.1.39"
+  @version "0.1.40"
 
   def project do
     [
@@ -27,10 +27,12 @@ defmodule GustWeb.MixProject do
           "lib",
           "priv/static/assets",
           "priv/static/images",
+          "guides",
           "mix.exs",
           "README.md"
         ]
-      ]
+      ],
+      docs: docs()
     ]
   end
 
@@ -136,4 +138,18 @@ defmodule GustWeb.MixProject do
       ]
     ]
   end
+
+  defp docs do
+    [
+      main: "readme",
+      logo: "priv/static/images/gust-logo.svg",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/marciok/gust",
+      extras: extras(),
+      groups_for_extras: groups_for_extras()
+    ]
+  end
+
+  defp extras, do: ["README.md"] ++ Path.wildcard("guides/*.md")
+  defp groups_for_extras, do: [Guides: Path.wildcard("guides/*.md")]
 end
