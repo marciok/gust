@@ -104,7 +104,6 @@ defmodule GustWeb.DagLive.Dashboard do
      |> stream(:logs, logs)
      |> assign(:empty_logs, logs == [])
      |> assign(:expanded_item_ids, get_expanded_ids(expanded_items))
-     |> stream(:expanded_items, expanded_items, dom_id: &"mapped-task-run-#{&1.id}")
      |> stream(:runs, runs |> Enum.reverse())}
   end
 
@@ -339,6 +338,22 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   @impl true
+  def handle_event("show_mapped_task", %{"task-id" => task_id}, socket) do
+    task = Flows.get_task!(task_id)
+
+    path =
+      dashboard_item_path(
+        socket.assigns.dag_def.name,
+        task.run_id,
+        socket.assigns.page,
+        socket.assigns.pinned_run_id,
+        [{"task_name", task.name}, {"task_index", task.map_index}]
+      )
+
+    {:noreply, push_navigate(socket, to: path)}
+  end
+
+  @impl true
   def handle_event("trigger_run", %{"id" => id}, socket) do
     dag_id = String.to_integer(id)
     {:ok, run} = Flows.create_run(%{dag_id: dag_id})
@@ -484,7 +499,6 @@ defmodule GustWeb.DagLive.Dashboard do
         socket
         |> assign(:selected_item, tasks)
         |> assign(:item_status, get_status(tasks))
-        |> stream_insert(:expanded_items, task)
 
       socket.assigns.item_id == task_id ->
         task = Flows.get_task!(task_id)
