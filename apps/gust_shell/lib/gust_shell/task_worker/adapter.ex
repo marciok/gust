@@ -19,8 +19,15 @@ defmodule GustShell.TaskWorker.Adapter do
     case resolve_command(task, dag_def, opts) do
       {:ok, {command, exec_opts}} ->
         DagLogger.set_task(task.id, task.attempt)
-
-        case :exec.run(command, @default_exec_opts ++ exec_opts) do
+        found_opts = Enum.reduce(exec_opts, MapSet.new(), fn
+          ({opt, _}, acc) when opt in [:group, :stdin, :stdout, :stderr] -> MapSet.put(acc, opt)
+          (_, acc) -> acc
+        end)
+        add_opts = Enum.filter(@default_exec_opts, fn
+          ({opt, _}) -> not MapSet.member?(found_opts, opt)
+          (opt) -> not MapSet.member?(found_opts, opt)
+        end)
+        case :exec.run(command, add_opts ++ exec_opts) do
           {:ok, _exec_pid, pid} ->
             {:noreply, %{state | os_pid: pid, stdout: [], stderr: []}}
 
@@ -71,14 +78,14 @@ defmodule GustShell.TaskWorker.Adapter do
     {:stop, :normal, state}
   end
 
-  defp resolve_command(task, dag_def, opts) do
+  def resolve_command(task, dag_def, opts) do
     raw_options = task_config(task, dag_def, opts)
     command = resolve_value(raw_options, ["run", :run, "command", :command])
 
     case command do
       nil -> {:error, RuntimeError.exception("shell task requires a command in task.params['run']")}
-      value when is_binary(value) -> {:ok, {value, exec_options(raw_options)}}
-      value -> {:ok, {to_string(value), exec_options(raw_options)}}
+      value when is_binary(value) -> {:ok, {value, normalize_options(raw_options)}}
+      value -> {:ok, {to_string(value), normalize_options(raw_options)}}
     end
   end
 
@@ -92,15 +99,10 @@ defmodule GustShell.TaskWorker.Adapter do
   end
 
   defp resolve_value(source, keys) do
-    Enum.find_value(keys, fn key ->
-      case Map.get(source, key) do
-        nil -> nil
-        value -> value
-      end
-    end)
+    Enum.find_value(keys, fn key -> Map.get(source, key) end)
   end
 
-  defp exec_options(raw_options) do
+  def normalize_options(raw_options) do
     raw_options
     |> Enum.reduce([], fn {key, value}, acc ->
       case normalize_exec_option(key, value) do
@@ -112,57 +114,53 @@ defmodule GustShell.TaskWorker.Adapter do
   end
 
   defp normalize_exec_option(key, value) do
-    key = normalize_option_key(key)
-
-    case key do
-      :cd -> {:cd, value}
-      :cgroup -> {:cgroup, value}
-      :debug -> {:debug, value}
-      :env -> {:env, normalize_env(value)}
-      :executable -> {:executable, value}
-      :group -> {:group, value}
-      :kill_group -> if value in [true, "true"], do: :kill_group, else: nil
-      :kill_timeout -> {:kill_timeout, value}
-      :monitor -> if value in [true, "true"], do: :monitor, else: nil
-      :nice -> {:nice, value}
-      :pty -> if value in [true, "true"], do: :pty, else: nil
-      :pty_echo -> if value in [true, "true"], do: :pty_echo, else: nil
-      :stderr -> normalize_stdio(:stderr, value)
-      :stdin -> normalize_stdio(:stdin, value)
-      :stdout -> normalize_stdio(:stdout, value)
-      :success_exit_code -> {:success_exit_code, value}
-      :user -> {:user, value}
-      _ -> nil
-    end
+    key |> normalize_option_key() |> normalize_exec_option2(value)
   end
+
+  defp normalize_exec_option2(:cd, value), do: {:cd, value}
+  defp normalize_exec_option2(:cgroup, value), do: {:cgroup, value}
+  defp normalize_exec_option2(:debug, value), do: {:debug, value}
+  defp normalize_exec_option2(:env, value), do: {:env, normalize_env(value)}
+  defp normalize_exec_option2(:executable, value), do: {:executable, value}
+  defp normalize_exec_option2(:group, value), do: {:group, value}
+  defp normalize_exec_option2(:kill_timeout, value), do: {:kill_timeout, value}
+  defp normalize_exec_option2(:nice, value), do: {:nice, value}
+  defp normalize_exec_option2(:pty, value), do: (if value in [true, "true"], do: :pty, else: nil)
+  defp normalize_exec_option2(:pty_echo, value), do: (if value in [true, "true"], do: :pty_echo, else: nil)
+  defp normalize_exec_option2(:stderr, value), do: normalize_stdio(:stderr, value)
+  defp normalize_exec_option2(:stdin, value), do: normalize_stdio(:stdin, value)
+  defp normalize_exec_option2(:stdout, value), do: normalize_stdio(:stdout, value)
+  defp normalize_exec_option2(:success_exit_code, value), do: {:success_exit_code, value}
+  defp normalize_exec_option2(:user, value), do: {:user, value}
+  defp normalize_exec_option2(_, _value), do: nil
 
   defp normalize_option_key(key) do
     key
     |> to_string()
     |> String.trim()
-    |> case do
-      "cd" -> :cd
-      "cgroup" -> :cgroup
-      "cwd" -> :cd
-      "debug" -> :debug
-      "env" -> :env
-      "executable" -> :executable
-      "group" -> :group
-      "kill_group" -> :kill_group
-      "kill_timeout" -> :kill_timeout
-      "monitor" -> :monitor
-      "nice" -> :nice
-      "pty_echo" -> :pty_echo
-      "pty" -> :pty
-      "stderr" -> :stderr
-      "stdin" -> :stdin
-      "stdout" -> :stdout
-      "success_exit_code" -> :success_exit_code
-      "user" -> :user
-      "working_dir" -> :cd
-      _ -> nil
-    end
+    |> normalize_option_key2()
   end
+
+  @options_map %{
+    "cd" => :cd,
+    "cgroup" => :cgroup,
+    "cwd" => :cd,
+    "debug" => :debug,
+    "env" => :env,
+    "executable" => :executable,
+    "group" => :group,
+    "kill_timeout" => :kill_timeout,
+    "nice" => :nice,
+    "pty_echo" => :pty_echo,
+    "pty" => :pty,
+    "stderr" => :stderr,
+    "stdin" => :stdin,
+    "stdout" => :stdout,
+    "success_exit_code" => :success_exit_code,
+    "user" => :user,
+    "working_dir" => :cd,
+  }
+  defp normalize_option_key2(key), do: Map.get(@options_map, key, nil)
 
   defp normalize_env(value) when is_map(value) do
     Enum.map(value, fn {k, v} -> {to_string(k), to_string(v)} end)
@@ -171,9 +169,8 @@ defmodule GustShell.TaskWorker.Adapter do
   defp normalize_env(value) when is_list(value), do: value
   defp normalize_env(value), do: value
 
-  defp normalize_stdio(key, value) when value in [true, "true"], do: key
-  defp normalize_stdio(key, null) when null in [:null, "null"], do: {key, :null}
-  defp normalize_stdio(key, close) when close in [:close, "close"], do: {key, :close}
+  defp normalize_stdio(key, "null"), do: {key, :null}
+  defp normalize_stdio(key, "close"), do: {key, :close}
   defp normalize_stdio(key, value) when is_binary(value), do: {key, value}
   defp normalize_stdio(_key, _value), do: nil
 
@@ -181,41 +178,39 @@ defmodule GustShell.TaskWorker.Adapter do
     output = %{stdout: flatten(stdout), stderr: flatten(stderr)}
 
     case reason do
-      :normal -> {:ok, Map.put(output, :exit_code, 0) |> Map.put(:status, :success)}
-      {:exit_status, 0} -> {:ok, Map.put(output, :exit_code, 0) |> Map.put(:status, :success)}
+      :normal ->
+        {:ok, Map.put(output, :exit_code, 0) |> Map.put(:status, :success)}
+
+      {:exit_status, 0} ->
+        {:ok, Map.put(output, :exit_code, 0) |> Map.put(:status, :success)}
+
       {:exit_status, code} ->
         case :exec.status(code) do
           {:status, code} ->
             {:error,
-             %{
-               status: :error,
-               message: "command exited with status #{code}",
+             %GustShell.ShellExitError{
+               exit_code: code,
                stdout: output.stdout,
-               stderr: output.stderr,
-               exit_code: code
+               stderr: output.stderr
              }}
 
           {:signal, code, coredump} ->
             {:error,
-             %{
-               status: :error,
-               message: "command killed by signal #{code}#{coredump_msg(coredump)}",
+             %GustShell.ShellExitError{
                exit_code: code,
-               coredump: coredump,
                stdout: output.stdout,
-               stderr: output.stderr
+               stderr: output.stderr,
+               coredump: coredump
              }}
         end
 
       {:signal, signal, coredump} ->
         {:error,
-         %{
-           status: :error,
-           message: "command killed by signal #{signal}#{coredump_msg(coredump)}",
+         %GustShell.ShellExitError{
            exit_code: signal,
-           coredump: coredump,
            stdout: output.stdout,
-           stderr: output.stderr
+           stderr: output.stderr,
+           coredump: coredump
          }}
     end
   end
@@ -228,12 +223,9 @@ defmodule GustShell.TaskWorker.Adapter do
 
   defp append_output(nil, chunk), do: [chunk]
   defp append_output(output, chunk) when is_binary(output), do: [output, chunk]
-  defp append_output(output, chunk) when is_list(output), do: output ++ [chunk]
+  defp append_output(output, chunk) when is_list(output), do: [output, chunk]
 
   defp flatten(nil), do: ""
   defp flatten(output) when is_binary(output), do: output
   defp flatten(output) when is_list(output), do: IO.iodata_to_binary(output)
-
-  defp coredump_msg(true), do: " (core dumped)"
-  defp coredump_msg(false), do: ""
 end

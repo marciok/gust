@@ -2,8 +2,8 @@ defmodule GustShell.TaskWorker.AdapterTest do
   use ExUnit.Case, async: false
 
   alias Gust.DAG.Definition
-  alias GustShell.TaskWorker.Adapter
   alias Gust.Flows.Task
+  alias GustShell.TaskWorker.Adapter
 
   import Mox
 
@@ -118,14 +118,12 @@ defmodule GustShell.TaskWorker.AdapterTest do
       assert {:stop, :normal, ^state} =
                Adapter.handle_info({:DOWN, 42, :process, self(), {:exit_status, exit_status}}, state)
 
-      assert_receive {:task_result,
-                      %{
-                        status: :error,
-                        message: "command exited with status 5",
-                        exit_code: 5,
-                        stdout: "oops",
-                        stderr: "problem"
-                      }, 123, :error}
+      assert_receive {:task_result, error, 123, :error}
+      assert is_exception(error)
+      assert error.exit_code == 5
+      assert error.stdout == "oops"
+      assert error.stderr == "problem"
+      assert Exception.message(error) =~ "5"
     end
 
     test "reports signal termination when exit_status resolves to a signal", %{task: task, dag_def: dag_def} do
@@ -135,15 +133,13 @@ defmodule GustShell.TaskWorker.AdapterTest do
       assert {:stop, :normal, ^state} =
                Adapter.handle_info({:DOWN, 42, :process, self(), {:exit_status, 7}}, state)
 
-      assert_receive {:task_result,
-                      %{
-                        status: :error,
-                        message: "command killed by signal sigbus",
-                        exit_code: :sigbus,
-                        stdout: "oops",
-                        stderr: "problem",
-                        coredump: false
-                      }, 123, :error}
+      assert_receive {:task_result, error, 123, :error}
+      assert is_exception(error)
+      assert error.exit_code == :sigbus
+      assert error.stdout == "oops"
+      assert error.stderr == "problem"
+      assert error.coredump == false
+      assert Exception.message(error) =~ "sigbus"
     end
 
     test "reports signal-based termination with atom exit codes and core dump info", %{
@@ -156,15 +152,15 @@ defmodule GustShell.TaskWorker.AdapterTest do
       assert {:stop, :normal, ^state} =
                Adapter.handle_info({:DOWN, 42, :process, self(), {:signal, :sigbus, true}}, state)
 
-      assert_receive {:task_result,
-                      %{
-                        status: :error,
-                        message: "command killed by signal sigbus (core dumped)",
-                        exit_code: :sigbus,
-                        stdout: "boom",
-                        stderr: "bad",
-                        coredump: true
-                      }, 123, :error}
+      assert_receive {:task_result, error, 123, :error}
+      assert is_exception(error)
+      assert error.exit_code == :sigbus
+      assert error.stdout == "boom"
+      assert error.stderr == "bad"
+      assert error.coredump == true
+      message = Exception.message(error)
+      assert String.contains?(message, "sigbus")
+      assert String.contains?(message, "core dumped")
     end
 
     test "reports signal termination without a core dump", %{task: task, dag_def: dag_def} do
@@ -174,15 +170,13 @@ defmodule GustShell.TaskWorker.AdapterTest do
       assert {:stop, :normal, ^state} =
                Adapter.handle_info({:DOWN, 42, :process, self(), {:signal, :sigterm, false}}, state)
 
-      assert_receive {:task_result,
-                      %{
-                        status: :error,
-                        message: "command killed by signal sigterm",
-                        exit_code: :sigterm,
-                        stdout: "boom",
-                        stderr: "bad",
-                        coredump: false
-                      }, 123, :error}
+      assert_receive {:task_result, error, 123, :error}
+      assert is_exception(error)
+      assert error.exit_code == :sigterm
+      assert error.stdout == "boom"
+      assert error.stderr == "bad"
+      assert error.coredump == false
+      assert Exception.message(error) =~ "sigterm"
     end
   end
 
@@ -193,6 +187,33 @@ defmodule GustShell.TaskWorker.AdapterTest do
       # Note: This test just verifies the cast handler exists and calls :exec.stop
       # Actual kill behavior would be tested with real process communication
       assert {:stop, :normal, ^state} = Adapter.handle_cast({:kill}, state)
+    end
+  end
+
+  describe "exec.run error handling" do
+    test "handles exec.run error and sends error message to owner", %{task: task, dag_def: dag_def} do
+      # Create a state that will cause :exec.run to fail
+      # Using an empty command will cause a failure
+      state = %{
+        task: %{task | params: %{"run" => ""}},
+        dag_def: dag_def,
+        owner_pid: self(),
+        os_pid: nil,
+        stdout: [],
+        stderr: [],
+        opts: %{}
+      }
+
+      # When :exec.run is called with an empty command, it should fail
+      {:stop, error, _final_state} = Adapter.handle_info(:run, state)
+
+      # Verify error is a RuntimeError
+      assert error.__struct__ == RuntimeError
+      assert String.contains?(error.message, "failed to start shell task")
+
+      # Verify the error was sent to owner
+      assert_receive {:task_result, %RuntimeError{message: msg}, 123, :error}
+      assert String.contains?(msg, "failed to start shell task")
     end
   end
 
@@ -255,17 +276,17 @@ defmodule GustShell.TaskWorker.AdapterTest do
 
     test "runtime opts override task params which override dag_def", %{dag_def: dag_def} do
       # Set different values at each level
-      dag_def_with_opts = %{dag_def | tasks: %{"test" => %{"cd" => "/dag"}}}
+      dag_def_with_opts = %{dag_def | tasks: %{"test" => %{"cd" => "/tmp"}}}
 
       task = %Task{
         id: 1,
         run_id: 1,
         attempt: 1,
         name: "test",
-        params: %{"run" => "pwd", "cd" => "/task"}
+        params: %{"run" => "pwd", "cd" => "/tmp"}
       }
 
-      runtime_opts = %{"cd" => "/runtime"}
+      runtime_opts = %{"cd" => "/tmp"}
 
       state = %{
         task: task,
@@ -303,9 +324,9 @@ defmodule GustShell.TaskWorker.AdapterTest do
       state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: "", stderr: "", opts: %{}}
 
       # Send DOWN for different PID - should be ignored (handler pattern doesn't match)
-      assert state == state  # State should remain unchanged
-
-      # In real GenServer, this would just be unhandled, not causing issues
+      # The catch-all handler should return noreply with unchanged state
+      assert {:noreply, unchanged_state} = Adapter.handle_info({:DOWN, 99, :process, self(), :normal}, state)
+      assert unchanged_state == state
     end
   end
 

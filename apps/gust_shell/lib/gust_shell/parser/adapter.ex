@@ -20,31 +20,39 @@ defmodule GustShell.Parser.Adapter do
   end
 
   defp read_yaml(file_path) do
-    try do
-      {:ok, :glazer_yaml.read_file(file_path)}
-    rescue
-      e -> {:error, e}
-    end
+    {:ok, :glazer_yaml.read_file(file_path)}
+  rescue
+    e -> {:error, e}
   end
 
   defp build_definition(yaml, file_path) do
     name = Path.basename(file_path, extension())
     task_entries = tasks_from_yaml(yaml)
-    task_list = Enum.map(task_entries, &task_graph_entry/1)
-    graph = Graph.link_tasks(task_list)
-    tasks = merge_task_options(graph, task_entries)
-    stages = Graph.to_stages(graph) |> then(fn {:ok, stages} -> stages end)
 
-    {:ok,
-     %Definition{
-       name: name,
-       adapter: :shell,
-       file_path: file_path,
-       options: parse_options(yaml),
-       task_list: List.flatten(stages),
-       stages: stages,
-       tasks: tasks
-     }}
+    with {:ok, task_list} <- build_task_list(task_entries),
+         graph = Graph.link_tasks(task_list),
+         {:ok, tasks} <- merge_task_options(graph, task_entries),
+         {:ok, stages} <- Graph.to_stages(graph) do
+      {:ok,
+        %Definition{
+          name: name,
+          adapter: :shell,
+          file_path: file_path,
+          options: parse_options(yaml),
+          task_list: List.flatten(stages),
+          stages: stages,
+          tasks: tasks
+        }}
+    end
+  end
+
+  defp build_task_list(task_entries) do
+    Enum.reduce_while(task_entries, {:ok, []}, fn task, {:ok, acc} ->
+      case task_graph_entry(task) do
+        {:ok, entry} -> {:cont, {:ok, acc ++ [entry]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 
   defp tasks_from_yaml(yaml) do
@@ -56,14 +64,17 @@ defmodule GustShell.Parser.Adapter do
   end
 
   defp task_graph_entry(task) do
-    task_name = fetch_task_name(task)
-    downstream = fetch_downstream(task)
-    {to_string(task_name), [downstream: downstream]}
+    with {:ok, task_name} <- fetch_task_name(task) do
+      downstream = fetch_downstream(task)
+      {:ok, {to_string(task_name), [downstream: downstream]}}
+    end
   end
 
   defp fetch_task_name(task) do
-    task["name"] || task[:name] ||
-      raise ArgumentError, "shell task is missing a name"
+    case task["name"] || task[:name] do
+      nil -> {:error, "shell task is missing a name"}
+      name -> {:ok, name}
+    end
   end
 
   defp fetch_downstream(task) do
@@ -74,17 +85,26 @@ defmodule GustShell.Parser.Adapter do
   end
 
   defp merge_task_options(graph, task_entries) do
-    task_params =
+    with {:ok, task_params} <- build_task_params(task_entries) do
+      result = Enum.reduce(graph, %{}, fn {name, node}, acc ->
+        downstream = node[:downstream] |> MapSet.to_list() |> Enum.map(&to_string/1)
+        task = Map.get(task_params, name, %{})
+        Map.put(acc, name, Map.put(task, "downstream", downstream))
+      end)
+      {:ok, result}
+    end
+  end
+
+  defp build_task_params(task_entries) do
+    result =
       Enum.reduce(task_entries, %{}, fn task, acc ->
-        name = to_string(fetch_task_name(task))
-        Map.put(acc, name, normalize_task(task))
+        # At this point, all tasks have already been validated by build_task_list
+        {:ok, name} = fetch_task_name(task)
+        normalized = normalize_task(task)
+        Map.put(acc, to_string(name), normalized)
       end)
 
-    Enum.reduce(graph, %{}, fn {name, node}, acc ->
-      downstream = node[:downstream] |> MapSet.to_list() |> Enum.map(&to_string/1)
-      task = Map.get(task_params, name, %{})
-      Map.put(acc, name, Map.put(task, "downstream", downstream))
-    end)
+    {:ok, result}
   end
 
   defp normalize_task(task) do

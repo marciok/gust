@@ -42,7 +42,7 @@ defmodule Gust.MixProject do
   def application do
     [
       mod: {Gust.Application, []},
-      extra_applications: [:logger, :runtime_tools, :erlexec]
+      extra_applications: [:logger, :runtime_tools]
     ]
   end
 
@@ -70,7 +70,6 @@ defmodule Gust.MixProject do
       {:req, "~> 0.5"},
       {:quantum, "~> 3.0"},
       {:cloak_ecto, "~> 1.3.0"},
-      {:erlexec, "~> 2.0"},
       {:logger_backends, "~> 1.0"},
       {:file_system, "~> 1.1", only: [:dev, :test]}
     ]

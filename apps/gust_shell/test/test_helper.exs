@@ -4,6 +4,7 @@ ExUnit.start()
 Code.compile_file("support/shell_fixtures.ex", __DIR__)
 
 # Start applications needed for testing
+Application.ensure_all_started(:erlexec)
 Application.ensure_all_started(:mox)
 
 # Set up Mox for mocking

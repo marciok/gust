@@ -123,7 +123,7 @@ end
 ## Features
 
   - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
-  - Shell-backed tasks for running OS commands and capturing stdout, stderr, and exit codes.
+  - [YAML and Shell DAG support](apps/gust_shell) for orchestrating shell commands and scripts.
   - Parallel task mapping with `:map_over`, creating one task instance per upstream list item.
   - Conditional task skipping with `:skip_if`; dependent downstream tasks are skipped when an upstream task is skipped.
   - Durable task waiting with `:wait_for`, so a DAG can pause until another DAG, webhook, or external process resumes it.
@@ -188,6 +188,10 @@ gh skill install marciok/gust elixir-dag-creator
   - [Configuration](https://hexdocs.pm/gust/configuration.html)
   - [Gust Roles](https://hexdocs.pm/gust/roles.html)
   - [Error Tracking](https://hexdocs.pm/gust/error_tracking.html)
+
+**Gust Shell**
+  - [Shell DAGs](apps/gust_shell) — YAML and shell command orchestration
+  - [Task Options](apps/gust_shell#task-options) — Process control, environment, and output handling
 
 **Gust Web**
   - [Installation](https://hexdocs.pm/gust_web/installation.html)
