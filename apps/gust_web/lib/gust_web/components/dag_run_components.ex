@@ -4,6 +4,15 @@ defmodule GustWeb.DagRunComponents do
   use Phoenix.Component
   use Gettext, backend: GustWeb.Gettext
 
+  def status_filter_options(schema) do
+    options =
+      Enum.map(Ecto.Enum.values(schema, :status), fn status ->
+        {status |> to_string() |> String.replace("_", " "), to_string(status)}
+      end)
+
+    [{"All statuses", ""} | options]
+  end
+
   attr :status, :atom, required: true
   attr :rest, :global, doc: "data-testid, etc."
 

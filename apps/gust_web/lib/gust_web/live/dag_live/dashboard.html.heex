@@ -275,74 +275,15 @@
       </div>
     </section>
 
-    <section :if={@expanded_item_ids != []} class="dag-card__body">
-      <div class="border-t border-base-content/20 -mx-4 mb-3" />
-      <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
-
-      <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
-        <table id="mapped-task-runs" class="min-w-full divide-y divide-base-content/15">
-          <thead class="bg-base-200">
-            <tr>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                Index
-              </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                Status
-              </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                Task ID
-              </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                Updated
-              </th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody
-            id="mapped-task-run-list"
-            class="bg-base-100 divide-y divide-base-content/15"
-            phx-update="stream"
-          >
-            <tr
-              :for={{id, task} <- @streams.expanded_items}
-              id={id}
-            >
-              <td class="px-3 py-2 whitespace-nowrap">
-                <span class="badge badge-xs">{task.map_index}</span>
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap">
-                <.status_badge status={task.status} />
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap text-xs text-base-content font-mono">
-                {task.id}
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap text-xs text-base-content">
-                {strftime(task.updated_at)}
-              </td>
-              <td class="px-3 py-2 whitespace-nowrap">
-                <.link
-                  class="btn btn-xs btn-soft"
-                  navigate={
-                    dashboard_item_path(
-                      @dag_def.name,
-                      task.run_id,
-                      @page,
-                      @pinned_run_id,
-                      [{"task_name", task.name}, {"task_index", task.map_index}]
-                    )
-                  }
-                  id={"show-mapped-task-#{task.id}"}
-                >
-                  Show
-                </.link>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <.live_component
+      :if={@expanded_item_ids != []}
+      module={GustWeb.MappedTaskRunsComponent}
+      id="mapped-task-runs"
+      tasks={@selected_item}
+      dag_name={@dag_def.name}
+      page={@page}
+      pinned_run_id={@pinned_run_id}
+    />
 
     <section :if={@expanded_item_ids == []} class="dag-card__body">
       <div class="border-t border-base-content/20 -mx-4 mb-4" />

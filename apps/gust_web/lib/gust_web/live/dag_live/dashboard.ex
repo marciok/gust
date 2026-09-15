@@ -104,7 +104,6 @@ defmodule GustWeb.DagLive.Dashboard do
      |> stream(:logs, logs)
      |> assign(:empty_logs, logs == [])
      |> assign(:expanded_item_ids, get_expanded_ids(expanded_items))
-     |> stream(:expanded_items, expanded_items, dom_id: &"mapped-task-run-#{&1.id}")
      |> stream(:runs, runs |> Enum.reverse())}
   end
 
@@ -484,7 +483,6 @@ defmodule GustWeb.DagLive.Dashboard do
         socket
         |> assign(:selected_item, tasks)
         |> assign(:item_status, get_status(tasks))
-        |> stream_insert(:expanded_items, task)
 
       socket.assigns.item_id == task_id ->
         task = Flows.get_task!(task_id)

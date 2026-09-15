@@ -1368,6 +1368,111 @@ defmodule GustWeb.DagLiveDashboardTest do
       refute has_element?(mapped_task_live, "#mapped-task-runs")
     end
 
+    test "renders the mapped task runs component", %{conn: conn} do
+      dag_name = "mapped_status_filter_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      task =
+        task_fixture(%{run_id: run.id, name: task_name, status: :succeeded, map_index: 0})
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_status_filter_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      assert has_element?(dashboard_live, "#mapped-task-runs")
+      assert has_element?(dashboard_live, "#mapped-task-status-filter")
+      assert has_element?(dashboard_live, "#mapped-task-run-#{task.id}")
+    end
+
+    test "preserves the mapped task status filter across live updates", %{conn: conn} do
+      dag_name = "mapped_status_filter_live_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      failed_task =
+        task_fixture(%{run_id: run.id, name: task_name, status: :failed, map_index: 0})
+
+      running_task =
+        task_fixture(%{run_id: run.id, name: task_name, status: :running, map_index: 1})
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_status_filter_live_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      dashboard_live
+      |> element("#mapped-task-status-filter")
+      |> render_change(%{"_target" => "status", "status" => "failed"})
+
+      assert has_element?(dashboard_live, "#mapped-task-run-#{failed_task.id}")
+      refute has_element?(dashboard_live, "#mapped-task-run-#{running_task.id}")
+
+      {:ok, _failed_task} = Flows.update_task_status(failed_task, :succeeded)
+      Gust.PubSub.broadcast_run_status(run.id, :succeeded, failed_task.id)
+
+      refute has_element?(dashboard_live, "#mapped-task-run-#{failed_task.id}")
+
+      {:ok, _running_task} = Flows.update_task_status(running_task, :failed)
+      Gust.PubSub.broadcast_run_status(run.id, :failed, running_task.id)
+
+      assert has_element?(dashboard_live, "#mapped-task-run-#{running_task.id}")
+      assert render(element(dashboard_live, "#mapped-task-run-#{running_task.id}")) =~ "failed"
+    end
+
     test "restarts all mapped task instances from the aggregate view", %{conn: conn} do
       dag_name = "mapped_restart_dag"
       dag = dag_fixture(%{name: dag_name})
