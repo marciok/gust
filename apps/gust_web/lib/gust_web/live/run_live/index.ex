@@ -241,14 +241,7 @@ defmodule GustWeb.RunLive.Index do
     Jason.encode_to_iodata!(value, pretty: true, escape_html: true)
   end
 
-  defp run_status_options do
-    options =
-      Enum.map(Ecto.Enum.values(Flows.Run, :status), fn status ->
-        {status |> to_string() |> String.replace("_", " "), to_string(status)}
-      end)
-
-    [{"All statuses", ""} | options]
-  end
+  defp run_status_options, do: status_filter_options(Flows.Run)
 
   defp run_status(status) do
     Enum.find(Ecto.Enum.values(Flows.Run, :status), &(to_string(&1) == status))
