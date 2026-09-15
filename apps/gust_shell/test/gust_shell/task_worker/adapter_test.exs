@@ -2,8 +2,8 @@ defmodule GustShell.TaskWorker.AdapterTest do
   use ExUnit.Case, async: false
 
   alias Gust.DAG.Definition
-  alias GustShell.TaskWorker.Adapter
   alias Gust.Flows.Task
+  alias GustShell.TaskWorker.Adapter
 
   import Mox
 
@@ -196,6 +196,33 @@ defmodule GustShell.TaskWorker.AdapterTest do
     end
   end
 
+  describe "exec.run error handling" do
+    test "handles exec.run error and sends error message to owner", %{task: task, dag_def: dag_def} do
+      # Create a state that will cause :exec.run to fail
+      # Using an empty command will cause a failure
+      state = %{
+        task: %{task | params: %{"run" => ""}},
+        dag_def: dag_def,
+        owner_pid: self(),
+        os_pid: nil,
+        stdout: [],
+        stderr: [],
+        opts: %{}
+      }
+
+      # When :exec.run is called with an empty command, it should fail
+      {:stop, error, _final_state} = Adapter.handle_info(:run, state)
+
+      # Verify error is a RuntimeError
+      assert error.__struct__ == RuntimeError
+      assert String.contains?(error.message, "failed to start shell task")
+
+      # Verify the error was sent to owner
+      assert_receive {:task_result, %RuntimeError{message: msg}, 123, :error}
+      assert String.contains?(msg, "failed to start shell task")
+    end
+  end
+
   describe "command resolution" do
     test "resolves command from task params", %{dag_def: dag_def} do
       task = %Task{
@@ -303,9 +330,9 @@ defmodule GustShell.TaskWorker.AdapterTest do
       state = %{task: task, dag_def: dag_def, owner_pid: self(), os_pid: 42, stdout: "", stderr: "", opts: %{}}
 
       # Send DOWN for different PID - should be ignored (handler pattern doesn't match)
-      assert state == state  # State should remain unchanged
-
-      # In real GenServer, this would just be unhandled, not causing issues
+      # The catch-all handler should return noreply with unchanged state
+      assert {:noreply, unchanged_state} = Adapter.handle_info({:DOWN, 99, :process, self(), :normal}, state)
+      assert unchanged_state == state
     end
   end
 

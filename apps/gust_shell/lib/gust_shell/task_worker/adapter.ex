@@ -112,57 +112,55 @@ defmodule GustShell.TaskWorker.Adapter do
   end
 
   defp normalize_exec_option(key, value) do
-    key = normalize_option_key(key)
-
-    case key do
-      :cd -> {:cd, value}
-      :cgroup -> {:cgroup, value}
-      :debug -> {:debug, value}
-      :env -> {:env, normalize_env(value)}
-      :executable -> {:executable, value}
-      :group -> {:group, value}
-      :kill_group -> if value in [true, "true"], do: :kill_group, else: nil
-      :kill_timeout -> {:kill_timeout, value}
-      :monitor -> if value in [true, "true"], do: :monitor, else: nil
-      :nice -> {:nice, value}
-      :pty -> if value in [true, "true"], do: :pty, else: nil
-      :pty_echo -> if value in [true, "true"], do: :pty_echo, else: nil
-      :stderr -> normalize_stdio(:stderr, value)
-      :stdin -> normalize_stdio(:stdin, value)
-      :stdout -> normalize_stdio(:stdout, value)
-      :success_exit_code -> {:success_exit_code, value}
-      :user -> {:user, value}
-      _ -> nil
-    end
+    key |> normalize_option_key() |> normalize_exec_option2(value)
   end
+
+  defp normalize_exec_option2(:cd, value), do: {:cd, value}
+  defp normalize_exec_option2(:cgroup, value), do: {:cgroup, value}
+  defp normalize_exec_option2(:debug, value), do: {:debug, value}
+  defp normalize_exec_option2(:env, value), do: {:env, normalize_env(value)}
+  defp normalize_exec_option2(:executable, value), do: {:executable, value}
+  defp normalize_exec_option2(:group, value), do: {:group, value}
+  defp normalize_exec_option2(:kill_group, value), do: (if value in [true, "true"], do: :kill_group, else: nil)
+  defp normalize_exec_option2(:kill_timeout, value), do: {:kill_timeout, value}
+  defp normalize_exec_option2(:monitor, value), do: (if value in [true, "true"], do: :monitor, else: nil)
+  defp normalize_exec_option2(:nice, value), do: {:nice, value}
+  defp normalize_exec_option2(:pty, value), do: (if value in [true, "true"], do: :pty, else: nil)
+  defp normalize_exec_option2(:pty_echo, value), do: (if value in [true, "true"], do: :pty_echo, else: nil)
+  defp normalize_exec_option2(:stderr, value), do: normalize_stdio(:stderr, value)
+  defp normalize_exec_option2(:stdin, value), do: normalize_stdio(:stdin, value)
+  defp normalize_exec_option2(:stdout, value), do: normalize_stdio(:stdout, value)
+  defp normalize_exec_option2(:success_exit_code, value), do: {:success_exit_code, value}
+  defp normalize_exec_option2(:user, value), do: {:user, value}
+  defp normalize_exec_option2(_, _value), do: nil
 
   defp normalize_option_key(key) do
     key
     |> to_string()
     |> String.trim()
-    |> case do
-      "cd" -> :cd
-      "cgroup" -> :cgroup
-      "cwd" -> :cd
-      "debug" -> :debug
-      "env" -> :env
-      "executable" -> :executable
-      "group" -> :group
-      "kill_group" -> :kill_group
-      "kill_timeout" -> :kill_timeout
-      "monitor" -> :monitor
-      "nice" -> :nice
-      "pty_echo" -> :pty_echo
-      "pty" -> :pty
-      "stderr" -> :stderr
-      "stdin" -> :stdin
-      "stdout" -> :stdout
-      "success_exit_code" -> :success_exit_code
-      "user" -> :user
-      "working_dir" -> :cd
-      _ -> nil
-    end
+    |> normalize_option_key2()
   end
+
+  defp normalize_option_key2("cd"), do: :cd
+  defp normalize_option_key2("cgroup"), do: :cgroup
+  defp normalize_option_key2("cwd"), do: :cd
+  defp normalize_option_key2("debug"), do: :debug
+  defp normalize_option_key2("env"), do: :env
+  defp normalize_option_key2("executable"), do: :executable
+  defp normalize_option_key2("group"), do: :group
+  defp normalize_option_key2("kill_group"), do: :kill_group
+  defp normalize_option_key2("kill_timeout"), do: :kill_timeout
+  defp normalize_option_key2("monitor"), do: :monitor
+  defp normalize_option_key2("nice"), do: :nice
+  defp normalize_option_key2("pty_echo"), do: :pty_echo
+  defp normalize_option_key2("pty"), do: :pty
+  defp normalize_option_key2("stderr"), do: :stderr
+  defp normalize_option_key2("stdin"), do: :stdin
+  defp normalize_option_key2("stdout"), do: :stdout
+  defp normalize_option_key2("success_exit_code"), do: :success_exit_code
+  defp normalize_option_key2("user"), do: :user
+  defp normalize_option_key2("working_dir"), do: :cd
+  defp normalize_option_key2(_), do: nil
 
   defp normalize_env(value) when is_map(value) do
     Enum.map(value, fn {k, v} -> {to_string(k), to_string(v)} end)

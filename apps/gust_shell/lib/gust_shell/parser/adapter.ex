@@ -20,11 +20,9 @@ defmodule GustShell.Parser.Adapter do
   end
 
   defp read_yaml(file_path) do
-    try do
-      {:ok, :glazer_yaml.read_file(file_path)}
-    rescue
-      e -> {:error, e}
-    end
+    {:ok, :glazer_yaml.read_file(file_path)}
+  rescue
+    e -> {:error, e}
   end
 
   defp build_definition(yaml, file_path) do
