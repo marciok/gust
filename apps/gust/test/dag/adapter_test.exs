@@ -107,7 +107,10 @@ defmodule Gust.DAG.AdapterTest do
         }
       )
 
-      assert Adapter.parser_modules() == [Gust.DAG.Parser.Adapters.Elixir, GustShell.Parser.Adapter]
+      assert Adapter.parser_modules() == [
+               Gust.DAG.Parser.Adapters.Elixir,
+               GustShell.Parser.Adapter
+             ]
     end
   end
 
