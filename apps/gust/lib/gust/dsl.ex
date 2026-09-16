@@ -308,9 +308,6 @@ defmodule Gust.DSL do
     end
   end
 
-  defp parse_action_spec!({:{}, _meta, [action_module, args]}, _caller),
-    do: {action_module, args}
-
   defp parse_action_spec!({action_module, args}, _caller)
        when is_atom(action_module) or is_tuple(action_module),
        do: {action_module, args}
