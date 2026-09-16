@@ -31,25 +31,6 @@
           <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
           <span>Run History</span>
         </h2>
-
-        <div :if={@selected_item} class="dag-card__actions run-history__actions">
-          <button
-            :if={restartable?(@selected_item, @item_status)}
-            id="restart"
-            phx-click="restart"
-            class="btn btn-warning"
-          >
-            Restart {@item_name}
-          </button>
-          <button
-            :if={cancelable?(@selected_item, @item_status)}
-            id="cancel"
-            phx-click="cancel"
-            class="btn px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
-          >
-            Cancel {@item_name}
-          </button>
-        </div>
       </div>
     </section>
 
@@ -172,6 +153,35 @@
           status={@item_status}
           item={@selected_item}
         />
+        <details id="selected-item-actions" class="dropdown dropdown-end">
+          <summary id="actions" class="btn btn-primary">
+            <.icon name="hero-chevron-down" class="h-4 w-4" /> Actions
+          </summary>
+          <ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-56 p-2 shadow-sm">
+            <li>
+              <button
+                id="restart"
+                type="button"
+                phx-click="restart"
+                disabled={!restartable?(@selected_item, @item_status)}
+                class="btn btn-sm btn-soft btn-warning justify-start"
+              >
+                <.icon name="hero-arrow-path" class="h-4 w-4" /> Restart {@item_name}
+              </button>
+            </li>
+            <li>
+              <button
+                id="cancel"
+                type="button"
+                phx-click="cancel"
+                disabled={!cancelable?(@selected_item, @item_status)}
+                class="btn btn-sm btn-soft btn-error justify-start"
+              >
+                <.icon name="hero-x-mark" class="h-4 w-4" /> Cancel {@item_name}
+              </button>
+            </li>
+          </ul>
+        </details>
       </div>
     </section>
 

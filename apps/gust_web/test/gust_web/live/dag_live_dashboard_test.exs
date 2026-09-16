@@ -867,7 +867,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, _failed_task} = Gust.Flows.update_task_status(running_task, :failed)
       Gust.PubSub.broadcast_run_status(run.id, :failed, running_task.id)
 
-      refute has_element?(dashboard_live, "#cancel")
+      assert has_element?(dashboard_live, "#cancel[disabled]")
 
       assert has_element?(
                dashboard_live,
@@ -1135,7 +1135,7 @@ defmodule GustWeb.DagLiveDashboardTest do
                "Task: #{succeeded_task.name} could not be restarted: run_owner_unavailable"
     end
 
-    test "click restart task on running task", %{
+    test "restart is disabled for a running task", %{
       conn: conn,
       dag: dag,
       run: run,
@@ -1144,10 +1144,10 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
-      refute dashboard_live |> has_element?("#restart")
+      assert dashboard_live |> has_element?("#restart[disabled]")
     end
 
-    test "no cancel button for created run", %{
+    test "restart is disabled for a created run", %{
       conn: conn,
       dag: dag,
       run: run
@@ -1155,10 +1155,10 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
 
-      refute dashboard_live |> has_element?("#restart")
+      assert dashboard_live |> has_element?("#restart[disabled]")
     end
 
-    test "no cancel button for not running task", %{
+    test "cancel is disabled for a task that is not running", %{
       conn: conn,
       dag: dag,
       run: run,
@@ -1167,7 +1167,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
-      refute dashboard_live |> has_element?("#cancel")
+      assert dashboard_live |> has_element?("#cancel[disabled]")
     end
 
     test "click on trigger", %{
