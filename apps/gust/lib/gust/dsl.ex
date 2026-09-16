@@ -267,7 +267,7 @@ defmodule Gust.DSL do
   defp define_action_task(name, action_module, args, opts, _dynamic?, caller) do
     validate_action_module!(action_module, caller)
 
-    unless is_list(opts) do
+    unless Keyword.keyword?(opts) do
       raise CompileError,
         file: caller.file,
         line: caller.line,
