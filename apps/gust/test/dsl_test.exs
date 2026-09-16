@@ -151,6 +151,189 @@ defmodule DSLTest do
     :code.delete(mod)
   end
 
+  test "task_action invokes static arguments at task runtime" do
+    dag_code = """
+      defmodule StaticAction do
+        @behaviour Gust.Action
+
+        @impl true
+        def execute(args, context), do: %{args: args, context: context}
+      end
+
+      defmodule StaticActionDag do
+        use Gust.DSL
+
+        task_action :run,
+          {StaticAction, [message: send(self(), :static_arguments_evaluated)]},
+          save: true
+      end
+    """
+
+    [{action_mod, _}, {dag_mod, _}] = Code.compile_string(dag_code)
+
+    assert dag_mod.run(%{run_id: 12, params: %{}}) == %{
+             args: [message: :static_arguments_evaluated],
+             context: %{run_id: 12, params: %{}}
+           }
+
+    assert_received :static_arguments_evaluated
+
+    :code.purge(dag_mod)
+    :code.delete(dag_mod)
+    :code.purge(action_mod)
+    :code.delete(action_mod)
+  end
+
+  test "task_action computes dynamic arguments with the mapped task context" do
+    dag_code = """
+      defmodule DynamicAction do
+        @behaviour Gust.Action
+
+        @impl true
+        def execute(args, context), do: {args, context}
+      end
+
+      defmodule DynamicActionDag do
+        use Gust.DSL
+
+        task_action :run, DynamicAction,
+          ctx: %{params: %{"item" => item}},
+          map_over: :source do
+          [item: item]
+        end
+      end
+    """
+
+    [{action_mod, _}, {dag_mod, _}] = Code.compile_string(dag_code)
+
+    assert dag_mod.run(%{run_id: 34, params: %{"item" => "mapped"}}) ==
+             {[item: "mapped"], %{run_id: 34, params: %{"item" => "mapped"}}}
+
+    :code.purge(dag_mod)
+    :code.delete(dag_mod)
+    :code.purge(action_mod)
+    :code.delete(action_mod)
+  end
+
+  test "task_action rejects arguments that do not resolve to a keyword list" do
+    dag_code = """
+      defmodule InvalidArgumentsAction do
+        @behaviour Gust.Action
+        def execute(args, _context), do: args
+      end
+
+      defmodule InvalidArgumentsDag do
+        use Gust.DSL
+        task_action :run, {InvalidArgumentsAction, :not_a_keyword_list}
+      end
+    """
+
+    [{action_mod, _}, {dag_mod, _}] = Code.compile_string(dag_code)
+
+    assert_raise ArgumentError, ~r/arguments must resolve to a keyword list/, fn ->
+      dag_mod.run(%{run_id: 56, params: %{}})
+    end
+
+    :code.purge(dag_mod)
+    :code.delete(dag_mod)
+    :code.purge(action_mod)
+    :code.delete(action_mod)
+  end
+
+  test "task_action rejects a malformed static declaration at compile time" do
+    dag_code = """
+      defmodule MalformedActionDeclarationDag do
+        use Gust.DSL
+        task_action :run, :not_an_action_spec, []
+      end
+    """
+
+    assert_raise CompileError, ~r/expected \{ActionModule, keyword_args\}/, fn ->
+      Code.compile_string(dag_code)
+    end
+  end
+
+  test "task_action rejects a loaded action without execute/2 at compile time" do
+    [{action_mod, _bin}] =
+      Code.compile_string("defmodule NoExecuteActionForDSLTest do\nend")
+
+    dag_code = """
+      defmodule MissingExecuteActionDag do
+        use Gust.DSL
+        task_action :run, {NoExecuteActionForDSLTest, []}
+      end
+    """
+
+    assert_raise CompileError, ~r/must implement execute\/2/, fn ->
+      Code.compile_string(dag_code)
+    end
+
+    :code.purge(action_mod)
+    :code.delete(action_mod)
+  end
+
+  test "task_action reports an unavailable action at task runtime" do
+    dag_code = """
+      defmodule UnavailableActionDag do
+        use Gust.DSL
+        task_action :run, {Gust.ActionThatDoesNotExistForDSLTest, []}
+      end
+    """
+
+    [{mod, _bin}] = Code.compile_string(dag_code)
+
+    assert_raise ArgumentError, ~r/must implement execute\/2/, fn ->
+      mod.run(%{run_id: 78, params: %{}})
+    end
+
+    :code.purge(mod)
+    :code.delete(mod)
+  end
+
+  test "task_action rejects a runtime action value that is not a module" do
+    dag_code = """
+      defmodule NonModuleActionDag do
+        use Gust.DSL
+        task_action :run, {System.unique_integer(), []}
+      end
+    """
+
+    [{mod, _bin}] = Code.compile_string(dag_code)
+
+    assert_raise ArgumentError, ~r/must implement execute\/2/, fn ->
+      mod.run(%{run_id: 90, params: %{}})
+    end
+
+    :code.purge(mod)
+    :code.delete(mod)
+  end
+
+  test "task_action rejects unknown task options at compile time" do
+    dag_code = """
+      defmodule InvalidActionOptionsDag do
+        use Gust.DSL
+        task_action :run, {Gust.TestAction, []}, unknown_option: true
+      end
+    """
+
+    assert_raise CompileError, ~r/cannot compile module InvalidActionOptionsDag/, fn ->
+      Code.compile_string(dag_code)
+    end
+  end
+
+  test "task_action rejects non-keyword options at compile time" do
+    dag_code = """
+      defmodule NonKeywordActionOptionsDag do
+        use Gust.DSL
+        task_action :run, {Gust.TestAction, []}, :not_options
+      end
+    """
+
+    assert_raise CompileError, ~r/options must be a keyword list/, fn ->
+      Code.compile_string(dag_code)
+    end
+  end
+
   test "task macro with wait_for option" do
     dag_code = """
       defmodule MyWaitingDag do

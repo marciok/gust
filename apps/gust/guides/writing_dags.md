@@ -77,3 +77,43 @@ end
   run finishes, with its final status.
 
 See `Gust.DSL` for the full macro reference.
+
+## Reusable actions
+
+Use `task_action` when the operation should be reusable across DAGs. Static arguments are
+declared in a tuple; the argument expression is still evaluated when the task executes:
+
+```elixir
+task_action :send_email,
+  {MyApp.Actions.SendEmail, [template: "welcome", recipient: "ops@example.com"]},
+  downstream: [:record_delivery],
+  save: true
+```
+
+Arguments can instead be computed at runtime with the same `ctx:` convention as `task`:
+
+```elixir
+task_action :send_email, MyApp.Actions.SendEmail,
+  ctx: %{params: params},
+  save: true do
+  [template: params["template"], recipient: params["recipient"]]
+end
+```
+
+An action implements `Gust.Action`. It receives the resolved keyword arguments and the full task
+context, and its return value is the task return value:
+
+```elixir
+defmodule MyApp.Actions.Echo do
+  @behaviour Gust.Action
+
+  @impl true
+  def execute(args, _context) do
+    %{message: Keyword.fetch!(args, :message)}
+  end
+end
+```
+
+Action argument and execution failures follow the ordinary task failure and retry behavior.
+When `save: true`, the action must return a map or list accepted by Gust's normal result
+persistence rules.
