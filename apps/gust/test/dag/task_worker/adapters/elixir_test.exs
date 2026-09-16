@@ -140,6 +140,39 @@ defmodule DAG.TaskWorker.Adapters.ElixirTest do
       assert_worker_result(ref, task.id, %{res: result}, :ok)
     end
 
+    test "runs task_action through the ordinary worker and saves its result", %{task: task} do
+      dag_content = """
+        defmodule ActionTaskDag do
+          use Gust.DSL
+
+          task_action :#{task.name},
+            {Gust.TestAction, [message: "hello"]},
+            store_result: true
+        end
+      """
+
+      mod = compile_dag!(dag_content)
+      ref = start_worker_and_monitor!(task, mod, %{store_result: true})
+
+      assert_worker_result(ref, task.id, %{message: "hello", run_id: task.run_id}, :ok)
+    end
+
+    test "action failures use the ordinary task failure path", %{task: task} do
+      dag_content = """
+        defmodule FailingActionTaskDag do
+          use Gust.DSL
+
+          task_action :#{task.name}, {Gust.FailingAction, []}
+        end
+      """
+
+      mod = compile_dag!(dag_content)
+      ref = start_worker_and_monitor!(task, mod, %{store_result: false})
+      error = %RuntimeError{message: "action failed", __exception__: true}
+
+      assert_worker_error(ref, task.id, error)
+    end
+
     test "wraps a list result when storing the result", %{task: task} do
       dag_content = """
         defmodule ListResultTaskDag do
