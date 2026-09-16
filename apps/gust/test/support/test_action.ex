@@ -1,4 +1,6 @@
 defmodule Gust.TestAction do
+  @moduledoc false
+
   @behaviour Gust.Action
 
   @impl true

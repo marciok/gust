@@ -1,4 +1,6 @@
 defmodule Gust.FailingAction do
+  @moduledoc false
+
   @behaviour Gust.Action
 
   @impl true
