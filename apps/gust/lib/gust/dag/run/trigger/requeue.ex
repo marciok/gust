@@ -52,7 +52,7 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
       end
 
     case RunGateway.call(run, message) do
-      {:error, :run_not_active} -> requeue_tasks(graph, run, task, type)
+      {:error, :run_not_active} -> {:ok, requeue_tasks(graph, run, task, type)}
       result -> result
     end
   end

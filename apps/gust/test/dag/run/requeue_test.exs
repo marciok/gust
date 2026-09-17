@@ -76,7 +76,7 @@ defmodule DAG.Run.RequeueTest do
         }
       }
 
-      [second_restarted, restarted_task] = Trigger.reset_task(graph, task)
+      {:ok, [second_restarted, restarted_task]} = Trigger.reset_task(graph, task)
 
       assert restarted_task.id == task.id
       assert restarted_task.status == :created
@@ -103,7 +103,7 @@ defmodule DAG.Run.RequeueTest do
         "mapped" => %{downstream: MapSet.new([]), upstream: MapSet.new([])}
       }
 
-      restarted_tasks = Trigger.reset_task(graph, [task, expanded_task])
+      {:ok, restarted_tasks} = Trigger.reset_task(graph, [task, expanded_task])
 
       assert MapSet.new(Enum.map(restarted_tasks, & &1.id)) ==
                MapSet.new([task.id, expanded_task.id])
@@ -129,7 +129,7 @@ defmodule DAG.Run.RequeueTest do
         "mapped" => %{downstream: MapSet.new([]), upstream: MapSet.new([])}
       }
 
-      assert [%Flows.Task{id: restarted_task_id, status: :created, map_index: 1}] =
+      assert {:ok, [%Flows.Task{id: restarted_task_id, status: :created, map_index: 1}]} =
                Trigger.reset_task(graph, mapped_task)
 
       assert restarted_task_id == mapped_task.id
@@ -164,7 +164,7 @@ defmodule DAG.Run.RequeueTest do
         }
       }
 
-      restarted_tasks = Trigger.reset_task(graph, selected_mapped_task)
+      {:ok, restarted_tasks} = Trigger.reset_task(graph, selected_mapped_task)
 
       assert MapSet.new(Enum.map(restarted_tasks, & &1.id)) ==
                MapSet.new([selected_mapped_task.id, downstream_task.id])
@@ -227,7 +227,7 @@ defmodule DAG.Run.RequeueTest do
 
       graph = %{"mapped" => %{downstream: MapSet.new(), upstream: MapSet.new()}}
 
-      assert [%Flows.Task{id: task_id, status: :created}] =
+      assert {:ok, [%Flows.Task{id: task_id, status: :created}]} =
                Trigger.reset_task(graph, task)
 
       assert task_id == task.id

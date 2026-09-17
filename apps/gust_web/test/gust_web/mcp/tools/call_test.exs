@@ -315,7 +315,7 @@ defmodule GustWeb.MCP.Tools.CallTest do
   } do
     GustWeb.DAGRunTriggerMock
     |> expect(:reset_task, fn ^tasks, ^task ->
-      []
+      {:ok, []}
     end)
 
     assert {false, contents} = Call.handle(%Tool{name: :restart_task}, %{"task_id" => task.id})
