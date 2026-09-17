@@ -527,6 +527,37 @@ defmodule FlowsTest do
       assert status == new_status
     end
 
+    test "update_tasks_status/2 updates all tasks and preserves their order" do
+      dag = dag_fixture(%{name: "update_tasks_status"})
+      run = run_fixture(%{dag_id: dag.id})
+      first_task = task_fixture(%{run_id: run.id, name: "first_task", status: :failed})
+      second_task = task_fixture(%{run_id: run.id, name: "second_task", status: :failed})
+
+      assert [
+               %Task{id: first_id, status: :created},
+               %Task{id: second_id, status: :created}
+             ] = Flows.update_tasks_status([first_task, second_task], :created)
+
+      assert first_id == first_task.id
+      assert second_id == second_task.id
+      assert Flows.get_task!(first_task.id).status == :created
+      assert Flows.get_task!(second_task.id).status == :created
+    end
+
+    test "update_tasks_status/2 clears retry_at unless the new status is :retrying" do
+      dag = dag_fixture(%{name: "update_tasks_status_retry"})
+      run = run_fixture(%{dag_id: dag.id})
+      retry_at = DateTime.add(DateTime.utc_now(), 30, :second)
+      task = task_fixture(%{run_id: run.id, name: "retrying_task"})
+
+      {:ok, task} = Flows.schedule_task_retry(task, retry_at)
+
+      assert [%Task{status: :created, retry_at: nil}] =
+               Flows.update_tasks_status([task], :created)
+
+      assert %Task{status: :created, retry_at: nil} = Flows.get_task!(task.id)
+    end
+
     test "schedule_task_retry/2 persists the next attempt and update_task_status/2 clears it" do
       dag = dag_fixture(%{name: "scheduled_task_retry"})
       run = run_fixture(%{dag_id: dag.id})

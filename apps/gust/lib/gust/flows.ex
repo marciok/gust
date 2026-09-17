@@ -393,6 +393,31 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Updates the status of multiple tasks in one database statement.
+
+  Mirrors the `retry_at` clearing behavior of `update_task_status/2`: any
+  status other than `:retrying` clears a previously scheduled retry.
+  """
+  def update_tasks_status(tasks, status) do
+    task_ids = Enum.map(tasks, & &1.id)
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    set =
+      if status == :retrying,
+        do: [status: status, updated_at: now],
+        else: [status: status, updated_at: now, retry_at: nil]
+
+    {_count, updated_tasks} =
+      Task
+      |> where([task], task.id in ^task_ids)
+      |> select([task], task)
+      |> Repo.update_all(set: set)
+
+    updated_tasks_by_id = Map.new(updated_tasks, &{&1.id, &1})
+    Enum.map(tasks, &Map.fetch!(updated_tasks_by_id, &1.id))
+  end
+
+  @doc """
   Clears execution state before manually restarting a terminal task instance.
 
   Mapping identity and persisted params are intentionally preserved so a mapped

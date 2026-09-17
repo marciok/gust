@@ -5,7 +5,8 @@ defmodule Gust.DSL do
 
   You can configure a schedule, define callbacks, and in the `dev` environment the code is automatically reloaded when files change.
 
-  After enabling the DSL, use `task` definitions to declare the steps that should be executed.
+  After enabling the DSL, use `task` and `task_action` definitions to declare the steps that
+  should be executed.
 
   ## Example
 
@@ -83,7 +84,8 @@ defmodule Gust.DSL do
 
   defmacro __using__(dag_options) do
     quote do
-      import unquote(__MODULE__), only: [task: 2, task: 3]
+      import unquote(__MODULE__),
+        only: [task: 2, task: 3, task_action: 2, task_action: 3, task_action: 4]
 
       Module.register_attribute(__MODULE__, :dag_tasks, accumulate: true)
 
@@ -176,14 +178,38 @@ defmodule Gust.DSL do
 
     ctx_pattern = ctx_pattern || quote do: %{run_id: run_id}
 
-    quote do
-      @dag_tasks {unquote(name), unquote(opts)}
+    define_task(name, opts, ctx_pattern, block)
+  end
 
-      def unquote(name)(ctx) do
-        unquote(ctx_pattern) = ctx
-        unquote(block)
-      end
+  @doc """
+  Defines a task that invokes a reusable action with static arguments.
+
+      task_action :run_pod,
+        {MyApp.Actions.RunPod, [namespace: "prod", image: "my-image:latest"]},
+        save: true
+
+  The argument expression is evaluated when the task runs, not while the DAG is compiled.
+  """
+  defmacro task_action(name, action_spec) do
+    quote do
+      task_action(unquote(name), unquote(action_spec), [])
     end
+  end
+
+  defmacro task_action(name, action_spec, opts) do
+    {action_module, args} = parse_action_spec!(action_spec, __CALLER__)
+    define_action_task(name, action_module, args, opts, nil, __CALLER__)
+  end
+
+  @doc """
+  Defines a task that computes action arguments at execution time.
+
+      task_action :run_pod, MyApp.Actions.RunPod, ctx: %{params: params}, save: true do
+        [pod_name: "gust-\#{params["job_id"]}", image: params["image"]]
+      end
+  """
+  defmacro task_action(name, action_module, opts, do: block) do
+    define_action_task(name, action_module, quote(do: unquote(block)), opts, true, __CALLER__)
   end
 
   defp use_old_opts(opts) do
@@ -235,12 +261,94 @@ defmodule Gust.DSL do
       end
   """
   defmacro task(name, do: block) do
-    quote do
-      @dag_tasks {unquote(name), []}
+    define_task(name, [], nil, block)
+  end
 
-      def unquote(name)(ctx) do
+  defp define_action_task(name, action_module, args, opts, _dynamic?, caller) do
+    validate_action_module!(action_module, caller)
+
+    unless Keyword.keyword?(opts) do
+      raise CompileError,
+        file: caller.file,
+        line: caller.line,
+        description: "task_action options must be a keyword list"
+    end
+
+    {ctx_pattern, opts} = Keyword.pop(opts, :ctx)
+    opts = use_old_opts(opts)
+    validate_task_opts!(opts, caller)
+
+    ctx_pattern = ctx_pattern || quote do: %{run_id: run_id}
+    context_var = Macro.var(:task_context, nil)
+
+    define_task(
+      name,
+      opts,
+      ctx_pattern,
+      quote do
+        Gust.DSL.execute_action!(unquote(action_module), unquote(args), unquote(context_var))
+      end,
+      context_var
+    )
+  end
+
+  defp define_task(name, opts, ctx_pattern, block, context_var \\ nil) do
+    context_var = context_var || quote(do: ctx)
+
+    context_match =
+      if ctx_pattern, do: quote(do: unquote(ctx_pattern) = unquote(context_var)), else: nil
+
+    quote do
+      @dag_tasks {unquote(name), unquote(opts)}
+
+      def unquote(name)(unquote(context_var)) do
+        unquote(context_match)
         unquote(block)
       end
     end
+  end
+
+  defp parse_action_spec!({action_module, args}, _caller)
+       when is_atom(action_module) or is_tuple(action_module),
+       do: {action_module, args}
+
+  defp parse_action_spec!(spec, caller) do
+    raise CompileError,
+      file: caller.file,
+      line: caller.line,
+      description:
+        "invalid task_action declaration #{Macro.to_string(spec)}; expected {ActionModule, keyword_args}"
+  end
+
+  defp validate_action_module!(action_module, caller) do
+    expanded_module = Macro.expand(action_module, caller)
+
+    if is_atom(expanded_module) and Code.ensure_loaded?(expanded_module) and
+         not function_exported?(expanded_module, :execute, 2) do
+      raise CompileError,
+        file: caller.file,
+        line: caller.line,
+        description: "task_action action #{inspect(expanded_module)} must implement execute/2"
+    end
+  end
+
+  @doc false
+  def execute_action!(action_module, args, context) do
+    valid_action? =
+      is_atom(action_module) and
+        Code.ensure_loaded?(action_module) and
+        function_exported?(action_module, :execute, 2)
+
+    unless valid_action? do
+      raise ArgumentError,
+            "task_action action #{inspect(action_module)} must implement execute/2"
+    end
+
+    unless Keyword.keyword?(args) do
+      raise ArgumentError,
+            "task_action arguments must resolve to a keyword list, got: #{inspect(args)}"
+    end
+
+    action_module.execute(args, context)
   end
 end

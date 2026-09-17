@@ -21,3 +21,12 @@ mix gust.cli your_command_here
 ```
 
 The `mix gust.cli` task defaults `GUST_ROLE` to `console` automatically, and release builds provide a `gust-cli` wrapper with the same behavior.
+
+## Guides
+
+- [Writing DAGs](guides/writing_dags.md) — the `Gust.DSL` in practice.
+- [Configuration](guides/configuration.md) — run dispatcher config and DAG
+  adapters.
+- [Gust Roles](guides/roles.md) — `GUST_ROLE` and multi-node setup.
+- [Error Tracking](guides/error_tracking.md) — reporting terminal task
+  failures.
