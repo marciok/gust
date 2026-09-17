@@ -31,25 +31,6 @@
           <.icon name="hero-queue-list" class="h-5 w-5 text-sky-600" />
           <span>Run History</span>
         </h2>
-
-        <div :if={@selected_item} class="dag-card__actions run-history__actions">
-          <button
-            :if={restartable?(@selected_item, @item_status)}
-            id="restart"
-            phx-click="restart"
-            class="btn btn-warning"
-          >
-            Restart {@item_name}
-          </button>
-          <button
-            :if={cancelable?(@selected_item, @item_status)}
-            id="cancel"
-            phx-click="cancel"
-            class="btn px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded shadow transition duration-150"
-          >
-            Cancel {@item_name}
-          </button>
-        </div>
       </div>
     </section>
 
@@ -172,6 +153,48 @@
           status={@item_status}
           item={@selected_item}
         />
+        <details id="selected-item-actions" class="dropdown dropdown-end">
+          <summary id="actions" class="btn btn-primary">
+            <.icon name="hero-chevron-down" class="h-4 w-4" /> Actions
+          </summary>
+          <ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-56 p-2 shadow-sm">
+            <li :if={@expanded_item_ids != [] && @selected_task_ids == []}>
+              <button
+                id="restart-all"
+                type="button"
+                phx-click="restart_all"
+                disabled={!restartable_group?(@selected_item)}
+                class="btn btn-sm btn-soft btn-warning justify-start"
+              >
+                <.icon name="hero-arrow-path" class="h-4 w-4" /> Restart all `{@item_name}`
+              </button>
+            </li>
+            <li>
+              <button
+                id="restart"
+                type="button"
+                phx-click="restart"
+                disabled={!restartable?(@selected_item, @item_status, @selected_task_ids)}
+                class="btn btn-sm btn-soft btn-warning justify-start"
+              >
+                <.icon name="hero-arrow-path" class="h-4 w-4" />
+                {action_label("Restart", @selected_item, @item_name)}
+              </button>
+            </li>
+            <li>
+              <button
+                id="cancel"
+                type="button"
+                phx-click="cancel"
+                disabled={!cancelable?(@selected_item, @item_status, @selected_task_ids)}
+                class="btn btn-sm btn-soft btn-error justify-start"
+              >
+                <.icon name="hero-x-mark" class="h-4 w-4" />
+                {action_label("Cancel", @selected_item, @item_name)}
+              </button>
+            </li>
+          </ul>
+        </details>
       </div>
     </section>
 
@@ -275,12 +298,101 @@
       </div>
     </section>
 
-    <.live_component
-      :if={@expanded_item_ids != []}
-      module={GustWeb.MappedTaskRunsComponent}
-      id="mapped-task-runs"
-      tasks={@selected_item}
-    />
+    <section :if={@expanded_item_ids != []} id="mapped-task-runs-component" class="dag-card__body">
+      <div class="border-t border-base-content/20 -mx-4 mb-3" />
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
+        <.form
+          for={@mapped_task_status_form}
+          id="mapped-task-status-filter"
+          phx-change="filter_mapped_task_status"
+          class="mapped-task-status__filter-form"
+        >
+          <.input
+            id="mapped-task-status-filter-select"
+            field={@mapped_task_status_form[:status]}
+            type="select"
+            options={@mapped_task_status_options}
+            class="select select-bordered select-sm h-8 w-36"
+          />
+        </.form>
+      </div>
+
+      <.form
+        for={@task_selection_form}
+        id="mapped-task-selection-form"
+        phx-change="select_mapped_tasks"
+      >
+        <div class="overflow-x-auto overflow-y-auto max-h-96 mt-2">
+          <table id="mapped-task-runs" class="min-w-full divide-y divide-base-content/15">
+            <thead class="bg-base-200">
+              <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                  Select
+                </th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                  Index
+                </th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                  Status
+                </th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                  Task ID
+                </th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                  Updated
+                </th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody
+              id="mapped-task-run-list"
+              class="bg-base-100 divide-y divide-base-content/15"
+              phx-update="stream"
+            >
+              <tr :for={{id, task} <- @streams.mapped_tasks} id={id}>
+                <td class="px-3 py-2 whitespace-nowrap">
+                  <input
+                    id={"mapped-task-select-#{task.id}"}
+                    type="checkbox"
+                    name={@task_selection_form[:task_ids].name <> "[]"}
+                    value={task.id}
+                    checked={task.id in @selected_task_ids}
+                    class="checkbox checkbox-sm"
+                    aria-label={"Select mapped task #{task.map_index}"}
+                  />
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                  <span class="badge badge-xs">{task.map_index}</span>
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                  <.status_badge status={task.status} />
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap text-xs text-base-content font-mono">
+                  {task.id}
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap text-xs text-base-content">
+                  {strftime(task.updated_at)}
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                  <button
+                    class="btn btn-xs btn-soft"
+                    type="button"
+                    phx-click="show_mapped_task"
+                    phx-value-task-id={task.id}
+                    id={"show-mapped-task-#{task.id}"}
+                  >
+                    Show
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </.form>
+    </section>
 
     <section :if={@expanded_item_ids == []} class="dag-card__body">
       <div class="border-t border-base-content/20 -mx-4 mb-4" />

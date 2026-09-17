@@ -19,10 +19,13 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
   def reset_run(run) do
     Flows.get_run_with_tasks!(run.id)
     |> then(fn run -> run.tasks end)
-    |> Enum.each(fn task ->
-      tasks = Flows.get_tasks_by_name(task.name, run.id)
-      reset_all!(tasks)
+    |> Enum.uniq_by(& &1.name)
+    |> Enum.map(fn task ->
+      task.name
+      |> Flows.get_tasks_by_name(run.id)
+      |> collapse_to_head!()
     end)
+    |> Flows.update_tasks_status(:created)
 
     Dispatcher.enqueue(run)
   end
@@ -49,7 +52,7 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
       end
 
     case RunGateway.call(run, message) do
-      {:error, :run_not_active} -> requeue_tasks(graph, run, task, type)
+      {:error, :run_not_active} -> {:ok, requeue_tasks(graph, run, task, type)}
       result -> result
     end
   end
@@ -58,7 +61,15 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
     cleared_tasks =
       graph
       |> tasks_to_clear(task.name)
-      |> Enum.map(fn task_name -> reset_task_name(task_name, task, run.id, scope) end)
+      |> Enum.flat_map(fn task_name ->
+        if task_name == task.name && scope == :group do
+          task_name
+          |> Flows.get_tasks_by_name(run.id)
+          |> set_created!()
+        else
+          [reset_task_name(task_name, task, run.id, scope)]
+        end
+      end)
 
     Dispatcher.enqueue(run)
     cleared_tasks
@@ -81,14 +92,14 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
     |> MapSet.new()
   end
 
-  defp reset_all!([task]) do
-    set_created!(task)
+  defp reset_all!(tasks) do
+    tasks
+    |> collapse_to_head!()
+    |> set_created!()
   end
 
-  defp reset_all!(tasks) do
-    task = TaskExpander.collapse_each(tasks)
-    set_created!(task)
-  end
+  defp collapse_to_head!([task]), do: task
+  defp collapse_to_head!(tasks), do: TaskExpander.collapse_each(tasks)
 
   @impl true
   def dispatch_all_runs(dag_id) do
@@ -107,8 +118,12 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
     Dispatcher.enqueue(run)
   end
 
-  defp set_created!(task) do
+  defp set_created!(%Flows.Task{} = task) do
     {:ok, task} = Flows.update_task_status(task, :created)
     task
+  end
+
+  defp set_created!(tasks) when is_list(tasks) do
+    Flows.update_tasks_status(tasks, :created)
   end
 end

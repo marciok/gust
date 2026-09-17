@@ -867,7 +867,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, _failed_task} = Gust.Flows.update_task_status(running_task, :failed)
       Gust.PubSub.broadcast_run_status(run.id, :failed, running_task.id)
 
-      refute has_element?(dashboard_live, "#cancel")
+      assert has_element?(dashboard_live, "#cancel[disabled]")
 
       assert has_element?(
                dashboard_live,
@@ -1087,6 +1087,18 @@ defmodule GustWeb.DagLiveDashboardTest do
                "Run: #{failed_run.id} was restarted"
     end
 
+    test "does not show restart all for a single task selection", %{
+      conn: conn,
+      dag: dag,
+      run: run,
+      task: task
+    } do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
+
+      refute has_element?(dashboard_live, "#restart-all")
+    end
+
     test "click restart task on succeeded task", %{
       conn: conn,
       dag: dag,
@@ -1096,7 +1108,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, succeeded_task} = Gust.Flows.update_task_status(task, :succeeded)
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn _tasks, ^succeeded_task -> run end)
+      |> expect(:reset_task, fn _tasks, ^succeeded_task -> {:ok, succeeded_task} end)
 
       {:ok, dashboard_live, _html} =
         live(
@@ -1135,7 +1147,7 @@ defmodule GustWeb.DagLiveDashboardTest do
                "Task: #{succeeded_task.name} could not be restarted: run_owner_unavailable"
     end
 
-    test "click restart task on running task", %{
+    test "restart is disabled for a running task", %{
       conn: conn,
       dag: dag,
       run: run,
@@ -1144,10 +1156,10 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
-      refute dashboard_live |> has_element?("#restart")
+      assert dashboard_live |> has_element?("#restart[disabled]")
     end
 
-    test "no cancel button for created run", %{
+    test "restart is disabled for a created run", %{
       conn: conn,
       dag: dag,
       run: run
@@ -1155,10 +1167,10 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
 
-      refute dashboard_live |> has_element?("#restart")
+      assert dashboard_live |> has_element?("#restart[disabled]")
     end
 
-    test "no cancel button for not running task", %{
+    test "cancel is disabled for a task that is not running", %{
       conn: conn,
       dag: dag,
       run: run,
@@ -1167,7 +1179,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task.name}")
 
-      refute dashboard_live |> has_element?("#cancel")
+      assert dashboard_live |> has_element?("#cancel[disabled]")
     end
 
     test "click on trigger", %{
@@ -1410,6 +1422,10 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert has_element?(dashboard_live, "#mapped-task-runs")
       assert has_element?(dashboard_live, "#mapped-task-status-filter")
       assert has_element?(dashboard_live, "#mapped-task-run-#{task.id}")
+      assert has_element?(dashboard_live, "#mapped-task-selection-form")
+      assert has_element?(dashboard_live, "#mapped-task-select-#{task.id}")
+      assert has_element?(dashboard_live, "#restart[disabled]")
+      assert has_element?(dashboard_live, "#cancel[disabled]")
     end
 
     test "navigates to the indexed mapped task view when Show is clicked", %{conn: conn} do
@@ -1507,9 +1523,16 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
 
       dashboard_live
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{"task_ids" => [to_string(failed_task.id)]})
+
+      refute has_element?(dashboard_live, "#restart[disabled]")
+
+      dashboard_live
       |> element("#mapped-task-status-filter")
       |> render_change(%{"_target" => "status", "status" => "failed"})
 
+      assert has_element?(dashboard_live, "#restart[disabled]")
       assert has_element?(dashboard_live, "#mapped-task-run-#{failed_task.id}")
       refute has_element?(dashboard_live, "#mapped-task-run-#{running_task.id}")
 
@@ -1525,7 +1548,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert render(element(dashboard_live, "#mapped-task-run-#{running_task.id}")) =~ "failed"
     end
 
-    test "restarts all mapped task instances from the aggregate view", %{conn: conn} do
+    test "restarts selected mapped task instances from the aggregate view", %{conn: conn} do
       dag_name = "mapped_restart_dag"
       dag = dag_fixture(%{name: dag_name})
       run = run_fixture(%{dag_id: dag.id})
@@ -1576,15 +1599,295 @@ defmodule GustWeb.DagLiveDashboardTest do
       task_id = task.id
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn ^tasks_graph, [%Flows.Task{id: ^task_id} | _tasks] -> [] end)
+      |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^task_id} -> {:ok, []} end)
 
       on_exit(fn -> File.rm_rf!(dag_file) end)
 
       {:ok, dashboard_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
 
-      assert dashboard_live |> element("#restart") |> render_click() =~
-               "Task: #{task.name} was restarted"
+      assert has_element?(dashboard_live, "#restart[disabled]")
+
+      dashboard_live
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{"task_ids" => [to_string(task.id)]})
+
+      assert has_element?(dashboard_live, "#mapped-task-select-#{task.id}:checked")
+      refute has_element?(dashboard_live, "#restart[disabled]")
+
+      dashboard_live |> element("#restart") |> render_click()
+
+      assert render(dashboard_live) =~ "1 tasks restarted"
+
+      assert has_element?(dashboard_live, "#restart[disabled]")
+    end
+
+    test "restart selected is a no-op when the selection is no longer restartable", %{
+      conn: conn
+    } do
+      dag_name = "mapped_restart_stale_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 0
+        })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_restart_stale_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      dashboard_live
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{"task_ids" => [to_string(task.id)]})
+
+      refute has_element?(dashboard_live, "#restart[disabled]")
+
+      {:ok, _task} = Gust.Flows.update_task_status(task, :running)
+
+      dashboard_live |> element("#restart") |> render_click()
+
+      refute has_element?(dashboard_live, "#flash-info")
+      refute has_element?(dashboard_live, "#flash-error")
+    end
+
+    test "shows an error when one of several selected restarts fails", %{conn: conn} do
+      dag_name = "mapped_restart_partial_error_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      first_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 0
+        })
+
+      second_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 1
+        })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_restart_partial_error_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      tasks_graph = dag_def.tasks
+      first_id = first_task.id
+      second_id = second_task.id
+
+      GustWeb.DAGRunTriggerMock
+      |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^first_id} -> {:ok, []} end)
+      |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^second_id} ->
+        {:error, :run_owner_unavailable}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      dashboard_live
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{
+        "task_ids" => [to_string(first_task.id), to_string(second_task.id)]
+      })
+
+      dashboard_live |> element("#restart") |> render_click()
+
+      assert render(element(dashboard_live, "#flash-error")) =~
+               "1 tasks could not be restarted"
+    end
+
+    test "restarts every mapped task instance in one call from the aggregate view", %{
+      conn: conn
+    } do
+      dag_name = "mapped_restart_all_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :succeeded,
+          map_index: 0
+        })
+
+      mapped_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 1
+        })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_restart_all_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      tasks_graph = dag_def.tasks
+      task_id = task.id
+      mapped_task_id = mapped_task.id
+
+      GustWeb.DAGRunTriggerMock
+      |> expect(:reset_task, fn ^tasks_graph, tasks ->
+        assert MapSet.new(Enum.map(tasks, & &1.id)) == MapSet.new([task_id, mapped_task_id])
+        {:ok, []}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      dashboard_live |> element("#restart-all") |> render_click()
+
+      assert render(dashboard_live) =~ "Task: #{task_name} was restarted"
+    end
+
+    test "shows an error when restarting every mapped task instance fails", %{conn: conn} do
+      dag_name = "mapped_restart_all_error_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      _task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 0
+        })
+
+      _mapped_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 1
+        })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_restart_all_error_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      tasks_graph = dag_def.tasks
+
+      GustWeb.DAGRunTriggerMock
+      |> expect(:reset_task, fn ^tasks_graph, _tasks -> {:error, :run_owner_unavailable} end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      dashboard_live |> element("#restart-all") |> render_click()
+
+      assert has_element?(dashboard_live, "#flash-error .alert-error")
+
+      assert render(element(dashboard_live, "#flash-error")) =~
+               "Task: #{task_name} could not be restarted: run_owner_unavailable"
     end
 
     test "cancels cancellable mapped task instances from the aggregate view", %{conn: conn} do
@@ -1650,14 +1953,87 @@ defmodule GustWeb.DagLiveDashboardTest do
         live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
 
       assert render(element(dashboard_live, "[data-testid='status-badge']")) =~ "failed"
+      assert has_element?(dashboard_live, "#cancel[disabled]")
 
-      assert dashboard_live |> element("#cancel") |> render_click() =~
-               "All #{task_name} tasks are being cancelled"
+      dashboard_live
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{"task_ids" => [to_string(running_task.id)]})
 
-      assert dashboard_live |> element("#cancel") |> render_click() =~
-               "Task: #{task_name} could not be cancelled: run_owner_unavailable"
+      dashboard_live |> element("#cancel") |> render_click()
+
+      assert render(dashboard_live) =~ "1 tasks canceled"
+
+      assert has_element?(dashboard_live, "#cancel[disabled]")
+
+      dashboard_live
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{"task_ids" => [to_string(running_task.id)]})
+
+      dashboard_live |> element("#cancel") |> render_click()
+
+      assert render(dashboard_live) =~ "1 tasks could not be canceled"
 
       assert has_element?(dashboard_live, "#flash-error .alert-error")
+    end
+
+    test "cancel selected is a no-op when the selection is no longer cancellable", %{
+      conn: conn
+    } do
+      dag_name = "mapped_cancel_stale_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      running_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :running,
+          map_index: 0
+        })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_cancel_stale_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      dashboard_live
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{"task_ids" => [to_string(running_task.id)]})
+
+      refute has_element?(dashboard_live, "#cancel[disabled]")
+
+      {:ok, _task} = Gust.Flows.update_task_status(running_task, :succeeded)
+
+      dashboard_live |> element("#cancel") |> render_click()
+
+      refute has_element?(dashboard_live, "#flash-info")
+      refute has_element?(dashboard_live, "#flash-error")
     end
 
     test "uses deterministic precedence for tied mapped task statuses", %{conn: conn} do
@@ -1840,7 +2216,7 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       GustWeb.DAGRunTriggerMock
       |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^mapped_task_id, map_index: 1} ->
-        []
+        {:ok, []}
       end)
 
       on_exit(fn -> File.rm_rf!(dag_file) end)
