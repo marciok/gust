@@ -43,6 +43,7 @@ jobs:
           gust_web_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_web/mix.exs)"
           gust_py_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_py/mix.exs)"
           gust_py_gust_version="$(sed -n 's/^[[:space:]]*@gust_version "\([^"]*\)".*/\1/p' apps/gust_py/mix.exs)"
+          gust_shell_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_shell/mix.exs)"
 
           if [[ ! "${release_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid release tag: ${GITHUB_REF_NAME}" >&2
@@ -59,7 +60,12 @@ jobs:
             exit 1
           fi
 
-          echo "gust=${gust_version} gust_web=${gust_web_version} gust_py=${gust_py_version} gust_py_gust=${gust_py_gust_version}"
+          if [[ "${gust_shell_version}" != "${release_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match gust_shell ${gust_shell_version}" >&2
+            exit 1
+          fi
+
+          echo "gust=${gust_version} gust_web=${gust_web_version} gust_py=${gust_py_version} gust_py_gust=${gust_py_gust_version} gust_shell=${gust_shell_version}"
 
       - name: Install NPM packages
         working-directory: apps/gust_web/assets
@@ -77,6 +83,7 @@ jobs:
           (cd apps/gust && mix hex.build --output "${RUNNER_TEMP}/gust.tar")
           (cd apps/gust_web && PUBLISH_DEP=true mix hex.build --output "${RUNNER_TEMP}/gust_web.tar")
           (cd apps/gust_py && PUBLISH_DEP=true mix hex.build --output "${RUNNER_TEMP}/gust_py.tar")
+          (cd apps/gust_shell && PUBLISH_DEP=true mix hex.build --output "${RUNNER_TEMP}/gust_shell.tar")
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -103,6 +110,18 @@ jobs:
           push: false
           cache-from: type=gha,scope=gust-python
           cache-to: type=gha,mode=max,scope=gust-python
+
+      - name: Build gust-shell Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/gust_shell/Dockerfile
+          target: final
+          build-args: GUST_WITH_SHELL=true
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=gust-shell
+          cache-to: type=gha,mode=max,scope=gust-shell
 
       - name: Build gust-web Docker image
         uses: docker/build-push-action@v6
@@ -370,6 +389,10 @@ jobs:
             dockerfile: apps/gust/Dockerfile
             target: python
             build-args: GUST_WITH_PYTHON=true
+          - image: gust-python
+            dockerfile: apps/gust/Dockerfile
+            target: final
+            build-args: ""
           - image: gust-web
             dockerfile: apps/gust_web/Dockerfile
             target: final

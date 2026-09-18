@@ -23,6 +23,7 @@ defmodule Gust.DAG.Adapter do
     adapters()
     |> Keyword.values()
     |> Enum.map(&Map.fetch!(&1, :parser))
+    |> Enum.uniq()
   end
 
   def parser_for_extension(extension) do

@@ -122,28 +122,62 @@ end
 
 ## Features
 
-**Orchestration**
-  - **Cron scheduling** — schedule DAGs with cron-style expressions via the Gust DSL.
-  - **Dependency-aware DAGs** — declare task dependencies and downstream execution order.
-  - **Parallel mapping** — `:map_over` creates one task instance per upstream list item.
-  - **Conditional skipping** — `:skip_if` skips a task, and its downstream dependents, based on a condition.
-  - **Durable waiting** — `:wait_for` pauses a DAG until another DAG, webhook, or external process resumes it.
+  - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
+  - [YAML and Shell DAG support](apps/gust_shell) for orchestrating shell commands and scripts.
+  - Parallel task mapping with `:map_over`, creating one task instance per upstream list item.
+  - Conditional task skipping with `:skip_if`; dependent downstream tasks are skipped when an upstream task is skipped.
+  - Durable task waiting with `:wait_for`, so a DAG can pause until another DAG, webhook, or external process resumes it.
+  - Support multiple nodes.
+  - [Support for Python DAGs](https://github.com/marciok/gust/tree/main/apps/gust_py)
+  - Manual task controls: stop running tasks, cancel retries, and restart tasks on demand.
+  - Run-time tracking, corrupted-state recovery, and graceful handling of syntax errors during development.
+  - Retry logic with backoff, plus state clearing for clean restarts.
+  - Hook for finished dag run.
+  - Web UI for live monitoring, runs and secrets editing.
 
-**Reliability**
-  - **[Multi-node support](https://hexdocs.pm/gust/roles.html)** — split core, web, and console roles across nodes, or run everything on one.
-  - **Retry logic with backoff**, plus state clearing for clean restarts.
-  - **Corrupted-state recovery** and graceful handling of syntax errors during development.
 
-**Developer experience**
-  - **[Python DAG support](https://github.com/marciok/gust/tree/main/apps/gust_py)** — write DAGs in Python, not just Elixir.
-  - **Manual task controls** — stop running tasks, cancel retries, and restart tasks on demand.
-  - **Run-finished hooks** — trigger a callback when a DAG run finishes.
-  - **[MCP server](https://hexdocs.pm/gust_web/mcp_server.html)** — give your LLM or agent access to Gust: list DAGs, trigger runs, explore definitions, and debug executions.
+---
+### MCP Server
 
-**Observability**
-  - **Web UI** for live monitoring of DAGs and runs, plus secrets editing.
-  - **Run-time tracking** of task execution state and history.
-  - **[Error tracking](https://hexdocs.pm/gust/error_tracking.html)** — asynchronously report terminal task failures to Sentry or another provider, without interrupting DAG execution.
+GustWeb includes a built-in MCP server that gives your LLM access to Gust’s core features, including listing DAGs, triggering runs, exploring DAG definitions, and debugging executions.
+
+To mount it in your Phoenix router:
+
+```elixir
+import GustWeb.MCPRouter
+
+scope "/mcp", MyAppWeb do
+  pipe_through :api
+  gust_mcp_server()
+end
+```
+
+The prefix comes from your `MyAppWeb` router scope, so you can also mount it
+under a project-specific path to avoid clashes:
+
+```elixir
+scope "/gust/mcp", MyAppWeb do
+  pipe_through :api
+  gust_mcp_server()
+end
+```
+
+That would expose `POST /gust/mcp/server`. Keep auth and any app-specific
+policy outside the macro, at the router scope or pipeline level.
+
+### Connect to an MCP client
+
+- claude: `claude mcp add --transport http gust-mcp http://localhost:4000/gust/mcp/server`
+- codex: `codex mcp add gust-mcp --url http://localhost:4000/gust/mcp/server`
+
+### Skills
+
+- [Available Skills](https://github.com/marciok/gust/tree/main/skills)
+
+- Install
+```
+gh skill install marciok/gust elixir-dag-creator
+```
 
 ---
 
@@ -154,6 +188,10 @@ end
   - [Configuration](https://hexdocs.pm/gust/configuration.html)
   - [Gust Roles](https://hexdocs.pm/gust/roles.html)
   - [Error Tracking](https://hexdocs.pm/gust/error_tracking.html)
+
+**Gust Shell**
+  - [Shell DAGs](apps/gust_shell) — YAML and shell command orchestration
+  - [Task Options](apps/gust_shell#task-options) — Process control, environment, and output handling
 
 **Gust Web**
   - [Installation](https://hexdocs.pm/gust_web/installation.html)
