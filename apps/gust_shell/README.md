@@ -46,27 +46,6 @@ tasks:
       AWS_PROFILE: production
 ```
 
-### Elixir DAG Example
-
-Define a shell DAG using Gust's DSL:
-
-```elixir
-defmodule BackupWorkflow do
-  use Gust.DSL
-
-  task :backup_data, downstream: [:upload_backup] do
-    {:shell, "tar -czf backup.tar.gz /data", cd: "/var/backups"}
-  end
-
-  task :upload_backup do
-    {:shell, "aws s3 cp backup.tar.gz s3://my-bucket/",
-      cd: "/var/backups",
-      env: %{"AWS_PROFILE" => "production"}
-    }
-  end
-end
-```
-
 ## YAML DAG Configuration
 
 ### Task Structure
