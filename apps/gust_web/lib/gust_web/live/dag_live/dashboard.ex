@@ -149,6 +149,14 @@ defmodule GustWeb.DagLive.Dashboard do
   defp read_code({file_path, _reload_time}), do: File.read!(file_path)
   defp reload_time({_file_path, reload_time}), do: reload_time
 
+  defp code_language(%{file_path: file_path}) do
+    case Path.extname(file_path) do
+      extension when extension in [".yml", ".yaml"] -> "yaml"
+      ".py" -> "python"
+      _extension -> "elixir"
+    end
+  end
+
   @impl true
   def handle_event("filter_mapped_task_status", %{"status" => status}, socket) do
     {:noreply,

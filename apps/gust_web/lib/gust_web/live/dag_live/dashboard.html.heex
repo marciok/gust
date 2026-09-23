@@ -536,8 +536,8 @@ config:
     </section>
 
     <div class="dag-card__body">
-      <pre class="language-elixir rounded-md overflow-x-auto">
-          <code id="code-highlight" class={"language-#{@dag_def.adapter} code-block p-3 text-xs leading-relaxed"} phx-hook="CodeHighlight">
+      <pre class={["rounded-md overflow-x-auto", "language-#{code_language(@dag_def)}"]}>
+          <code id="code-highlight" class={["code-block p-3 text-xs leading-relaxed", "language-#{code_language(@dag_def)}"]} phx-hook="CodeHighlight">
 {read_code(@reload_dag_file)}
           </code>
         </pre>
