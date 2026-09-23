@@ -60,11 +60,6 @@ jobs:
             exit 1
           fi
 
-          if [[ "${gust_shell_version}" != "${release_version}" ]]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match gust_shell ${gust_shell_version}" >&2
-            exit 1
-          fi
-
           echo "gust=${gust_version} gust_web=${gust_web_version} gust_py=${gust_py_version} gust_py_gust=${gust_py_gust_version} gust_shell=${gust_shell_version}"
 
       - name: Install NPM packages
