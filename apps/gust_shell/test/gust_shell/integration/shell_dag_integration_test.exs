@@ -19,6 +19,79 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
 
   setup :verify_on_exit!
 
+  setup do
+    Gust.DAGLoggerMock
+    |> stub(:set_task, fn _, _ -> :ok end)
+    |> stub(:unset, fn -> :ok end)
+
+    :ok
+  end
+
+  test "executes parsed options and keeps task params separate" do
+    assert {:ok, definition} =
+             parse_shell_dag("""
+             tasks:
+               - name: configured
+                 run: printf '%s' "$GREETING"; printf warning >&2
+                 cwd: #{System.tmp_dir!()}
+                 env:
+                   GREETING: hello
+             """)
+
+    state = %{
+      task: %{
+        id: 123,
+        attempt: 1,
+        name: "configured",
+        params: %{"run" => "exit 99", "env" => %{"GREETING" => "wrong"}, "unknown" => true}
+      },
+      dag_def: definition,
+      owner_pid: self(),
+      opts: Map.fetch!(definition.tasks, "configured")
+    }
+
+    assert {:noreply, running} = GustShell.TaskWorker.Adapter.handle_info(:run, state)
+    on_exit(fn -> :exec.stop(running.os_pid) end)
+    await_exit(running)
+    assert_receive {:task_result, %{stdout: "hello", stderr: "warning", exit_code: 0}, 123, :ok}
+  end
+
+  test "reports a real command failure with captured output" do
+    assert {:ok, definition} =
+             parse_shell_dag("""
+             tasks:
+               - name: fail
+                 run: printf output; printf problem >&2; exit 7
+             """)
+
+    state = %{
+      task: %{id: 124, attempt: 1, name: "fail", params: %{}},
+      owner_pid: self(),
+      opts: Map.fetch!(definition.tasks, "fail")
+    }
+
+    assert {:noreply, running} = GustShell.TaskWorker.Adapter.handle_info(:run, state)
+    on_exit(fn -> :exec.stop(running.os_pid) end)
+    await_exit(running)
+
+    assert_receive {:task_result,
+                    %GustShell.ShellExitError{exit_code: 7, stdout: "output", stderr: "problem"},
+                    124, :error}
+  end
+
+  defp await_exit(%{os_pid: os_pid} = state) do
+    receive do
+      {stream, ^os_pid, _data} = message when stream in [:stdout, :stderr] ->
+        {:noreply, state} = GustShell.TaskWorker.Adapter.handle_info(message, state)
+        await_exit(state)
+
+      {:DOWN, ^os_pid, :process, _pid, _reason} = message ->
+        assert {:stop, :normal, _} = GustShell.TaskWorker.Adapter.handle_info(message, state)
+    after
+      5_000 -> flunk("shell process did not finish")
+    end
+  end
+
   describe "YAML DAG parsing" do
     test "parses a simple sequential YAML DAG" do
       yaml = sequential_dag_yaml()
@@ -28,8 +101,8 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       assert dag_def.adapter == :shell
       assert Map.has_key?(dag_def.tasks, "task1")
       assert Map.has_key?(dag_def.tasks, "task2")
-      assert dag_def.tasks["task1"]["downstream"] == ["task2"]
-      assert dag_def.tasks["task2"]["downstream"] == []
+      assert dag_def.tasks["task1"][:downstream] == MapSet.new(["task2"])
+      assert dag_def.tasks["task2"][:downstream] == MapSet.new([])
     end
 
     test "parses a parallel YAML DAG with multiple downstream tasks" do
@@ -37,16 +110,16 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
 
       assert dag_def.adapter == :shell
-      assert dag_def.tasks["task1"]["downstream"] == ["task2", "task3"]
-      assert dag_def.tasks["task2"]["downstream"] == []
-      assert dag_def.tasks["task3"]["downstream"] == []
+      assert dag_def.tasks["task1"][:downstream] == MapSet.new(["task2", "task3"])
+      assert dag_def.tasks["task2"][:downstream] == MapSet.new([])
+      assert dag_def.tasks["task3"][:downstream] == MapSet.new([])
     end
 
     test "parses YAML DAG with environment variables" do
       yaml = configured_dag_yaml(env_var: "test_value")
       assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
 
-      assert dag_def.tasks["configured_task"]["env"] == %{"MY_VAR" => "test_value"}
+      assert {:env, [{"MY_VAR", "test_value"}]} in dag_def.tasks["configured_task"].exec_opts
     end
 
     test "parses YAML DAG with schedule option" do
@@ -83,18 +156,11 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       assert {:error, {[], "invalid shell DAG", _reason}} = parse_shell_dag(invalid_yaml)
     end
 
-    test "parses successfully even when task is missing run command (validation happens at execution)" do
-      # Note: The parser doesn't validate that run is present; this is validated when the task
-      # is executed by the TaskWorker adapter
-      yaml = """
-      tasks:
-        - name: task_without_run
-      """
+    test "rejects a task without a command before execution" do
+      assert {:error, {[], "invalid shell DAG", reason}} =
+               parse_shell_dag("tasks: [{name: task_without_run}]")
 
-      assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
-      assert Map.has_key?(dag_def.tasks, "task_without_run")
-      # The task will be created without a "run" key, which will cause an error when TaskWorker
-      # tries to execute it
+      assert reason =~ "run must be a string"
     end
   end
 
@@ -103,10 +169,10 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       yaml = sequential_dag_yaml(cmd1: "echo hello world")
       assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
 
-      assert dag_def.tasks["task1"]["run"] == "echo hello world"
+      assert dag_def.tasks["task1"].run == "echo hello world"
     end
 
-    test "task preserves all option keys" do
+    test "task prepares execution options" do
       yaml = """
       tasks:
         - name: full_config_task
@@ -119,10 +185,10 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
       task = dag_def.tasks["full_config_task"]
 
-      assert task["run"] == "echo test"
-      assert task["cwd"] == "/tmp"
-      assert task["kill_timeout"] == 5000
-      assert task["nice"] == 10
+      assert task.run == "echo test"
+      assert {:cd, "/tmp"} in task.exec_opts
+      assert {:kill_timeout, 5000} in task.exec_opts
+      assert {:nice, 10} in task.exec_opts
     end
 
     test "task normalizes environment variables to string keys" do
@@ -138,13 +204,14 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
       task = dag_def.tasks["env_task"]
 
-      assert task["env"] == %{"KEY1" => "value1", "KEY2" => "value2"}
+      assert {:env, env} = List.keyfind(task.exec_opts, :env, 0)
+      assert Map.new(env) == %{"KEY1" => "value1", "KEY2" => "value2"}
     end
   end
 
   describe "error handling" do
     test "handles YAML with no tasks" do
-      yaml = "schedule: '0 0 * * *'"
+      yaml = "schedule: '0 0 * * *'\ntasks: []"
       assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
       assert dag_def.tasks == %{}
     end
@@ -189,14 +256,14 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       assert {:ok, %Definition{} = dag_def} = ParserAdapter.parse_file(file_path)
 
       # Verify sequential chain
-      assert dag_def.tasks["backup"]["downstream"] == ["verify"]
-      assert dag_def.tasks["verify"]["downstream"] == ["cleanup"]
-      assert dag_def.tasks["cleanup"]["downstream"] == []
+      assert dag_def.tasks["backup"][:downstream] == MapSet.new(["verify"])
+      assert dag_def.tasks["verify"][:downstream] == MapSet.new(["cleanup"])
+      assert dag_def.tasks["cleanup"][:downstream] == MapSet.new([])
 
       # Verify all tasks have the command
-      assert dag_def.tasks["backup"]["run"] == "tar -czf backup.tar.gz /data"
-      assert dag_def.tasks["verify"]["run"] == "tar -tzf backup.tar.gz"
-      assert dag_def.tasks["cleanup"]["run"] == "rm -f backup.tar.gz"
+      assert dag_def.tasks["backup"].run == "tar -czf backup.tar.gz /data"
+      assert dag_def.tasks["verify"].run == "tar -tzf backup.tar.gz"
+      assert dag_def.tasks["cleanup"].run == "rm -f backup.tar.gz"
 
       # Verify schedule is preserved
       assert dag_def.options == [schedule: "0 2 * * *"]
@@ -228,10 +295,10 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       assert {:ok, %Definition{} = dag_def} = ParserAdapter.parse_file(file_path)
 
       # Verify diamond-shaped DAG structure (order of downstream may vary)
-      assert Enum.sort(dag_def.tasks["extract"]["downstream"]) == ["process", "validate"]
-      assert dag_def.tasks["validate"]["downstream"] == ["merge"]
-      assert dag_def.tasks["process"]["downstream"] == ["merge"]
-      assert dag_def.tasks["merge"]["downstream"] == ["publish"]
+      assert Enum.sort(dag_def.tasks["extract"][:downstream]) == ["process", "validate"]
+      assert dag_def.tasks["validate"][:downstream] == MapSet.new(["merge"])
+      assert dag_def.tasks["process"][:downstream] == MapSet.new(["merge"])
+      assert dag_def.tasks["merge"][:downstream] == MapSet.new(["publish"])
 
       # Verify stages are properly layered
       # Due to graph merging, extract is stage 1, [validate, process] is stage 2, merge is stage 3, publish is stage 4
@@ -249,7 +316,7 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
       """
 
       assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
-      assert String.contains?(dag_def.tasks["special_chars_task"]["run"], "hello")
+      assert String.contains?(dag_def.tasks["special_chars_task"].run, "hello")
     end
 
     test "handles multiline shell commands" do
@@ -265,7 +332,7 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
 
       assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
       # Verify multiline command is preserved
-      assert String.contains?(dag_def.tasks["multiline_task"]["run"], "echo start")
+      assert String.contains?(dag_def.tasks["multiline_task"].run, "echo start")
     end
 
     test "task names with underscores and hyphens" do

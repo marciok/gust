@@ -1,3 +1,11 @@
+case :os.type() do
+  {:unix, :linux} ->
+    nil
+
+  _ ->
+    ExUnit.configure(exclude: [linux_only: true])
+end
+
 ExUnit.start()
 
 # Add support directory to code path for test fixtures and helpers

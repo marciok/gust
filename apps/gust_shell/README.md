@@ -77,6 +77,20 @@ Each task in a YAML DAG requires:
 - **run**: The shell command to execute
 - **downstream** (optional): List of downstream task names
 
+`tasks` must be a YAML list of mappings with string names and commands. Use
+`tasks: []` for an empty DAG. Unknown task or DAG options and invalid task option
+types are rejected when the file is parsed, before any command starts.
+
+The parser prepares each task's command and complete execution options. Task
+params are input data and do not override the command or execution options.
+Use YAML booleans for `pty`, `pty_echo`, and `save` (not quoted strings), and a
+mapping for `env`. Environment values may be strings, numbers, or booleans; the
+parser converts them to strings without changing variable names.
+
+`save` (also accepted as `store_result`) controls result persistence and defaults
+to `false`. Specify only one spelling of an aliased option: combining `cd` with
+`cwd` or `working_dir`, or `save` with `store_result`, is an error.
+
 ### Task Options
 
 Shell tasks support the following execution options:
@@ -89,7 +103,7 @@ Shell tasks support the following execution options:
 - **nice**: CPU priority level (-20 to 19)
 - **pty**: Run in pseudo-terminal mode (true/false)
 - **pty_echo**: Enable PTY echo mode (true/false)
-- **kill_timeout**: Milliseconds before force-killing the process
+- **kill_timeout**: Seconds before force-killing the process
 
 #### Environment
 
@@ -104,7 +118,9 @@ Shell tasks support the following execution options:
 
 - **stdout**: Stream handling - "null", "close", or file path (default: captured)
 - **stderr**: Stream handling - "null", "close", or file path (default: captured)
-- **stdin**: Stream handling - "null", "close", or file path (default: closed)
+- **stdin**: Stream handling - "null", "close", or file path (default: managed by erlexec)
+
+Quote `"null"` in YAML; an unquoted `null` is a null value and is rejected.
 
 #### Debugging
 
@@ -175,7 +191,8 @@ mix test apps/gust_shell/test/
 ```
 
 The test suite includes:
-- 143+ TaskWorker adapter tests
+- Parser tests for option validation, normalization, defaults, and task graphs
+- TaskWorker tests for process lifecycle, output, and errors
 - 16+ Runtime adapter tests
 - Integration tests for complete DAG execution
 
@@ -183,7 +200,7 @@ The test suite includes:
 
 ### Components
 
-- **Parser Adapter** (`GustShell.Parser.Adapter`): Parses YAML DAG files
+- **Parser Adapter** (`GustShell.Parser.Adapter`): Validates YAML DAG files and prepares commands and complete execution options
 - **Task Worker Adapter** (`GustShell.TaskWorker.Adapter`): Executes shell commands and manages process lifecycle
 - **Runtime Adapter** (`GustShell.Runtime.Adapter`): Bridges Gust's runtime system with shell execution
 

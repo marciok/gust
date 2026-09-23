@@ -6,7 +6,6 @@ defmodule GustShell.TaskWorker.AdapterComprehensiveTest do
   use ExUnit.Case, async: true
 
   alias Gust.DAG.Definition
-  alias Gust.Flows.Task
   alias GustShell.TaskWorker.Adapter
 
   import Mox
@@ -33,7 +32,9 @@ defmodule GustShell.TaskWorker.AdapterComprehensiveTest do
         os_pid: 42
       }
 
-      assert {:stop, :normal, _} = Adapter.handle_info({:DOWN, 42, :process, self(), :normal}, state)
+      assert {:stop, :normal, _} =
+               Adapter.handle_info({:DOWN, 42, :process, self(), :normal}, state)
+
       assert_receive {:task_result, %{status: :success, exit_code: 0}, 1, :ok}
     end
 
@@ -65,7 +66,10 @@ defmodule GustShell.TaskWorker.AdapterComprehensiveTest do
       }
 
       assert {:stop, :normal, _} =
-               Adapter.handle_info({:DOWN, 42, :process, self(), {:signal, :sigterm, false}}, state)
+               Adapter.handle_info(
+                 {:DOWN, 42, :process, self(), {:signal, :sigterm, false}},
+                 state
+               )
 
       assert_receive {:task_result, error, 3, :error}
       assert is_exception(error)
@@ -84,7 +88,10 @@ defmodule GustShell.TaskWorker.AdapterComprehensiveTest do
       }
 
       assert {:stop, :normal, _} =
-               Adapter.handle_info({:DOWN, 42, :process, self(), {:signal, :sigsegv, true}}, state)
+               Adapter.handle_info(
+                 {:DOWN, 42, :process, self(), {:signal, :sigsegv, true}},
+                 state
+               )
 
       assert_receive {:task_result, error, 4, :error}
       assert is_exception(error)
@@ -136,8 +143,8 @@ defmodule GustShell.TaskWorker.AdapterComprehensiveTest do
       assert {:stop, :normal, _final_state} =
                Adapter.handle_info({:DOWN, 42, :process, self(), :normal}, state2)
 
-      assert_receive {:task_result,
-                      %{status: :success, stdout: "", stderr: "warning: something"}, 2, :ok}
+      assert_receive {:task_result, %{status: :success, stdout: "", stderr: "warning: something"},
+                      2, :ok}
     end
 
     test "handles nil stdout and stderr" do
@@ -175,171 +182,11 @@ defmodule GustShell.TaskWorker.AdapterComprehensiveTest do
                Adapter.handle_info({:DOWN, 42, :process, self(), :normal}, state2)
 
       assert_receive {:task_result,
-                      %{status: :success, stdout: "existing output more", stderr: "existing error details"}, 4,
-                      :ok}
-    end
-  end
-
-  describe "task configuration precedence" do
-    test "task params override dag definition" do
-      task = %Task{
-        id: 100,
-        run_id: 1,
-        attempt: 1,
-        name: "test_task",
-        params: %{"run" => "echo from params", "cd" => "/param/dir"}
-      }
-
-      dag_def = %Definition{
-        name: "test",
-        adapter: :shell,
-        tasks: %{"test_task" => %{"run" => "echo from dag", "cd" => "/dag/dir"}}
-      }
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: %{}
-      }
-
-      # Task params should override dag definition for the run command and cwd
-      # The adapter will attempt to run, and we verify the configuration was properly merged
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "runtime opts override both task params and dag definition" do
-      task = %Task{
-        id: 101,
-        run_id: 1,
-        attempt: 1,
-        name: "config_test",
-        params: %{"run" => "echo test", "cd" => "/task/dir"}
-      }
-
-      dag_def = %Definition{
-        name: "test",
-        adapter: :shell,
-        tasks: %{"config_test" => %{"cd" => "/dag/dir"}}
-      }
-
-      runtime_opts = %{"cd" => "/runtime/dir"}
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: runtime_opts
-      }
-
-      # Runtime opts have highest precedence
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "command resolution edge cases" do
-    test "resolves command from run key in task params" do
-      task = %Task{
-        id: 200,
-        run_id: 1,
-        attempt: 1,
-        name: "cmd_test",
-        params: %{"run" => "echo hello"}
-      }
-
-      dag_def = %Definition{name: "test", adapter: :shell}
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: %{}
-      }
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "resolves command from atom run key" do
-      task = %Task{
-        id: 201,
-        run_id: 1,
-        attempt: 1,
-        name: "atom_test",
-        # Using atom key
-        params: %{run: "echo with atom key"}
-      }
-
-      dag_def = %Definition{name: "test", adapter: :shell}
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: %{}
-      }
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "resolves command from command key" do
-      task = %Task{
-        id: 202,
-        run_id: 1,
-        attempt: 1,
-        name: "command_key_test",
-        params: %{"command" => "echo command key"}
-      }
-
-      dag_def = %Definition{name: "test", adapter: :shell}
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: %{}
-      }
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "handles non-binary command values" do
-      task = %Task{
-        id: 203,
-        run_id: 1,
-        attempt: 1,
-        name: "non_binary_test",
-        params: %{"run" => 123}  # Non-binary value
-      }
-
-      dag_def = %Definition{name: "test", adapter: :shell}
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: %{}
-      }
-
-      # Should convert non-binary to string
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
+                      %{
+                        status: :success,
+                        stdout: "existing output more",
+                        stderr: "existing error details"
+                      }, 4, :ok}
     end
   end
 
@@ -356,36 +203,6 @@ defmodule GustShell.TaskWorker.AdapterComprehensiveTest do
       }
 
       assert {:stop, :normal, ^state} = Adapter.handle_cast({:kill}, state)
-    end
-  end
-
-  describe "exec options deduplication in handle_info" do
-    test "handles stdin/stdout/stderr tuple options in exec_opts (line 23)" do
-      # This tests line 23: ({opt, _}, acc) when opt in [:group, :stdin, :stdout, :stderr]
-      # These tuples are generated by normalize_exec_option and processed in handle_info(:run, ...)
-
-      task = %Task{
-        id: 400,
-        run_id: 1,
-        attempt: 1,
-        name: "test_task",
-        params: %{"run" => "echo test", "stdin" => "close", "group" => 1000}
-      }
-
-      dag_def = %Definition{name: "test", adapter: :shell}
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: %{}
-      }
-
-      # This calls handle_info(:run, ...) which triggers the reduce with tuple options
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
     end
   end
 
@@ -434,66 +251,11 @@ defmodule GustShell.TaskWorker.AdapterComprehensiveTest do
         opts: %{}
       }
 
-      {:noreply, new_state} = Adapter.handle_info({:DOWN, 999, :process, self(), :normal}, original_state)
+      {:noreply, new_state} =
+        Adapter.handle_info({:DOWN, 999, :process, self(), :normal}, original_state)
 
       assert new_state == original_state
       refute_receive {:task_result, _, _, _}, 50
-    end
-  end
-
-  describe "environment variable handling" do
-    test "normalizes map environment variables to string tuples" do
-      task = %Task{
-        id: 400,
-        run_id: 1,
-        attempt: 1,
-        name: "env_test",
-        params: %{
-          "run" => "echo $VAR",
-          "env" => %{"KEY1" => "value1", "KEY2" => "value2"}
-        }
-      }
-
-      dag_def = %Definition{name: "test", adapter: :shell}
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: %{}
-      }
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "handles list environment variables" do
-      task = %Task{
-        id: 401,
-        run_id: 1,
-        attempt: 1,
-        name: "env_list_test",
-        params: %{
-          "run" => "echo test",
-          "env" => [{"KEY", "value"}]
-        }
-      }
-
-      dag_def = %Definition{name: "test", adapter: :shell}
-
-      state = %{
-        task: task,
-        dag_def: dag_def,
-        owner_pid: self(),
-        os_pid: nil,
-        stdout: [],
-        stderr: [],
-        opts: %{}
-      }
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
     end
   end
 end

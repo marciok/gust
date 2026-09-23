@@ -5,139 +5,209 @@ defmodule GustShell.Parser.Adapter do
 
   alias Gust.DAG.{Definition, Graph}
 
+  @dag_opts %{"schedule" => :schedule, "on_finished_callback" => :on_finished_callback}
+  @exec_opts %{
+    "cd" => :cd,
+    "cwd" => :cd,
+    "working_dir" => :cd,
+    "cgroup" => :cgroup,
+    "debug" => :debug,
+    "env" => :env,
+    "executable" => :executable,
+    "group" => :group,
+    "kill_timeout" => :kill_timeout,
+    "nice" => :nice,
+    "pty" => :pty,
+    "pty_echo" => :pty_echo,
+    "stderr" => :stderr,
+    "stdin" => :stdin,
+    "stdout" => :stdout,
+    "success_exit_code" => :success_exit_code,
+    "user" => :user
+  }
+  @task_opts ~w(name run downstream save store_result) ++ Map.keys(@exec_opts)
+  @default_exec_opts [:stdin, :stdout, :stderr, :monitor, {:group, 0}, :kill_group]
+  @std_keys ~w(stdin stdout stderr)a
+
   @impl true
   def extension, do: ".yml"
 
   @impl true
   def parse_file(file_path) do
     with {:ok, yaml} <- read_yaml(file_path),
-         {:ok, dag_def} <- build_definition(yaml, file_path) do
-      {:ok, dag_def}
+         {:ok, definition} <- build_definition(yaml, file_path) do
+      {:ok, definition}
     else
-      {:error, reason} ->
-        {:error, {[], "invalid shell DAG", inspect(reason)}}
+      {:error, reason} -> {:error, {[], "invalid shell DAG", inspect(reason)}}
     end
+  rescue
+    error in ArgumentError ->
+      {:error, {[], "invalid shell DAG", Exception.message(error)}}
   end
 
   defp read_yaml(file_path) do
     {:ok, :glazer_yaml.read_file(file_path)}
   rescue
-    e -> {:error, e}
+    error -> {:error, error}
   end
 
   defp build_definition(yaml, file_path) do
-    name = Path.basename(file_path, extension())
-    task_entries = tasks_from_yaml(yaml)
+    validate_keys!(yaml, ["tasks" | Map.keys(@dag_opts)])
+    entries = Map.get(yaml, "tasks")
 
-    with {:ok, task_list} <- build_task_list(task_entries),
-         graph = Graph.link_tasks(task_list),
-         {:ok, tasks} <- merge_task_options(graph, task_entries),
-         {:ok, stages} <- Graph.to_stages(graph) do
+    unless is_list(entries), do: raise(ArgumentError, "tasks must be a list")
+
+    tasks = Enum.map(entries, &parse_task!/1)
+    names = Enum.map(tasks, &elem(&1, 0))
+
+    if length(names) != length(Enum.uniq(names)),
+      do: raise(ArgumentError, "task names must be unique")
+
+    Enum.each(tasks, fn {name, task} ->
+      unknown = Enum.reject(task.downstream, &(&1 in names))
+
+      if unknown != [],
+        do:
+          raise(
+            ArgumentError,
+            "task #{inspect(name)}: unknown downstream tasks #{inspect(unknown)}"
+          )
+    end)
+
+    graph =
+      Graph.link_tasks(
+        Enum.map(tasks, fn {name, task} -> {name, [downstream: task.downstream]} end)
+      )
+
+    with {:ok, stages} <- Graph.to_stages(graph) do
       {:ok,
-        %Definition{
-          name: name,
-          adapter: :shell,
-          file_path: file_path,
-          options: parse_options(yaml),
-          task_list: List.flatten(stages),
-          stages: stages,
-          tasks: tasks
-        }}
+       %Definition{
+         name: Path.basename(file_path, extension()),
+         adapter: :shell,
+         file_path: file_path,
+         options:
+           for(
+             {key, value} <- Map.take(yaml, Map.keys(@dag_opts)),
+             do: {Map.fetch!(@dag_opts, key), value}
+           ),
+         task_list: List.flatten(stages),
+         stages: stages,
+         tasks:
+           Map.new(tasks, fn {name, task} -> {name, Map.merge(task, Map.fetch!(graph, name))} end)
+       }}
     end
   end
 
-  defp build_task_list(task_entries) do
-    Enum.reduce_while(task_entries, {:ok, []}, fn task, {:ok, acc} ->
-      case task_graph_entry(task) do
-        {:ok, entry} -> {:cont, {:ok, acc ++ [entry]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
+  defp parse_task!(task) do
+    validate_keys!(task, @task_opts)
+    name = Map.get(task, "name")
+    command = Map.get(task, "run")
+    downstream = Map.get(task, "downstream", [])
+    store_result = Map.get(task, "store_result", Map.get(task, "save", false))
+
+    unless is_binary(name) and name != "",
+      do: raise(ArgumentError, "name must be a non-empty string")
+
+    unless is_binary(command), do: raise(ArgumentError, "run must be a string")
+
+    validate_downstream!(downstream)
+
+    unless is_boolean(store_result),
+      do: raise(ArgumentError, "save/store_result must be a boolean")
+
+    if Map.has_key?(task, "save") and Map.has_key?(task, "store_result"),
+      do: raise(ArgumentError, "use only one of save and store_result")
+
+    {name,
+     %{
+       run: command,
+       downstream: downstream,
+       store_result: store_result,
+       exec_opts: parse_exec_opts!(task)
+     }}
+  rescue
+    error in ArgumentError ->
+      name = if is_map(task), do: Map.get(task, "name"), else: nil
+
+      reraise ArgumentError,
+              [message: "task #{inspect(name)}: #{Exception.message(error)}"],
+              __STACKTRACE__
   end
 
-  defp tasks_from_yaml(yaml) do
-    case Map.get(yaml, "tasks") || Map.get(yaml, :tasks) || [] do
-      tasks when is_list(tasks) -> tasks
-      task when is_map(task) -> [task]
-      _ -> []
+  defp validate_downstream!(downstream) do
+    unless is_list(downstream) and Enum.all?(downstream, &is_binary/1),
+      do: raise(ArgumentError, "downstream must be a list of task names")
+  end
+
+  defp validate_keys!(options, allowed) when is_map(options) do
+    case Map.keys(options) -- allowed do
+      [] ->
+        :ok
+
+      keys ->
+        raise ArgumentError,
+              "unknown keys #{inspect(keys)}, the allowed keys are: #{inspect(Enum.sort(allowed))}"
     end
   end
 
-  defp task_graph_entry(task) do
-    with {:ok, task_name} <- fetch_task_name(task) do
-      downstream = fetch_downstream(task)
-      {:ok, {to_string(task_name), [downstream: downstream]}}
-    end
-  end
+  defp validate_keys!(_options, _allowed),
+    do: raise(ArgumentError, "options must be a YAML mapping")
 
-  defp fetch_task_name(task) do
-    case task["name"] || task[:name] do
-      nil -> {:error, "shell task is missing a name"}
-      name -> {:ok, name}
-    end
-  end
+  defp parse_exec_opts!(task) do
+    options =
+      task
+      |> Map.take(Map.keys(@exec_opts))
+      |> Enum.map(fn {key, value} -> {Map.fetch!(@exec_opts, key), value} end)
 
-  defp fetch_downstream(task) do
-    case task["downstream"] || task[:downstream] || [] do
-      list when is_list(list) -> Enum.map(list, &to_string/1)
-      value -> [to_string(value)]
-    end
-  end
+    keys = Keyword.keys(options)
 
-  defp merge_task_options(graph, task_entries) do
-    with {:ok, task_params} <- build_task_params(task_entries) do
-      result = Enum.reduce(graph, %{}, fn {name, node}, acc ->
-        downstream = node[:downstream] |> MapSet.to_list() |> Enum.map(&to_string/1)
-        task = Map.get(task_params, name, %{})
-        Map.put(acc, name, Map.put(task, "downstream", downstream))
+    if length(keys) != length(Enum.uniq(keys)),
+      do: raise(ArgumentError, "use only one of cd, cwd and working_dir")
+
+    defaults =
+      Enum.reject(@default_exec_opts, fn
+        {key, _} -> key in keys
+        key -> key in keys
       end)
-      {:ok, result}
-    end
+
+    defaults ++ Enum.flat_map(options, fn {key, value} -> parse_exec_option!(key, value) end)
   end
 
-  defp build_task_params(task_entries) do
-    result =
-      Enum.reduce(task_entries, %{}, fn task, acc ->
-        # At this point, all tasks have already been validated by build_task_list
-        {:ok, name} = fetch_task_name(task)
-        normalized = normalize_task(task)
-        Map.put(acc, to_string(name), normalized)
+  defp parse_exec_option!(key, value)
+       when key in [:cd, :cgroup, :executable, :user] and is_binary(value),
+       do: [{key, value}]
+
+  defp parse_exec_option!(:group, value) when is_integer(value) or is_binary(value),
+    do: [{:group, value}]
+
+  defp parse_exec_option!(key, value)
+       when key in [:debug, :kill_timeout, :success_exit_code] and is_integer(value) and
+              value >= 0,
+       do: [{key, value}]
+
+  defp parse_exec_option!(:nice, value) when is_integer(value) and value >= -20 and value <= 19,
+    do: [{:nice, value}]
+
+  defp parse_exec_option!(:env, value) when is_map(value) do
+    env =
+      Enum.map(value, fn {key, item} ->
+        unless is_binary(key) and (is_binary(item) or is_number(item) or is_boolean(item)),
+          do: raise(ArgumentError, "env must map string keys to strings, numbers or booleans")
+
+        {key, to_string(item)}
       end)
 
-    {:ok, result}
+    [{:env, env}]
   end
 
-  defp normalize_task(task) do
-    task
-    |> Enum.reduce(%{}, fn {key, value}, acc ->
-      Map.put(acc, normalize_key(key), normalize_value(value))
-    end)
-    |> Map.delete("name")
-  end
+  defp parse_exec_option!(key, true) when key in [:pty, :pty_echo], do: [key]
+  defp parse_exec_option!(key, false) when key in [:pty, :pty_echo], do: []
+  defp parse_exec_option!(key, "null") when key in @std_keys, do: [{key, :null}]
+  defp parse_exec_option!(key, "close") when key in @std_keys, do: [{key, :close}]
 
-  defp normalize_key(key) do
-    key |> to_string() |> String.trim_leading("$")
-  end
+  defp parse_exec_option!(key, value) when key in @std_keys and is_binary(value),
+    do: [{key, value}]
 
-  defp normalize_value(value) when is_map(value) do
-    Map.new(value, fn {key, item} -> {normalize_key(key), normalize_value(item)} end)
-  end
-
-  defp normalize_value(value) when is_list(value) do
-    Enum.map(value, &normalize_value/1)
-  end
-
-  defp normalize_value(value), do: value
-
-  defp parse_options(yaml) do
-    Enum.reduce([:schedule, :on_finished_callback], [], fn key, acc ->
-      value = yaml[to_string(key)] || yaml[key]
-
-      if value == nil do
-        acc
-      else
-        Keyword.put(acc, key, value)
-      end
-    end)
-  end
+  defp parse_exec_option!(key, value),
+    do: raise(ArgumentError, "invalid value #{inspect(value)} for option #{inspect(key)}")
 end

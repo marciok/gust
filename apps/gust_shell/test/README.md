@@ -10,12 +10,16 @@ This directory contains tests for the GustShell application, which provides shel
   - Command execution and output capture
   - Exit code and signal handling
   - Mismatch handling for process IDs
-  - Configuration precedence (DAG definition → task params → runtime options)
+  - Process startup errors
 
 - **`gust_shell/parser/adapter_test.exs`** - Tests for the YAML DAG parser
   - YAML parsing and validation
   - Task structure creation
-  - Environment variable handling
+  - Unknown option and invalid type rejection
+
+- **`gust_shell/parser/adapter_options_test.exs`** - Tests for execution option parsing
+  - Aliases, environment variables, stdio, and boolean flags
+  - Defaults and conflicting option rejection
 
 ### Integration Tests
 
@@ -80,7 +84,7 @@ The test suite covers:
    - Exit code handling (success, failure, signals)
 
 3. **Configuration**
-   - Configuration precedence
+   - Parser-owned execution options; task params do not override configuration
    - Environment variable handling
    - Working directory and other execution options
 
@@ -131,6 +135,6 @@ test "my new test" do
   assert {:ok, %Definition{} = dag_def} = parse_shell_dag(yaml)
 
   # Assert your test conditions
-  assert dag_def.tasks["task1"]["run"] == "my command"
+  assert dag_def.tasks["task1"].run == "my command"
 end
 ```

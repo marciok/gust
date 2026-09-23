@@ -1,312 +1,140 @@
 defmodule GustShell.TaskWorker.AdapterExecOptionsTest do
   @moduledoc """
-  Comprehensive tests for exec option types to ensure complete coverage
-  of the normalize_exec_option2 and normalize_stdio functions.
+  Exercises parsed execution options through the shell worker and erlexec.
+  Option normalization and invalid values are covered by Parser.AdapterOptionsTest.
   """
 
   use ExUnit.Case, async: false
 
-  alias Gust.DAG.Definition
-  alias Gust.Flows.Task
   alias GustShell.TaskWorker.Adapter
 
   import Mox
+  import GustShell.TestFixtures
 
   setup :verify_on_exit!
-  setup :set_mox_from_context
 
   setup do
     Gust.DAGLoggerMock
-    |> stub(:set_task, fn _task_id, _attempt -> nil end)
-    |> stub(:unset, fn -> nil end)
+    |> stub(:set_task, fn _, _ -> :ok end)
+    |> stub(:unset, fn -> :ok end)
 
     :ok
   end
 
-  defp create_task_state(task_id, params) do
-    task = %Task{
-      id: task_id,
-      run_id: 1,
-      attempt: 1,
-      name: "test_task",
-      params: Map.merge(%{"run" => "echo test"}, params)
-    }
+  for {option, command, stdout, stderr} <- [
+        {"cd: /", "pwd", "/\n", ""},
+        {"cwd: /", "pwd", "/\n", ""},
+        {"working_dir: /", "pwd", "/\n", ""},
+        {"env: {GREETING: hello}", "printf '%s' \"$GREETING\"", "hello", ""},
+        {"executable: /bin/sh", "printf hello", "hello", ""},
+        {"group: 0", "printf hello", "hello", ""},
+        {"debug: 2", "printf hello", "hello", ""},
+        {"kill_timeout: 2", "printf hello", "hello", ""},
+        {"nice: 0", "printf hello", "hello", ""},
+        {"pty: false", "test ! -t 1 && printf pipe", "pipe", ""},
+        {"pty_echo: true", "printf hello", "hello", ""},
+        {"pty_echo: false", "printf hello", "hello", ""},
+        {"stdin: 'null'", "cat; printf eof", "eof", ""},
+        {"stdin: close", "cat; printf eof", "eof", :closed_descriptor},
+        {"stdin: /dev/null", "cat; printf eof", "eof", ""},
+        {"stdout: close", "printf hidden; printf visible >&2", "", :closed_descriptor},
+        {"stdout: 'null'", "printf hidden; printf visible >&2", "", "visible"},
+        {"stdout: /dev/null", "printf hidden; printf visible >&2", "", "visible"},
+        {"stderr: /dev/null", "printf visible; printf hidden >&2", "visible", ""},
+        {"stderr: 'null'", "printf visible; printf hidden >&2", "visible", ""},
+        {"stderr: close", "if printf hidden >&2; then printf open; else printf closed; fi",
+         "closed", ""},
+        {"success_exit_code: 0", "printf hello", "hello", ""}
+      ] do
+    test "executes parsed #{option}" do
+      assert {:ok, definition} =
+               parse_shell_dag("""
+               tasks:
+                 - name: configured
+                   run: #{unquote(command)}
+                   #{unquote(option)}
+               """)
 
-    dag_def = %Definition{name: "test", adapter: :shell}
+      state = %{
+        task: %{id: 125, attempt: 1, name: "configured", params: %{}},
+        owner_pid: self(),
+        opts: Map.fetch!(definition.tasks, "configured")
+      }
 
-    %{
-      task: task,
-      dag_def: dag_def,
-      owner_pid: self(),
-      os_pid: nil,
-      stdout: [],
-      stderr: [],
-      opts: %{}
-    }
-  end
+      assert {:noreply, running} = Adapter.handle_info(:run, state)
+      on_exit(fn -> :exec.stop(running.os_pid) end)
+      await_exit(running)
 
-  describe "debug option" do
-    test "debug option with numeric value" do
-      state = create_task_state(1, %{"debug" => 1})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
+      assert_receive {:task_result, %{stdout: unquote(stdout), stderr: actual_stderr}, 125,
+                      result}
 
-    test "debug option with level 2" do
-      state = create_task_state(2, %{"debug" => 2})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "executable option" do
-    test "executable option with bash path" do
-      state = create_task_state(3, %{"executable" => "/bin/bash"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "executable option with sh path" do
-      state = create_task_state(4, %{"executable" => "/bin/sh"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "group option" do
-    test "group option with numeric value" do
-      state = create_task_state(5, %{"group" => 0})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "group option with different process group" do
-      state = create_task_state(6, %{"group" => 100})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "pty option" do
-    test "pty true boolean" do
-      state = create_task_state(11, %{"pty" => true})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "pty string true" do
-      state = create_task_state(12, %{"pty" => "true"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "pty false boolean is filtered" do
-      state = create_task_state(13, %{"pty" => false})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "pty_echo option" do
-    test "pty_echo true boolean" do
-      state = create_task_state(14, %{"pty_echo" => true})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "pty_echo string true" do
-      state = create_task_state(15, %{"pty_echo" => "true"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "pty_echo false boolean is filtered" do
-      state = create_task_state(16, %{"pty_echo" => false})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "pty_echo string false is filtered" do
-      state = create_task_state(17, %{"pty_echo" => "false"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "user option" do
-    test "user option with root" do
-      state = create_task_state(18, %{"user" => "root"})
-      result = Adapter.handle_info(:run, state)
-
-      # Either succeeds or fails with permission error - both are acceptable
-      case result do
-        {:noreply, %{os_pid: _pid}} -> assert true
-        {:stop, %RuntimeError{message: msg}, _state} ->
-          assert String.contains?(msg, "failed to start shell task")
-      end
-    end
-
-    test "user option with different user" do
-      state = create_task_state(19, %{"user" => "nobody"})
-      result = Adapter.handle_info(:run, state)
-
-      case result do
-        {:noreply, %{os_pid: _pid}} -> assert true
-        {:stop, %RuntimeError{}, _state} -> assert true
+      if unquote(stderr) == :closed_descriptor do
+        assert actual_stderr =~ "file descriptor"
+        assert result == :ok
+      else
+        assert actual_stderr == unquote(stderr)
+        assert result == :ok
       end
     end
   end
 
-  describe "stdio options - null mode" do
-    test "stdout null option (string)" do
-      state = create_task_state(20, %{"stdout" => "null"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
+  for echo <- [true, false] do
+    test "allocates a terminal with pty_echo: #{echo}" do
+      assert {:ok, definition} =
+               parse_shell_dag("""
+               tasks:
+                 - name: terminal
+                   run: test -t 1 && printf terminal
+                   pty: true
+                   pty_echo: #{unquote(echo)}
+               """)
 
-    test "stderr null option (string)" do
-      state = create_task_state(21, %{"stderr" => "null"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
+      state = %{
+        task: %{id: 126, attempt: 1, name: "terminal", params: %{}},
+        owner_pid: self(),
+        opts: Map.fetch!(definition.tasks, "terminal")
+      }
 
-    test "stdin null option (string)" do
-      state = create_task_state(22, %{"stdin" => "null"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
+      assert {:noreply, running} = Adapter.handle_info(:run, state)
+      on_exit(fn -> :exec.stop(running.os_pid) end)
+      await_exit(running)
 
-    test "stdout null option (atom)" do
-      state = create_task_state(23, %{"stdout" => :null})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "stderr null option (atom)" do
-      state = create_task_state(24, %{"stderr" => :null})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "stdin null option (atom)" do
-      state = create_task_state(25, %{"stdin" => :null})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
+      assert_receive {:task_result, %{stdout: stdout, stderr: stderr, exit_code: 0}, 126, :ok}
+      # A PTY shares stdout and stderr; erlexec may report its output on either stream.
+      assert stdout <> stderr == "terminal"
     end
   end
 
-  describe "stdio options - close mode" do
-    test "stdout close option (string)" do
-      state = create_task_state(26, %{"stdout" => "close"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
+  describe "cgroup option" do
+    @tag :linux_only
+    test "is parsed and passed to erlexec" do
+      assert {:ok, definition} =
+               parse_shell_dag("tasks: [{name: cgroup, run: echo test, cgroup: my_cgroup}]")
 
-    test "stderr close option (string)" do
-      state = create_task_state(27, %{"stderr" => "close"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
+      state = %{
+        task: %{id: 127, attempt: 1, name: "cgroup", params: %{}},
+        owner_pid: self(),
+        opts: Map.fetch!(definition.tasks, "cgroup")
+      }
 
-    test "stdin close option (string)" do
-      state = create_task_state(28, %{"stdin" => "close"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
+      assert {:noreply, running} = Adapter.handle_info(:run, state)
+      on_exit(fn -> :exec.stop(running.os_pid) end)
+      await_exit(running)
 
-    test "stdout close option (atom)" do
-      state = create_task_state(29, %{"stdout" => :close})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "stderr close option (atom)" do
-      state = create_task_state(30, %{"stderr" => :close})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "stdin close option (atom)" do
-      state = create_task_state(31, %{"stdin" => :close})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
+      assert_receive {:task_result, %{exit_code: 0}, 127, :ok}
     end
   end
 
-  describe "option edge cases" do
-    test "option with whitespace in key is trimmed" do
-      state = create_task_state(50, %{"  debug  " => 1})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
+  defp await_exit(%{os_pid: os_pid} = state) do
+    receive do
+      {stream, ^os_pid, _data} = message when stream in [:stdout, :stderr] ->
+        {:noreply, state} = Adapter.handle_info(message, state)
+        await_exit(state)
 
-    test "option with whitespace and pty" do
-      state = create_task_state(51, %{"  pty  " => true})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "unknown option is ignored" do
-      state = create_task_state(52, %{
-        "unknown_exec_option" => "value",
-        "debug" => 1
-      })
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "multiple unknown options are ignored" do
-      state = create_task_state(53, %{
-        "unknown1" => "value1",
-        "unknown2" => "value2",
-        "cd" => "/tmp"
-      })
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "normalize_option_key2 coverage" do
-    test "cgroup string key is normalized" do
-      state = create_task_state(60, %{"cgroup" => "group1"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "pty_echo string key is normalized" do
-      state = create_task_state(61, %{"pty_echo" => true})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "cwd alias is normalized to cd" do
-      state = create_task_state(62, %{"cwd" => "/tmp"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "working_dir alias is normalized to cd" do
-      state = create_task_state(63, %{"working_dir" => "/var"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "normalize_stdio coverage" do
-    test "stdout with true boolean becomes key" do
-      state = create_task_state(70, %{"stdout" => true})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "stderr with close string becomes key" do
-      state = create_task_state(71, %{"stderr" => "close"})
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-  end
-
-  describe "option combinations (safe combinations)" do
-    test "debug and executable together" do
-      state = create_task_state(80, %{
-        "debug" => 1,
-        "executable" => "/bin/bash"
-      })
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "nice option" do
-      state = create_task_state(81, %{
-        "nice" => 5
-      })
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "pty and pty_echo together" do
-      state = create_task_state(82, %{
-        "pty" => true,
-        "pty_echo" => true
-      })
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
-    end
-
-    test "cd and kill_timeout together" do
-      state = create_task_state(83, %{
-        "cd" => "/tmp",
-        "kill_timeout" => 5000
-      })
-
-      assert {:noreply, %{os_pid: _pid}} = Adapter.handle_info(:run, state)
+      {:DOWN, ^os_pid, :process, _pid, _reason} = message ->
+        assert {:stop, :normal, _} = Adapter.handle_info(message, state)
+    after
+      5_000 -> flunk("shell process did not finish")
     end
   end
 end
