@@ -6,6 +6,14 @@ YAML and Elixir shell DAG support for Gust.
 
 Gust Shell extends Gust with the ability to define and execute shell command DAGs. This allows you to orchestrate shell scripts, system commands, and tools as part of your Gust workflows.
 
+## Guides
+
+- [Installation](guides/installation.md) — add `gust_shell` to a Gust project
+  and wire up the shell adapter.
+- [Writing Shell DAGs](guides/writing_shell_dags.md) — a full DAG example and
+  every task option.
+- [Under the Hood](guides/under_the_hood.md) — how Gust runs shell tasks.
+
 ## Features
 
 - **YAML DAG Support**: Define shell DAGs using simple YAML files (`.yml`)

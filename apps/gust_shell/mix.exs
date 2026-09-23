@@ -29,10 +29,12 @@ defmodule GustShell.MixProject do
         links: %{"GitHub" => "https://github.com/marciok/gust"},
         files: [
           "lib",
+          "guides",
           "mix.exs",
           "README.md"
         ]
-      ]
+      ],
+      docs: docs()
     ]
   end
 
@@ -56,4 +58,17 @@ defmodule GustShell.MixProject do
       {:gust, in_umbrella: true}
     end
   end
+
+  defp docs do
+    [
+      main: "readme",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/marciok/gust",
+      extras: extras(),
+      groups_for_extras: groups_for_extras()
+    ]
+  end
+
+  defp extras, do: ["README.md"] ++ Path.wildcard("guides/*.md")
+  defp groups_for_extras, do: [Guides: Path.wildcard("guides/*.md")]
 end
