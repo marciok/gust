@@ -110,7 +110,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/gust_shell/Dockerfile
+          file: apps/gust/Dockerfile
           target: final
           build-args: GUST_WITH_SHELL=true
           platforms: linux/amd64
@@ -384,10 +384,10 @@ jobs:
             dockerfile: apps/gust/Dockerfile
             target: python
             build-args: GUST_WITH_PYTHON=true
-          - image: gust-python
+          - image: gust-shell
             dockerfile: apps/gust/Dockerfile
             target: final
-            build-args: ""
+            build-args: GUST_WITH_SHELL=true
           - image: gust-web
             dockerfile: apps/gust_web/Dockerfile
             target: final
