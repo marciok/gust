@@ -1,5 +1,14 @@
 defmodule GustPy.TaskWorker.Adapter do
-  @moduledoc false
+  @moduledoc """
+  A `Gust.DAG.TaskWorker` that runs a DAG task as a Python process.
+
+  The task is started via `GustPy.Executor.start_task/3`, and stdout is
+  decoded as a stream of framed messages (`GustPy.TaskMessenger.FrameCodec`)
+  handled through `GustPy.TaskMessenger`, while stderr is logged as
+  warnings. The worker reports the task result back to its owner once the
+  OS process exits (`:DOWN`), using the last `:done` message received, or a
+  `GustPy.TaskWorker.Error` if the process died before completing.
+  """
 
   use Gust.DAG.TaskWorker
   require Logger

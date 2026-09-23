@@ -24,7 +24,7 @@ defmodule GustWeb.DagLiveDashboardTest do
   }
 
   describe "Index" do
-    setup %{conn: conn} do
+    setup %{conn: conn} = context do
       dag_name = "my_valid_dag"
       dag = dag_fixture(%{name: dag_name})
       dag_id = dag.id
@@ -40,7 +40,8 @@ defmodule GustWeb.DagLiveDashboardTest do
         })
 
       dag_folder = System.tmp_dir!()
-      dag_file = "#{dag_folder}/show_dag_code.ex"
+      extension = Map.get(context, :code_extension, ".ex")
+      dag_file = "#{dag_folder}/show_dag_code#{extension}"
 
       File.write!(dag_file, @code)
 
@@ -638,7 +639,26 @@ defmodule GustWeb.DagLiveDashboardTest do
       {:ok, dashboard_live, html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
 
       assert has_element?(dashboard_live, "#code-highlight")
+      assert has_element?(dashboard_live, "#code-highlight.language-elixir")
       assert html =~ @code
+    end
+
+    for {extension, language} <- [
+          {".yml", "yaml"},
+          {".yaml", "yaml"},
+          {".py", "python"},
+          {".unknown", "elixir"}
+        ] do
+      @tag code_extension: extension
+      test "highlights #{extension} DAG code as #{language}", %{conn: conn, dag: dag} do
+        {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
+
+        assert has_element?(
+                 dashboard_live,
+                 "pre.language-#{unquote(language)} > #code-highlight.language-#{unquote(language)}",
+                 String.trim(@code)
+               )
+      end
     end
 
     test "dag has schedule", %{
@@ -1279,7 +1299,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       other_run = run_fixture(%{dag_id: dag.id})
       task_name = "insert_models"
 
-      first = task_fixture(%{run_id: run.id, name: task_name, map_index: 0})
+      first = %Flows.Task{} = task_fixture(%{run_id: run.id, name: task_name, map_index: 0})
       second = task_fixture(%{run_id: run.id, name: task_name, map_index: 1})
       _other_task = task_fixture(%{run_id: run.id, name: "other_task", map_index: 0})
       _other_run_task = task_fixture(%{run_id: other_run.id, name: task_name, map_index: 0})

@@ -55,7 +55,6 @@ if Code.ensure_loaded?(Igniter) do
         {:gust, [:dag_logger], Gust.DAG.Logger.Database},
         {name, [:ecto_repos], [Gust.Repo], updater: &append_gust_repo/1},
         {:gust, [Gust.Repo, :migration_source], "gust_schema_migrations"},
-        {:logger, [:backends], [:console, Gust.DAG.Logger.Database]},
         {:logger, [:default_formatter],
          [
            format: "\$time \$metadata[\$level] \$message\n",
@@ -203,7 +202,7 @@ if Code.ensure_loaded?(Igniter) do
     defp final_notice(igniter) do
       Igniter.add_notice(igniter, """
 
-      Gust is installed! 
+      Gust is installed!
 
       Next, update your postgres credentials, and run:
 

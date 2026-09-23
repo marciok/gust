@@ -39,6 +39,8 @@ priv/static/cache_manifest.json
 apps/gust_web/priv/static/assets/
 apps/gust_web/priv/static/cache_manifest.json
 
+apps/gust_shell/cover/
+
 robots-*.txt.gz
 robots-*.txt
 

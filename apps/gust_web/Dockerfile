@@ -41,6 +41,7 @@ COPY mix.exs mix.lock ./
 COPY config config
 COPY apps/gust/mix.exs apps/gust/mix.exs
 COPY apps/gust_py/mix.exs apps/gust_py/mix.exs
+COPY apps/gust_shell/mix.exs apps/gust_shell/mix.exs
 COPY apps/gust_web/mix.exs apps/gust_web/mix.exs
 
 RUN mix deps.get --only ${MIX_ENV}
@@ -50,6 +51,7 @@ RUN mix deps.compile
 COPY apps/gust/lib apps/gust/lib
 COPY apps/gust/priv apps/gust/priv
 COPY apps/gust_py/lib apps/gust_py/lib
+COPY apps/gust_shell/lib apps/gust_shell/lib
 COPY apps/gust_web/lib apps/gust_web/lib
 COPY apps/gust_web/priv apps/gust_web/priv
 COPY apps/gust_web/assets apps/gust_web/assets
