@@ -28,5 +28,5 @@ tasks:
   - name: build_release
     run: "cargo build --release"
     cd: "/project"
-    downstream: [integration_tests]
+    downstream: []
     nice: 10
