@@ -39,7 +39,7 @@ defmodule GustShell.MixProject do
   end
 
   def application do
-    [extra_applications: [:logger, :runtime_tools, :erlexec]]
+    [extra_applications: [:logger, :runtime_tools, :erlexec, :eex]]
   end
 
   defp deps do

@@ -646,6 +646,33 @@ defmodule FlowsTest do
                MapSet.new([log1.id, log2.id])
     end
 
+    test "get_task_by_name_run!/2 returns the task by name/run or raises" do
+      dag = dag_fixture(%{name: "some_name"})
+      run = run_fixture(%{dag_id: dag.id})
+      task = task_fixture(%{run_id: run.id, name: "target_task"})
+      task_id = task.id
+
+      assert %Task{id: ^task_id} = Flows.get_task_by_name_run!("target_task", run.id)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Flows.get_task_by_name_run!("missing_task", run.id)
+      end
+    end
+
+    test "get_task_result_by_name_run!/2 returns the task result or raises" do
+      dag = dag_fixture(%{name: "some_name"})
+      run = run_fixture(%{dag_id: dag.id})
+      task_fixture(%{run_id: run.id, name: "saved", result: %{"stdout" => "ok"}})
+      task_fixture(%{run_id: run.id, name: "unsaved"})
+
+      assert Flows.get_task_result_by_name_run!("saved", run.id) == %{"stdout" => "ok"}
+      assert Flows.get_task_result_by_name_run!("unsaved", run.id) == %{}
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Flows.get_task_result_by_name_run!("missing_task", run.id)
+      end
+    end
+
     test "get_task_by_name_run_with_logs/2 returns the task by name/run and preloads logs" do
       dag = dag_fixture(%{name: "some_name"})
       run = run_fixture(%{dag_id: dag.id})
@@ -795,6 +822,11 @@ defmodule FlowsTest do
 
     test "get_secret_by_name/1 return secret with name", %{secret: secret, name: name} do
       assert Flows.get_secret_by_name(name) == secret
+    end
+
+    test "get_secret_by_name!/1", %{secret: secret, name: name} do
+      assert Flows.get_secret_by_name!(name) == secret
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_secret_by_name!("MISSING") end
     end
 
     test "get_secret!/1", %{secret: secret} do
