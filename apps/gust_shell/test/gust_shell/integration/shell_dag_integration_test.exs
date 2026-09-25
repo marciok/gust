@@ -13,6 +13,7 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
 
   import Mox
   import GustShell.TestFixtures
+  import GustShell.TaskWorkerHelpers, only: [await_exit: 1]
 
   alias Gust.DAG.Definition
   alias GustShell.Parser.Adapter, as: ParserAdapter
@@ -77,19 +78,6 @@ defmodule GustShell.Integration.ShellDAGIntegrationTest do
     assert_receive {:task_result,
                     %GustShell.ShellExitError{exit_code: 7, stdout: "output", stderr: "problem"},
                     124, :error}
-  end
-
-  defp await_exit(%{os_pid: os_pid} = state) do
-    receive do
-      {stream, ^os_pid, _data} = message when stream in [:stdout, :stderr] ->
-        {:noreply, state} = GustShell.TaskWorker.Adapter.handle_info(message, state)
-        await_exit(state)
-
-      {:DOWN, ^os_pid, :process, _pid, _reason} = message ->
-        assert {:stop, :normal, _} = GustShell.TaskWorker.Adapter.handle_info(message, state)
-    after
-      5_000 -> flunk("shell process did not finish")
-    end
   end
 
   describe "YAML DAG parsing" do

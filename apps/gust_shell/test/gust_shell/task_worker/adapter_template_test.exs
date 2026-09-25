@@ -5,6 +5,7 @@ defmodule GustShell.TaskWorker.AdapterTemplateTest do
 
   import Mox
   import GustShell.TestFixtures
+  import GustShell.TaskWorkerHelpers, only: [await_exit: 1]
 
   setup :verify_on_exit!
 
@@ -61,18 +62,5 @@ defmodule GustShell.TaskWorker.AdapterTemplateTest do
       owner_pid: self(),
       opts: Map.fetch!(definition.tasks, "templated")
     }
-  end
-
-  defp await_exit(%{os_pid: os_pid} = state) do
-    receive do
-      {stream, ^os_pid, _data} = message when stream in [:stdout, :stderr] ->
-        {:noreply, state} = Adapter.handle_info(message, state)
-        await_exit(state)
-
-      {:DOWN, ^os_pid, :process, _pid, _reason} = message ->
-        assert {:stop, :normal, _} = Adapter.handle_info(message, state)
-    after
-      5_000 -> flunk("shell process did not finish")
-    end
   end
 end
