@@ -52,6 +52,11 @@ jobs:
       - name: Install deps
         run: mix deps.get
 
+      # Glazer builds with -march=native. Cached native objects may require CPU
+      # instructions unavailable on this runner, so rebuild them before use.
+      - name: Clean cached Glazer native build
+        run: make -C deps/glazer/c_src clean
+
       - name: Install asset tools
         run: |
           npm install --prefix apps/gust_web/assets
