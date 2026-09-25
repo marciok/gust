@@ -527,6 +527,37 @@ defmodule FlowsTest do
       assert status == new_status
     end
 
+    test "update_tasks_status/2 updates all tasks and preserves their order" do
+      dag = dag_fixture(%{name: "update_tasks_status"})
+      run = run_fixture(%{dag_id: dag.id})
+      first_task = task_fixture(%{run_id: run.id, name: "first_task", status: :failed})
+      second_task = task_fixture(%{run_id: run.id, name: "second_task", status: :failed})
+
+      assert [
+               %Task{id: first_id, status: :created},
+               %Task{id: second_id, status: :created}
+             ] = Flows.update_tasks_status([first_task, second_task], :created)
+
+      assert first_id == first_task.id
+      assert second_id == second_task.id
+      assert Flows.get_task!(first_task.id).status == :created
+      assert Flows.get_task!(second_task.id).status == :created
+    end
+
+    test "update_tasks_status/2 clears retry_at unless the new status is :retrying" do
+      dag = dag_fixture(%{name: "update_tasks_status_retry"})
+      run = run_fixture(%{dag_id: dag.id})
+      retry_at = DateTime.add(DateTime.utc_now(), 30, :second)
+      task = task_fixture(%{run_id: run.id, name: "retrying_task"})
+
+      {:ok, task} = Flows.schedule_task_retry(task, retry_at)
+
+      assert [%Task{status: :created, retry_at: nil}] =
+               Flows.update_tasks_status([task], :created)
+
+      assert %Task{status: :created, retry_at: nil} = Flows.get_task!(task.id)
+    end
+
     test "schedule_task_retry/2 persists the next attempt and update_task_status/2 clears it" do
       dag = dag_fixture(%{name: "scheduled_task_retry"})
       run = run_fixture(%{dag_id: dag.id})
@@ -613,6 +644,33 @@ defmodule FlowsTest do
 
       assert Enum.map(fetched.logs, & &1.id) |> MapSet.new() ==
                MapSet.new([log1.id, log2.id])
+    end
+
+    test "get_task_by_name_run!/2 returns the task by name/run or raises" do
+      dag = dag_fixture(%{name: "some_name"})
+      run = run_fixture(%{dag_id: dag.id})
+      task = task_fixture(%{run_id: run.id, name: "target_task"})
+      task_id = task.id
+
+      assert %Task{id: ^task_id} = Flows.get_task_by_name_run!("target_task", run.id)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Flows.get_task_by_name_run!("missing_task", run.id)
+      end
+    end
+
+    test "get_task_result_by_name_run!/2 returns the task result or raises" do
+      dag = dag_fixture(%{name: "some_name"})
+      run = run_fixture(%{dag_id: dag.id})
+      task_fixture(%{run_id: run.id, name: "saved", result: %{"stdout" => "ok"}})
+      task_fixture(%{run_id: run.id, name: "unsaved"})
+
+      assert Flows.get_task_result_by_name_run!("saved", run.id) == %{"stdout" => "ok"}
+      assert Flows.get_task_result_by_name_run!("unsaved", run.id) == %{}
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Flows.get_task_result_by_name_run!("missing_task", run.id)
+      end
     end
 
     test "get_task_by_name_run_with_logs/2 returns the task by name/run and preloads logs" do
@@ -764,6 +822,11 @@ defmodule FlowsTest do
 
     test "get_secret_by_name/1 return secret with name", %{secret: secret, name: name} do
       assert Flows.get_secret_by_name(name) == secret
+    end
+
+    test "get_secret_by_name!/1", %{secret: secret, name: name} do
+      assert Flows.get_secret_by_name!(name) == secret
+      assert_raise Ecto.NoResultsError, fn -> Flows.get_secret_by_name!("MISSING") end
     end
 
     test "get_secret!/1", %{secret: secret} do

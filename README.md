@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-A task orchestration system designed to be efficient, fast and developer-friendly.
+A task orchestration system designed to be efficient, fast, developer-friendly, and easy to scale. Built on the Erlang VM, Gust recovers gracefully from failures, supports manual retries, and is production-ready.
 </p>
 
 <p align="center">
@@ -28,7 +28,22 @@ A task orchestration system designed to be efficient, fast and developer-friendl
   <a href="https://hexdocs.pm/gust_py">
     <img src="https://img.shields.io/hexpm/v/gust_py?color=0084d1&label=Gust+Python" alt="Gust Python" />
   </a>
+
+  <a href="https://opensource.org/license/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License-MIT" />
+  </a>
 </p>
+
+---
+## Why Gust
+
+Running task orchestration in production often means:
+
+- Standing up and maintaining multiple databases and services just to keep the scheduler alive.
+- Fighting Docker complexity before a single DAG runs.
+- Living with a clunky, outdated UI that slows debugging down.
+
+Gust strips that away. One system, minimal moving parts, efficient and with a UI built for speed so you spend time writing DAGs, not babysitting infrastructure.
 
 ---
 
@@ -37,52 +52,28 @@ A task orchestration system designed to be efficient, fast and developer-friendl
 
 ## Table of Contents
 
-- [Motivation](#motivation)
 - [Overview](#overview)
 - [Getting Started](#getting-started)
-- [Adding to an existing app](#adding-gust-to-an-existing-phoenix-app)
-- [Multi-node setup](#multi-node-setup)
-- [Error tracking](#error-tracking)
 - [Features](#features)
-- [GustWeb](apps/gust_web)
+- [Guides](#guides)
 - [Examples](https://github.com/marciok/gust/tree/main/examples)
-- [Benchmark](https://github.com/marciok/gust-benchmark)
-
-
----
-## Motivation
-As a CTO and founder, I was tired of spending buckets of money to set up and manage [Airflow](https://airflow.apache.org/), dealing with multiple databases, countless processes, Docker complexity, and of course its outdated and buggy UI. So we decided to build something that kept what we liked about Airflow and ditched what we didn’t. The result is Gust: a platform that’s 10× more efficient, faster, and far easier to set up.
-
-Gust is the perfect fit for our needs, and I encourage you to try it and push it even further. There’s still plenty of room for improvements and new features. If you spot something or want to contribute an idea, don’t be shy! Drop an Issue or submit a PR.
+- [Benchmark](#benchmark)
 
 ---
 ## Overview
 
+From code to running workflow: you (or your agent) write a DAG, save it in the `dags/` folder, and Gust picks it up. Once loaded, the DAG shows up in the Web UI, ready to be triggered manually or to run on its own if a `schedule` is set.
+
 ### DAG Code Example
 ```elixir
-defmodule HelloWorld do
+defmodule HelloGust do
   @moduledoc false
-  # `schedule` and `on_finished_callback` are optional.
-  use Gust.DSL, schedule: "* * * * *", on_finished_callback: :notify_something
+  use Gust.DSL
 
-  # Gust logs are stored and displayed through GustWeb via Logger.
   require Logger
-
-  # Gust.Flows is used to query Dag, Run, and Task.
   alias Gust.Flows
 
-  def notify_something(status, run) do
-    dag = Flows.get_dag!(run.dag_id)
-    message = "DAG: #{dag.name}; completed with status: #{status}"
-    Logger.info(message)
-  end
-
-  def skip_first_task?(%{run_id: run_id}) do
-    run = Flows.get_run!(run_id)
-    Map.get(run.params, "skip_first_task", false)
-  end
-
-  task :first_task, downstream: [:second_task], save: true, skip_if: :skip_first_task? do
+  task :first_task, downstream: [:second_task], save: true do
     greetings = "Hi from first_task"
     Logger.info(greetings)
     greetings = ["Hello!", "Olá!", "¡Hola!", "Bonjour!"]
@@ -119,65 +110,20 @@ defmodule HelloWorld do
 end
 
 ```
-### Web Interface
-
-![ss-1](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-01.png)
-![ss-2](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-02.png)
-![ss-3](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-03.png)
-![ss-4](https://gust-github.s3.us-east-1.amazonaws.com/gustweb-04.png)
-
 
 --- 
 
 ## Getting started
 
-
-*Want to try Gust quickly? Start with the [Docker example](https://github.com/marciok/gust/tree/main/examples/docker). If you want full customization and extension, follow the instructions below to create a Gust app from scratch.*
-
-### Prerequisites
-
-- [x] macOS/Ubuntu
-- [x] Elixir must be at least [this version](https://github.com/marciok/gust/blob/main/.tool-versions)
-- [x] Postgres
-
-
-### Creating a new Gust app
-
-1. Replace `my_app` for your app name and run:
-
-```
-GUST_APP=my_app bash -c "$(curl -fsSL https://raw.githubusercontent.com/marciok/gust/main/setup_gust_app.sh)"
-```
-*You can check what install script will perform [here](https://github.com/marciok/gust/blob/main/setup_gust_app.sh)*
-
-2. Configure Postgres credentials on `my_app/config/dev.exs`
-
-3. Run database setup:
-	 - `mix ecto.create`
-	 - `mix ecto.migrate`
-	 
-4. Run Gust start:
-	 `mix phx.server`
-
-
-5. Check [the docs](https://hexdocs.pm/gust/Gust.DSL.html) on how to customize your DAG
-
-6. Open  "http://localhost:4000/gust/dags" to visualize your app
-
-
-## Error tracking
-
-Gust can asynchronously report terminal task failures without interrupting DAG
-execution. See the
-[`Gust.DAG.Run.ErrorReporter`](https://hexdocs.pm/gust/Gust.DAG.Run.ErrorReporter.html)
-documentation for integration examples using Sentry or another error tracking
-provider.
+- [Quickstart with Docker](https://github.com/marciok/gust/tree/main/examples/docker)
+- [Setup a new Gust project](https://hexdocs.pm/gust_web/installation.html)
 
 ---
 
 ## Features
 
   - Task orchestration with Cron-style scheduling and dependency-aware DAGs via the Gust DSL.
+  - [YAML and Shell DAG support](apps/gust_shell) for orchestrating shell commands and scripts.
   - Parallel task mapping with `:map_over`, creating one task instance per upstream list item.
   - Conditional task skipping with `:skip_if`; dependent downstream tasks are skipped when an upstream task is skipped.
   - Durable task waiting with `:wait_for`, so a DAG can pause until another DAG, webhook, or external process resumes it.
@@ -235,128 +181,45 @@ gh skill install marciok/gust elixir-dag-creator
 
 ---
 
-## Adding Gust to an existing Phoenix app
+## Guides
 
-If you already have a Phoenix project and want to add Gust in place, install `gust_web` with [Igniter](https://hexdocs.pm/igniter).
+**Gust**
+  - [Writing DAGs](https://hexdocs.pm/gust/writing_dags.html)
+  - [Configuration](https://hexdocs.pm/gust/configuration.html)
+  - [Gust Roles](https://hexdocs.pm/gust/roles.html)
+  - [Error Tracking](https://hexdocs.pm/gust/error_tracking.html)
 
+**Gust Shell**
+  - [Shell DAGs](apps/gust_shell) — YAML and shell command orchestration
+  - [Task Options](apps/gust_shell#task-options) — Process control, environment, and output handling
 
-1. If you do not have Igniter installed yet, bootstrap it first:
+**Gust Web**
+  - [Installation](https://hexdocs.pm/gust_web/installation.html)
+  - [MCP Server](https://hexdocs.pm/gust_web/mcp_server.html)
+  - [HTTP API](https://hexdocs.pm/gust_web/http_api.html)
 
-```sh
-mix local.hex --force
-mix archive.install hex igniter_new --force
-```
+**Gust Python**
+  - [Installation](https://hexdocs.pm/gust_py/installation.html)
+  - [Writing Python DAGs](https://hexdocs.pm/gust_py/writing_python_dags.html)
+  - [Under the Hood](https://hexdocs.pm/gust_py/under_the_hood.html)
 
-2. From the root of your existing Phoenix project, install `gust_web`:
-
-```sh
-mix igniter.install gust_web
-```
-
-It will mount the dashboard at `/gust` in your router, and create a `dags/` folder.
-
-3. Review your database config.
-
-Open `dev.exs` and set `Gust.Repo`s credentials
-
-4. Run setup and start the app:
-
-```sh
-mix ecto.create
-mix ecto.migrate
-mix phx.server
-```
-
-Open "http://localhost:4000/gust/dags".
+**Repo**
+  - [Contributing](https://github.com/marciok/gust/blob/main/CONTRIBUTING.md)
 
 ---
 
-## Multi-node Setup
+## Benchmark
 
-You can run Gust with different runtime roles by setting `GUST_ROLE`:
+Gust is significantly more resource-efficient than Apache Airflow, requiring
+up to 4.4× less memory when idle and roughly half the peak RAM to handle
+identical parallel workloads, while maintaining a lower CPU footprint during
+orchestration.
 
-- `core`: runs the DAG pool and execution workers without the web UI.
-```zsh
-GUST_ROLE=core iex --sname core -S mix run --no-halt
-```
-- `web`: runs the Phoenix server and loads DAG definitions for the UI, but does not execute DAGs.
-```zsh
-GUST_ROLE=web iex --sname web -S mix phx.server
-```
-- `console`: loads DAG definitions and supporting runtime pieces for CLI or IEx work, but does not start DAG pooling workers.
-```zsh
-GUST_ROLE=console iex -S mix
-```
+<img width="1600" height="600" alt="Gust vs Airflow benchmark" src="https://github.com/user-attachments/assets/34be8e55-49d8-4d61-a1b0-aa5eb738420b" />
 
-`mix gust.cli ...` also defaults `GUST_ROLE` to `console`, and release builds ship a `gust-cli` wrapper that exports the same role automatically.
 
-If you do not pass anything, Gust runs as `single`, which enables both the `core` and `web` behavior in the same node.
-
-### Run dispatcher
-
-Choose the dispatch strategy by module. Use `Gust.Run.Pooler` for periodic
-polling, or `Gust.PGNotifier.Worker` for PostgreSQL `LISTEN`/`NOTIFY`:
-
-```elixir
-config :gust, run_dispatcher: Gust.Run.Pooler
-
-# Or, without periodic polling:
-config :gust, run_dispatcher: Gust.PGNotifier.Worker
-```
-
-The notification connection reuses `Gust.Repo`'s database settings. Optional
-connection-specific settings can be supplied separately, for example:
-
-```elixir
-config :gust, :pg_notifications, reconnect_backoff: 2_000
-```
-
-Gust manages notification reconnection through its supervision tree, so
-`:sync_connect` and `:auto_reconnect` overrides are ignored. Enqueuing and
-notification happen in the same database transaction, and the claimer checks
-the durable run queue once after every successful subscription. The PostgreSQL
-dispatcher does not periodically poll the database.
-
-You can find a full example [here](https://github.com/marciok/gust/tree/main/examples/docker).
-
-## How to Run Tests Locally
-
-1. Start Postgres.
-2. Copy `.env.example` to `.env.test`:
-   ```bash
-   cp .env.example .env.test
-   ```
-3. Load test environment variables:
-   ```bash
-   source .env.test
-   ```
-4. Install dependencies:
-   ```bash
-   mix setup
-   ```
-5. Create and migrate the test database:
-   ```bash
-   MIX_ENV=test mix ecto.create
-   MIX_ENV=test mix ecto.migrate
-   ```
-6. Run tests:
-   ```bash
-   mix test
-   ```
-
-### Useful Commands
-
-```bash
-mix test test/path/to/file_test.exs
-mix test --failed
-MIX_ENV=test mix coveralls.html --umbrella
-```
-
-### Common Failures
-
-- `connection refused`: Postgres is not running or `PGHOST`/`PGUSER`/`PGPASSWORD` are incorrect.
-- `database "gust_rc_test" does not exist`: run `MIX_ENV=test mix ecto.create && MIX_ENV=test mix ecto.migrate`.
-
+See the [gust-benchmark](https://github.com/marciok/gust-benchmark) repo for
+the full methodology, results, and how to reproduce it.
 
 ---
 ### Sponsors

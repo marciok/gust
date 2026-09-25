@@ -243,6 +243,13 @@ defmodule Gust.Flows do
   def get_secret_by_name(name), do: Repo.get_by(Secret, name: name)
 
   @doc """
+  Gets a single secret by name.
+
+  Raises `Ecto.NoResultsError` if the Secret does not exist.
+  """
+  def get_secret_by_name!(name), do: Repo.get_by!(Secret, name: name)
+
+  @doc """
   Creates a task.
   """
   def create_task(attrs \\ %{}) do
@@ -393,6 +400,31 @@ defmodule Gust.Flows do
   end
 
   @doc """
+  Updates the status of multiple tasks in one database statement.
+
+  Mirrors the `retry_at` clearing behavior of `update_task_status/2`: any
+  status other than `:retrying` clears a previously scheduled retry.
+  """
+  def update_tasks_status(tasks, status) do
+    task_ids = Enum.map(tasks, & &1.id)
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    set =
+      if status == :retrying,
+        do: [status: status, updated_at: now],
+        else: [status: status, updated_at: now, retry_at: nil]
+
+    {_count, updated_tasks} =
+      Task
+      |> where([task], task.id in ^task_ids)
+      |> select([task], task)
+      |> Repo.update_all(set: set)
+
+    updated_tasks_by_id = Map.new(updated_tasks, &{&1.id, &1})
+    Enum.map(tasks, &Map.fetch!(updated_tasks_by_id, &1.id))
+  end
+
+  @doc """
   Clears execution state before manually restarting a terminal task instance.
 
   Mapping identity and persisted params are intentionally preserved so a mapped
@@ -447,6 +479,26 @@ defmodule Gust.Flows do
   """
   def get_task_by_name_run(name, run_id) do
     Task |> where(run_id: ^run_id, name: ^name) |> Repo.one()
+  end
+
+  @doc """
+  Gets a task by name and run ID.
+
+  Raises `Ecto.NoResultsError` if the Task does not exist.
+  """
+  def get_task_by_name_run!(name, run_id) do
+    Task |> where(run_id: ^run_id, name: ^name) |> Repo.one!()
+  end
+
+  @doc """
+  Gets the result of a task by name and run ID.
+
+  The result is an empty map when the task did not save one.
+
+  Raises `Ecto.NoResultsError` if the Task does not exist.
+  """
+  def get_task_result_by_name_run!(name, run_id) do
+    Task |> where(run_id: ^run_id, name: ^name) |> select([task], task.result) |> Repo.one!()
   end
 
   @doc """

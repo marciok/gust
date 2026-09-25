@@ -1,7 +1,7 @@
 defmodule GustWeb.MixProject do
   use Mix.Project
 
-  @version "0.1.39"
+  @version "0.1.40"
 
   def project do
     [
@@ -27,10 +27,12 @@ defmodule GustWeb.MixProject do
           "lib",
           "priv/static/assets",
           "priv/static/images",
+          "guides",
           "mix.exs",
           "README.md"
         ]
-      ]
+      ],
+      docs: docs()
     ]
   end
 
@@ -60,24 +62,33 @@ defmodule GustWeb.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, ">= 1.1.0 and < 1.3.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
-      {:phoenix_live_dashboard, "~> 0.8.3"},
+      {:phoenix_live_dashboard, "~> 0.9.1"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:gettext, "~> 0.26"},
+      {:gettext, "~> 1.0"},
       gust_dep(),
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"},
       {:igniter, "~> 0.6", optional: true}
     ]
     |> maybe_add_gust_py()
+    |> maybe_add_gust_shell()
     |> add_heroicons()
   end
 
   defp maybe_add_gust_py(deps) do
     if System.get_env("GUST_WITH_PYTHON") == "true" do
       deps ++ [{:gust_py, in_umbrella: true}]
+    else
+      deps
+    end
+  end
+
+  defp maybe_add_gust_shell(deps) do
+    if System.get_env("GUST_WITH_SHELL") == "true" do
+      deps ++ [{:gust_shell, in_umbrella: true}]
     else
       deps
     end
@@ -127,4 +138,18 @@ defmodule GustWeb.MixProject do
       ]
     ]
   end
+
+  defp docs do
+    [
+      main: "readme",
+      logo: "priv/static/images/gust-logo.svg",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/marciok/gust",
+      extras: extras(),
+      groups_for_extras: groups_for_extras()
+    ]
+  end
+
+  defp extras, do: ["README.md"] ++ Path.wildcard("guides/*.md")
+  defp groups_for_extras, do: [Guides: Path.wildcard("guides/*.md")]
 end

@@ -91,6 +91,28 @@ defmodule Gust.DAG.AdapterTest do
     end
   end
 
+  describe "parser_modules/0" do
+    test "deduplicates shared parser implementations across adapters" do
+      Application.put_env(:gust, :dag_adapter,
+        elixir: %{
+          parser: Gust.DAG.Parser.Adapters.Elixir,
+          runtime: :runtime_impl,
+          task_worker: :task_worker_impl
+        },
+        shell: %{
+          parser: GustShell.Parser.Adapter,
+          runtime: :runtime_impl,
+          task_worker: GustShell.TaskWorker.Adapter
+        }
+      )
+
+      assert Adapter.parser_modules() == [
+               Gust.DAG.Parser.Adapters.Elixir,
+               GustShell.Parser.Adapter
+             ]
+    end
+  end
+
   describe "parser_for_extension/1" do
     test "returns a parser module that matches the extension" do
       Application.put_env(:gust, :dag_adapter,

@@ -1,5 +1,6 @@
 defmodule GustWeb.DagLive.Dashboard do
-  alias Gust.DAG.{Loader, TaskStatus, Terminator}
+  alias __MODULE__.{MappedTasks, SelectedItem, TaskActions}
+  alias Gust.DAG.{Loader, TaskStatus}
   alias Gust.DAG.Run.ErrorReporter.ExternalReference
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
@@ -11,18 +12,6 @@ defmodule GustWeb.DagLive.Dashboard do
   use GustWeb, :live_view
 
   @page_size 30
-  @aggregate_status_precedence [
-    :failed,
-    :upstream_failed,
-    :retrying,
-    :running,
-    :waiting,
-    :enqueued,
-    :created,
-    :skipped,
-    :succeeded
-  ]
-
   @impl true
   def mount(params, _session, socket) do
     pinned_run_id = params["pinned_run_id"]
@@ -45,26 +34,10 @@ defmodule GustWeb.DagLive.Dashboard do
 
     if task_instances != [] do
       %{
-        status: get_status(task_instances),
-        selected: task_group_selected?(selected_item, task_instances)
+        status: SelectedItem.status(task_instances),
+        selected: SelectedItem.task_group_selected?(selected_item, task_instances)
       }
     end
-  end
-
-  defp task_group_selected?(nil, _tasks), do: false
-
-  defp task_group_selected?([%Task{run_id: run_id, name: name} | _tail], tasks) do
-    same_task_group?(tasks, run_id, name)
-  end
-
-  defp task_group_selected?(%Task{run_id: run_id, name: name}, tasks) do
-    same_task_group?(tasks, run_id, name)
-  end
-
-  defp task_group_selected?(_selected_item, _tasks), do: false
-
-  defp same_task_group?(tasks, run_id, name) do
-    Enum.any?(tasks, &(&1.run_id == run_id and &1.name == name))
   end
 
   defp load_dag(page, name, nil) do
@@ -81,10 +54,10 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   defp mount_success(socket, %Dag{runs: runs} = dag, dag_def, params, page, pinned_run_id) do
-    selected_item = load_selected_item(params)
+    selected_item = SelectedItem.load(params)
     mermaid_task_statuses = run_task_statuses(runs, selected_item)
-    expanded_items = get_expanded_items(selected_item)
-    logs = get_logs(selected_item)
+    expanded_items = SelectedItem.expanded_items(selected_item)
+    logs = SelectedItem.logs(selected_item)
 
     if connected?(socket), do: subscribe_updates(dag, runs)
 
@@ -97,129 +70,20 @@ defmodule GustWeb.DagLive.Dashboard do
      |> assign(:dag, dag)
      |> assign(:selected_item, selected_item)
      |> assign(:mermaid_task_statuses, mermaid_task_statuses)
-     |> assign(:item_name, get_name(selected_item))
-     |> assign(:item_id, get_id(selected_item))
-     |> assign_item_attrs(selected_item)
+     |> assign(SelectedItem.attributes(selected_item))
      |> assign(:reload_dag_file, {dag_def.file_path, time()})
+     |> assign_mapped_task_status("")
+     |> assign(:task_selection_form, to_form(%{"task_ids" => []}))
+     |> assign(:mapped_task_status_options, status_filter_options(Task))
+     |> assign(:selected_task_ids, [])
      |> stream(:logs, logs)
      |> assign(:empty_logs, logs == [])
-     |> assign(:expanded_item_ids, get_expanded_ids(expanded_items))
-     |> stream(:expanded_items, expanded_items, dom_id: &"mapped-task-run-#{&1.id}")
+     |> assign(:expanded_item_ids, SelectedItem.expanded_ids(selected_item))
+     |> stream(:mapped_tasks, expanded_items, dom_id: &mapped_task_dom_id/1)
      |> stream(:runs, runs |> Enum.reverse())}
   end
 
-  defp get_expanded_items(nil), do: []
-  defp get_expanded_items(%Task{}), do: []
-  defp get_expanded_items(%Run{}), do: []
-  defp get_expanded_items(tasks) when is_list(tasks), do: tasks
-
-  defp get_expanded_ids(items), do: Enum.map(items, & &1.id)
-
-  defp get_name(nil), do: nil
-
-  defp get_name(%Task{name: name, map_index: nil}), do: name
-  defp get_name(%Task{name: name, map_index: index}), do: "#{name} [#{index}]"
-  defp get_name(%Run{id: id}), do: "Run #{id}"
-  defp get_name([%Task{name: name} | _tail]), do: "#{name} []"
-
-  defp get_id(nil), do: nil
-  defp get_id(%Task{id: id}), do: id
-  defp get_id(%Run{id: id}), do: id
-  defp get_id([%Task{} | _tail]), do: nil
-
-  defp get_status(nil), do: nil
-  defp get_status(%Task{status: status}), do: status
-  defp get_status(%Run{status: status}), do: status
-
-  defp get_status([%Task{} | _tail] = tasks) do
-    tasks
-    |> Enum.map(& &1.status)
-    |> aggregate_status()
-  end
-
-  defp aggregate_status(statuses) do
-    statuses = MapSet.new(statuses)
-
-    Enum.find(@aggregate_status_precedence, &MapSet.member?(statuses, &1))
-  end
-
-  defp get_timestamps(nil), do: {nil, nil}
-  defp get_timestamps(%Task{inserted_at: ins, updated_at: up}), do: {ins, up}
-  defp get_timestamps(%Run{inserted_at: ins, updated_at: up}), do: {ins, up}
-  defp get_timestamps([%Task{} | _tail]), do: {nil, nil}
-
-  defp get_params(nil), do: nil
-  defp get_params(%Task{params: params}), do: params
-  defp get_params(%Run{params: params}), do: params
-  defp get_params([%Task{} | _tail]), do: %{}
-
-  defp get_error(nil), do: nil
-  defp get_error(%Task{error: error}), do: error
-  defp get_error(%Run{}), do: %{}
-  defp get_error([%Task{} | _tail]), do: %{}
-
-  defp get_result(nil), do: nil
-  defp get_result(%Task{result: result}), do: result
-  defp get_result(%Run{}), do: %{}
-  defp get_result([%Task{} | _tail]), do: %{}
-
-  defp get_logs(item, level \\ nil)
-  defp get_logs(nil, _level), do: []
-  defp get_logs(%Task{} = task, level), do: Flows.get_logs(task.id, level)
-  defp get_logs(%Run{}, _level), do: []
-  defp get_logs([%Task{} | _tail], _level), do: []
-
-  def get_expanded(%Task{name: name, run_id: run_id, map_index: index}) when index != nil do
-    Flows.get_tasks_by_name(name, run_id)
-  end
-
-  def get_expanded(_item), do: []
-
-  defp load_selected_item(params) do
-    params
-    |> fetch_selected_item()
-    |> subscribe_selected_item()
-  end
-
-  defp fetch_selected_item(%{
-         "run_id" => run_id,
-         "task_name" => task_name,
-         "task_index" => task_index
-       }) do
-    Flows.get_task_by_name(task_name, run_id, task_index)
-  end
-
-  defp fetch_selected_item(%{"run_id" => run_id, "task_name" => task_name}) do
-    case Flows.get_tasks_by_name(task_name, run_id) do
-      [] -> nil
-      [task] when is_nil(task.map_index) -> task
-      tasks -> tasks
-    end
-  end
-
-  defp fetch_selected_item(%{"run_id" => run_id}) do
-    Flows.get_run_with_tasks!(run_id)
-  end
-
-  defp fetch_selected_item(_params), do: nil
-
-  defp subscribe_selected_item(nil), do: nil
-
-  defp subscribe_selected_item(%Task{id: task_id} = task) do
-    PubSub.subscribe_task(task_id)
-    PubSub.subscribe_run(task.run_id)
-    task
-  end
-
-  defp subscribe_selected_item(%Run{id: run_id} = run) do
-    PubSub.subscribe_run(run_id)
-    run
-  end
-
-  defp subscribe_selected_item([%Task{run_id: run_id} | _tail] = tasks) do
-    PubSub.subscribe_run(run_id)
-    tasks
-  end
+  def get_expanded(item), do: SelectedItem.expanded(item)
 
   defp parse_page(nil), do: 1
 
@@ -257,12 +121,8 @@ defmodule GustWeb.DagLive.Dashboard do
         {name, Map.get(selected_run_statuses, name, :none)}
       end)
 
-    Mermaid.chart(tasks, task_statuses, selected_task_names(selected_item))
+    Mermaid.chart(tasks, task_statuses, SelectedItem.task_names(selected_item))
   end
-
-  defp selected_task_names(%Task{name: name}), do: [name]
-  defp selected_task_names([%Task{name: name} | _tail]), do: [name]
-  defp selected_task_names(_selected_item), do: []
 
   defp run_task_statuses(_runs, nil), do: nil
 
@@ -271,7 +131,7 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   defp run_task_statuses(runs, selected_item) do
-    case Enum.find(runs, &(&1.id == selected_run_id(selected_item))) do
+    case Enum.find(runs, &(&1.id == SelectedItem.run_id(selected_item))) do
       %Run{tasks: tasks} -> task_statuses(tasks)
       nil -> selected_task_statuses(selected_item)
     end
@@ -283,59 +143,108 @@ defmodule GustWeb.DagLive.Dashboard do
   defp task_statuses(tasks) do
     tasks
     |> Enum.group_by(& &1.name)
-    |> Map.new(fn {name, task_instances} -> {name, get_status(task_instances)} end)
+    |> Map.new(fn {name, task_instances} -> {name, SelectedItem.status(task_instances)} end)
   end
 
   defp read_code({file_path, _reload_time}), do: File.read!(file_path)
   defp reload_time({_file_path, reload_time}), do: reload_time
 
+  defp code_language(%{file_path: file_path}) do
+    case Path.extname(file_path) do
+      extension when extension in [".yml", ".yaml"] -> "yaml"
+      ".py" -> "python"
+      _extension -> "elixir"
+    end
+  end
+
+  @impl true
+  def handle_event("filter_mapped_task_status", %{"status" => status}, socket) do
+    {:noreply,
+     socket
+     |> assign_mapped_task_status(status)
+     |> clear_task_selection()
+     |> stream_mapped_tasks(socket.assigns.selected_item, status)}
+  end
+
+  @impl true
+  def handle_event("select_mapped_tasks", params, socket) do
+    selected_ids = MappedTasks.selected_ids(socket.assigns.selected_item, params)
+
+    {:noreply,
+     socket
+     |> assign(:selected_task_ids, selected_ids)
+     |> assign_task_selection_form()
+     |> stream_mapped_tasks(socket.assigns.selected_item, socket.assigns.mapped_task_status)}
+  end
+
   @impl true
   def handle_event("cancel", _params, socket) do
-    {flash_kind, flash_msg} =
+    socket =
       case socket.assigns.selected_item do
         %Task{} = task ->
-          handle_task_cancel(reload_task(task))
+          {flash_kind, flash_msg} = TaskActions.cancel(TaskActions.reload(task))
+          put_flash(socket, flash_kind, flash_msg)
 
-        [%Task{name: name} | _tail] = tasks ->
-          results =
-            tasks
-            |> Enum.map(&reload_task/1)
-            |> Enum.map(&handle_task_cancel/1)
-
-          Enum.find(results, {:info, "All #{name} tasks are being cancelled"}, fn
-            {:error, _message} -> true
-            {:info, _message} -> false
-          end)
+        [%Task{} | _tasks] ->
+          cancel_selected_tasks(socket, selected_mapped_tasks(socket))
       end
 
-    {:noreply, socket |> put_flash(flash_kind, flash_msg)}
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("restart", _params, socket) do
-    {flash_kind, flash_msg} =
+    socket =
       case socket.assigns.selected_item do
-        %Task{map_index: map_index} = task ->
-          result = Trigger.reset_task(socket.assigns.dag_def.tasks, task)
-          restart_flash(result, task, map_index)
-
-        [%Task{} = task | _tail] = tasks ->
-          result = Trigger.reset_task(socket.assigns.dag_def.tasks, tasks)
-          restart_flash(result, task, nil)
+        %Task{} = task ->
+          {flash_kind, flash_msg} = TaskActions.restart(socket.assigns.dag_def.tasks, task)
+          put_flash(socket, flash_kind, flash_msg)
 
         %Run{} = run ->
           run = Trigger.reset_run(run)
-          {:info, "Run: #{run.id} was restarted"}
+          put_flash(socket, :info, "Run: #{run.id} was restarted")
+
+        [%Task{} | _tasks] ->
+          restart_selected_tasks(socket, selected_mapped_tasks(socket))
       end
 
-    {:noreply, socket |> put_flash(flash_kind, flash_msg)}
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("restart_all", _params, socket) do
+    socket =
+      case socket.assigns.selected_item do
+        [%Task{} | _tasks] = tasks ->
+          {flash_kind, flash_msg} = TaskActions.restart_group(socket.assigns.dag_def.tasks, tasks)
+
+          put_flash(socket, flash_kind, flash_msg)
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("filter_logs", %{"level" => level}, socket) do
-    logs = get_logs(socket.assigns.selected_item, level)
+    logs = SelectedItem.logs(socket.assigns.selected_item, level)
 
     {:noreply, socket |> stream(:logs, logs, reset: true) |> assign(:empty_logs, logs == [])}
+  end
+
+  @impl true
+  def handle_event("show_mapped_task", %{"task-id" => task_id}, socket) do
+    task = Flows.get_task!(task_id)
+
+    path =
+      dashboard_item_path(
+        socket.assigns.dag_def.name,
+        task.run_id,
+        socket.assigns.page,
+        socket.assigns.pinned_run_id,
+        [{"task_name", task.name}, {"task_index", task.map_index}]
+      )
+
+    {:noreply, push_navigate(socket, to: path)}
   end
 
   @impl true
@@ -443,7 +352,7 @@ defmodule GustWeb.DagLive.Dashboard do
       end
 
     socket =
-      if selected_run_id(socket.assigns.selected_item) == run.id do
+      if SelectedItem.run_id(socket.assigns.selected_item) == run.id do
         assign(socket, :mermaid_task_statuses, task_statuses(run.tasks))
       else
         socket
@@ -451,19 +360,6 @@ defmodule GustWeb.DagLive.Dashboard do
 
     {:noreply, socket |> stream_insert(:runs, run)}
   end
-
-  defp handle_task_cancel(%Task{name: name, status: status} = task) do
-    if TaskStatus.cancellable?(status) do
-      case Terminator.cancel(task) do
-        {:ok, _task} -> {:info, "Task: #{name} was cancelled"}
-        {:error, reason} -> {:error, "Task: #{name} could not be cancelled: #{reason}"}
-      end
-    else
-      {:info, "Task: #{name} is not running"}
-    end
-  end
-
-  defp reload_task(%Task{id: id}), do: Flows.get_task!(id)
 
   defp assign_run_reload(socket, run) do
     if socket.assigns.item_id == run.id do
@@ -483,8 +379,8 @@ defmodule GustWeb.DagLive.Dashboard do
 
         socket
         |> assign(:selected_item, tasks)
-        |> assign(:item_status, get_status(tasks))
-        |> stream_insert(:expanded_items, task)
+        |> assign(:item_status, SelectedItem.status(tasks))
+        |> stream_mapped_tasks(tasks, socket.assigns.mapped_task_status)
 
       socket.assigns.item_id == task_id ->
         task = Flows.get_task!(task_id)
@@ -499,13 +395,8 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   defp selected_run_class(run_id, selected_item) do
-    if run_id == selected_run_id(selected_item), do: "selected-run", else: ""
+    if run_id == SelectedItem.run_id(selected_item), do: "selected-run", else: ""
   end
-
-  defp selected_run_id(nil), do: nil
-  defp selected_run_id(%Run{id: id}), do: id
-  defp selected_run_id(%Task{run_id: run_id}), do: run_id
-  defp selected_run_id([%Task{run_id: run_id} | _tail]), do: run_id
 
   defp dashboard_item_path(name, run_id, page, pinned_run_id, extra_params \\ []) do
     query_params =
@@ -536,35 +427,75 @@ defmodule GustWeb.DagLive.Dashboard do
     end)
   end
 
-  defp cancelable?(%Task{}, status), do: cancellable_status?(status)
-
-  defp cancelable?([%Task{} | _tasks] = tasks, _status) do
-    Enum.any?(tasks, &cancellable_status?(&1.status))
+  defp selected_mapped_tasks(socket) do
+    MappedTasks.select(socket.assigns.selected_item, socket.assigns.selected_task_ids)
   end
 
-  defp cancelable?(_item, _status), do: false
-  defp cancellable_status?(status), do: TaskStatus.cancellable?(status)
-
-  defp restartable?(_item, status), do: TaskStatus.restartable?(status)
-
-  defp restart_flash({:error, reason}, task, _map_index) do
-    {:error, "Task: #{task.name} could not be restarted: #{reason}"}
+  defp assign_mapped_task_status(socket, status) do
+    socket
+    |> assign(:mapped_task_status, status)
+    |> assign(:mapped_task_status_form, to_form(%{"status" => status}))
   end
 
-  defp restart_flash(_result, task, nil), do: {:info, "Task: #{task.name} was restarted"}
+  defp assign_task_selection_form(socket) do
+    task_ids = Enum.map(socket.assigns.selected_task_ids, &to_string/1)
+    assign(socket, :task_selection_form, to_form(%{"task_ids" => task_ids}))
+  end
 
-  defp restart_flash(_result, task, map_index),
-    do: {:info, "Task: #{task.name} [#{map_index}] was restarted"}
+  defp clear_task_selection(socket) do
+    socket
+    |> assign(:selected_task_ids, [])
+    |> assign_task_selection_form()
+  end
+
+  defp stream_mapped_tasks(socket, tasks, status) do
+    stream(socket, :mapped_tasks, MappedTasks.filter(tasks, status),
+      dom_id: &mapped_task_dom_id/1,
+      reset: true
+    )
+  end
+
+  defp mapped_task_dom_id(task), do: "mapped-task-run-#{task.id}"
+
+  defp cancel_selected_tasks(socket, selected_tasks) do
+    socket = reset_mapped_tasks(socket)
+    flash = selected_tasks |> TaskActions.filter(:cancellable?) |> TaskActions.cancel_many()
+    put_task_flash(socket, flash)
+  end
+
+  defp restart_selected_tasks(socket, selected_tasks) do
+    socket = reset_mapped_tasks(socket)
+    tasks = TaskActions.filter(selected_tasks, :restartable?)
+    flash = TaskActions.restart_many(socket.assigns.dag_def.tasks, tasks)
+    put_task_flash(socket, flash)
+  end
+
+  defp put_task_flash(socket, nil), do: socket
+  defp put_task_flash(socket, {flash_kind, message}), do: put_flash(socket, flash_kind, message)
+
+  defp reset_mapped_tasks(socket) do
+    socket
+    |> clear_task_selection()
+    |> stream_mapped_tasks(socket.assigns.selected_item, socket.assigns.mapped_task_status)
+  end
+
+  defp cancelable?([%Task{} | _tasks] = tasks, _status, selected_ids),
+    do: MappedTasks.cancelable?(tasks, selected_ids)
+
+  defp cancelable?(%Task{}, status, _selected_ids), do: TaskStatus.cancellable?(status)
+  defp cancelable?(_item, _status, _selected_ids), do: false
+
+  defp restartable?([%Task{} | _tasks] = tasks, _status, selected_ids),
+    do: MappedTasks.restartable?(tasks, selected_ids)
+
+  defp restartable?(_item, status, _selected_ids), do: TaskStatus.restartable?(status)
+
+  defp restartable_group?(tasks), do: MappedTasks.restartable?(tasks)
+
+  defp action_label(action, [_task | _tasks], _item_name), do: "#{action} selected"
+  defp action_label(action, _item, item_name), do: "#{action} `#{item_name}`"
 
   defp assign_item_attrs(socket, selected_item) do
-    {inserted_at, updated_at} = get_timestamps(selected_item)
-
-    socket
-    |> assign(:item_status, get_status(selected_item))
-    |> assign(:item_inserted_at, inserted_at)
-    |> assign(:item_updated_at, updated_at)
-    |> assign(:item_params, get_params(selected_item))
-    |> assign(:item_error, get_error(selected_item))
-    |> assign(:item_result, get_result(selected_item))
+    assign(socket, SelectedItem.attributes(selected_item))
   end
 end

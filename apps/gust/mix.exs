@@ -1,7 +1,7 @@
 defmodule Gust.MixProject do
   use Mix.Project
 
-  @version "0.1.39"
+  @version "0.1.40"
 
   def project do
     [
@@ -21,8 +21,18 @@ defmodule Gust.MixProject do
       description: "A DAG-Based Workflow Orchestration Engine for Elixir",
       package: [
         licenses: ["Apache-2.0"],
-        links: %{"GitHub" => "https://github.com/marciok/gust"}
-      ]
+        links: %{"GitHub" => "https://github.com/marciok/gust"},
+        files: [
+          "lib",
+          "priv",
+          "assets",
+          "guides",
+          "mix.exs",
+          "README.md",
+          ".formatter.exs"
+        ]
+      ],
+      docs: docs()
     ]
   end
 
@@ -52,14 +62,15 @@ defmodule Gust.MixProject do
   defp deps do
     [
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:dns_cluster, "~> 0.2.0"},
+      {:dns_cluster, "~> 0.3.0"},
       {:phoenix_pubsub, "~> 2.1"},
       {:ecto_sql, "~> 3.13"},
       {:postgrex, ">= 0.0.0"},
       {:jason, "~> 1.2"},
       {:req, "~> 0.5"},
       {:quantum, "~> 3.0"},
-      {:cloak_ecto, "~> 1.2.0"},
+      {:cloak_ecto, "~> 1.3.0"},
+      {:logger_backends, "~> 1.0"},
       {:file_system, "~> 1.1", only: [:dev, :test]}
     ]
   end
@@ -73,6 +84,29 @@ defmodule Gust.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run #{__DIR__}/priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      logo: "assets/gust-logo.svg",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/marciok/gust",
+      extras: extras(),
+      groups_for_extras: groups_for_extras()
+    ]
+  end
+
+  defp extras do
+    [
+      "README.md"
+    ] ++ Path.wildcard("guides/*.md")
+  end
+
+  defp groups_for_extras do
+    [
+      Guides: Path.wildcard("guides/*.md")
     ]
   end
 end

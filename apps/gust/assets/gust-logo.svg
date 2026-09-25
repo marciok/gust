@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="72" height="57" viewBox="181 246 675 530"
+     fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Gust symbol</title>
+  <desc id="desc">A blue spiral with two wind strokes on a transparent background.</desc>
+
+  <defs>
+    <linearGradient id="gust-blue" x1="181" y1="246" x2="856" y2="776"
+                    gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#05A7F6"/>
+      <stop offset="1" stop-color="#05A3FA"/>
+    </linearGradient>
+  </defs>
+
+  <g stroke="url(#gust-blue)" stroke-width="51" stroke-linecap="round"
+     stroke-linejoin="round">
+    <path d="M430 429
+             C427 398 409 386 388 389
+             C348 395 323 426 327 469
+             C331 518 373 548 421 547
+             C488 546 541 496 550 432
+             C561 348 493 274 406 272
+             C305 269 224 342 207 437
+             C188 544 249 629 327 653
+             C347 659 367 659 390 659
+             H637
+             C705 659 758 695 778 750"/>
+    <path d="M632 479
+             C704 477 755 438 777 381"/>
+    <path d="M585 565 H830"/>
+  </g>
+</svg>

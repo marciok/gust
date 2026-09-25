@@ -15,6 +15,7 @@ ARG DEBIAN_VERSION=trixie-20260406-slim
 ARG UV_VERSION=0.12.10
 ARG PYTHON_VERSION=3.13
 ARG GUST_WITH_PYTHON=false
+ARG GUST_WITH_SHELL=false
 
 ARG BUILDER_IMAGE="docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
@@ -30,9 +31,11 @@ RUN apt-get update \
 WORKDIR /app
 
 ARG GUST_WITH_PYTHON
+ARG GUST_WITH_SHELL
 
 ENV MIX_ENV="prod"
 ENV GUST_WITH_PYTHON=${GUST_WITH_PYTHON}
+ENV GUST_WITH_SHELL=${GUST_WITH_SHELL}
 
 RUN mix local.hex --force \
   && mix local.rebar --force
@@ -42,6 +45,7 @@ COPY mix.exs mix.lock ./
 COPY config config
 COPY apps/gust/mix.exs apps/gust/mix.exs
 COPY apps/gust_py/mix.exs apps/gust_py/mix.exs
+COPY apps/gust_shell/mix.exs apps/gust_shell/mix.exs
 
 RUN mix deps.get --only ${MIX_ENV}
 RUN mix deps.compile
@@ -50,6 +54,7 @@ RUN mix deps.compile
 COPY apps/gust/lib apps/gust/lib
 COPY apps/gust/priv apps/gust/priv
 COPY apps/gust_py/lib apps/gust_py/lib
+COPY apps/gust_shell/lib apps/gust_shell/lib
 COPY apps/gust/rel apps/gust/rel
 
 

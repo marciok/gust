@@ -18,7 +18,8 @@ The Gust DSL turns an Elixir module into a DAG.
 
 When you add `use Gust.DSL` to a module in the `dags/` folder, Gust detects it automatically. You can configure a schedule, define callbacks, and in development the DAG is reloaded when files change.
 
-After enabling the DSL, define tasks with `task`.
+After enabling the DSL, define ordinary tasks with `task` or reusable action tasks with
+`task_action`.
 
 ### Example
 
@@ -112,6 +113,66 @@ task :await_payment,
   %{payment_id: payload["payment_id"]}
 end
 ```
+
+## Reusable action tasks
+
+Use `task_action` when the operation should be implemented once and reused by multiple DAGs.
+An action module implements `Gust.Action`:
+
+```elixir
+defmodule MyApp.Actions.Echo do
+  @behaviour Gust.Action
+
+  @impl true
+  def execute(args, _context) do
+    %{message: Keyword.fetch!(args, :message)}
+  end
+end
+```
+
+Declare static arguments as a `{module, keyword_args}` tuple:
+
+```elixir
+task_action :echo,
+  {MyApp.Actions.Echo, [message: "hello"]},
+  downstream: [:next_task],
+  save: true
+```
+
+The argument expression is evaluated when the task executes, once per attempt. It is not run
+while the DAG is compiled. Arguments can also be computed dynamically with `ctx:`:
+
+```elixir
+task_action :echo, MyApp.Actions.Echo,
+  ctx: %{params: params},
+  save: true do
+  [message: "job-#{params["job_id"]}"]
+end
+```
+
+The body must return a keyword list. Gust passes the full task context to `execute/2`, including
+`run_id` and `params`, even when `ctx:` binds only part of that context. For mapped tasks, the
+body is evaluated separately for each mapped task instance using that instance's context:
+
+```elixir
+task_action :echo_item, MyApp.Actions.Echo,
+  map_over: :list_names,
+  ctx: %{params: %{"item" => item}},
+  save: true do
+  [message: item]
+end
+```
+
+The action's return value is the task's return value. `save: true`, retries, `skip_if`,
+`downstream`, and other task options retain their ordinary task behavior. Ordinary exceptions
+from argument evaluation or `execute/2` are retryable; raise `Gust.DAG.NonRecError` when the
+failure is permanent. When `save: true`, return a map or list accepted by Gust's result
+persistence rules.
+
+For a separate reusable action package, namespace modules by package and capability, for example
+`GustActions.SQL.Check`, `GustActions.Slack.Post`, or `GustActions.Slack.Webhook`. Keep shared
+provider/client code in a regular helper module and let each action be a thin `Gust.Action`
+adapter. Do not duplicate provider logic across action modules.
 
 Resume waiting tasks with `Gust.DAG.TaskWaiter.resume/2`:
 
