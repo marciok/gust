@@ -4,6 +4,7 @@ defmodule GustShell.Parser.Adapter do
   @behaviour Gust.DAG.Parser.Adapter
 
   alias Gust.DAG.{Definition, Graph}
+  alias GustShell.Template
 
   @dag_opts %{"schedule" => :schedule, "on_finished_callback" => :on_finished_callback}
   @exec_opts %{
@@ -110,6 +111,8 @@ defmodule GustShell.Parser.Adapter do
 
     unless is_binary(command), do: raise(ArgumentError, "run must be a string")
 
+    Template.validate!(command)
+
     validate_downstream!(downstream)
 
     unless is_boolean(store_result),
@@ -193,6 +196,8 @@ defmodule GustShell.Parser.Adapter do
       Enum.map(value, fn {key, item} ->
         unless is_binary(key) and (is_binary(item) or is_number(item) or is_boolean(item)),
           do: raise(ArgumentError, "env must map string keys to strings, numbers or booleans")
+
+        if is_binary(item), do: Template.validate!(item)
 
         {key, to_string(item)}
       end)

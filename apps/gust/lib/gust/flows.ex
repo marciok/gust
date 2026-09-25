@@ -243,6 +243,13 @@ defmodule Gust.Flows do
   def get_secret_by_name(name), do: Repo.get_by(Secret, name: name)
 
   @doc """
+  Gets a single secret by name.
+
+  Raises `Ecto.NoResultsError` if the Secret does not exist.
+  """
+  def get_secret_by_name!(name), do: Repo.get_by!(Secret, name: name)
+
+  @doc """
   Creates a task.
   """
   def create_task(attrs \\ %{}) do
@@ -472,6 +479,26 @@ defmodule Gust.Flows do
   """
   def get_task_by_name_run(name, run_id) do
     Task |> where(run_id: ^run_id, name: ^name) |> Repo.one()
+  end
+
+  @doc """
+  Gets a task by name and run ID.
+
+  Raises `Ecto.NoResultsError` if the Task does not exist.
+  """
+  def get_task_by_name_run!(name, run_id) do
+    Task |> where(run_id: ^run_id, name: ^name) |> Repo.one!()
+  end
+
+  @doc """
+  Gets the result of a task by name and run ID.
+
+  The result is an empty map when the task did not save one.
+
+  Raises `Ecto.NoResultsError` if the Task does not exist.
+  """
+  def get_task_result_by_name_run!(name, run_id) do
+    Task |> where(run_id: ^run_id, name: ^name) |> select([task], task.result) |> Repo.one!()
   end
 
   @doc """

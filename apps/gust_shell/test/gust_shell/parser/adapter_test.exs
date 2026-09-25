@@ -38,6 +38,45 @@ defmodule GustShell.Parser.AdapterTest do
     refute Map.has_key?(definition.tasks["backup"], "cwd")
   end
 
+  test "keeps templates unrendered until the task runs" do
+    assert {:ok, definition} =
+             parse_shell_dag("""
+             tasks:
+               - name: build
+                 run: 'cargo build --target <%= run_params["target"] %>'
+                 env:
+                   TOKEN: '<%= secret!("CARGO_TOKEN") %>'
+             """)
+
+    assert definition.tasks["build"].run == ~s(cargo build --target <%= run_params["target"] %>)
+
+    assert {:env, [{"TOKEN", ~s{<%= secret!("CARGO_TOKEN") %>}}]} in definition.tasks["build"].exec_opts
+  end
+
+  for {field, yaml} <- [
+        run: "run: 'echo <%= params['",
+        env: "run: echo\n    env: {TOKEN: '<%= secret!(\"X\"'}"
+      ] do
+    test "rejects an invalid template in #{field}" do
+      assert {:error, {[], "invalid shell DAG", reason}} =
+               parse_shell_dag("tasks:\n  - name: build\n    #{unquote(yaml)}\n")
+
+      assert reason =~ ~s(task "build": invalid template)
+    end
+  end
+
+  for {field, yaml} <- [
+        run: "run: 'echo <%= [1) %>'",
+        env: "run: echo\n    env: {TOKEN: '<%= [1) %>'}"
+      ] do
+    test "returns a parse error for mismatched template delimiters in #{field}" do
+      assert {:error, {[], "invalid shell DAG", reason}} =
+               parse_shell_dag("tasks:\n  - name: build\n    #{unquote(yaml)}\n")
+
+      assert reason =~ ~s(task "build": invalid template)
+    end
+  end
+
   test "accepts an explicitly empty task list" do
     assert {:ok, %Definition{tasks: %{}, stages: [], task_list: []}} =
              parse_shell_dag("tasks: []")

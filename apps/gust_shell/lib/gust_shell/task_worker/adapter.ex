@@ -13,20 +13,15 @@ defmodule GustShell.TaskWorker.Adapter do
   use Gust.DAG.TaskWorker
 
   alias Gust.DAG.Logger, as: DagLogger
+  alias GustShell.Template
 
   @impl true
   def handle_info(:run, %{task: task, opts: %{run: command, exec_opts: exec_opts}} = state) do
     DagLogger.set_task(task.id, task.attempt)
 
-    case :exec.run(command, exec_opts) do
-      {:ok, _exec_pid, pid} ->
-        {:noreply, Map.merge(state, %{os_pid: pid, stdout: [], stderr: []})}
-
-      {:error, reason} ->
-        error =
-          RuntimeError.exception("failed to start shell task (#{task.id}): #{inspect(reason)}")
-
-        send_task_error(state, error)
+    case render(command, exec_opts, task) do
+      {:ok, command, exec_opts} -> start(command, exec_opts, state)
+      {:error, error} -> send_task_error(state, error)
     end
   end
 
@@ -71,6 +66,33 @@ defmodule GustShell.TaskWorker.Adapter do
   def handle_cast({:kill}, %{os_pid: os_pid} = state) do
     :exec.stop(os_pid)
     {:stop, :normal, state}
+  end
+
+  defp start(command, exec_opts, %{task: task} = state) do
+    case :exec.run(command, exec_opts) do
+      {:ok, _exec_pid, pid} ->
+        {:noreply, Map.merge(state, %{os_pid: pid, stdout: [], stderr: []})}
+
+      {:error, reason} ->
+        error =
+          RuntimeError.exception("failed to start shell task (#{task.id}): #{inspect(reason)}")
+
+        send_task_error(state, error)
+    end
+  end
+
+  defp render(command, exec_opts, task) do
+    exec_opts =
+      Enum.map(exec_opts, fn
+        {:env, env} -> {:env, Enum.map(env, fn {key, value} -> {key, Template.render(value, task)} end)}
+        option -> option
+      end)
+
+    {:ok, Template.render(command, task), exec_opts}
+  rescue
+    error ->
+      {:error,
+       RuntimeError.exception("failed to render shell task template: #{Exception.message(error)}")}
   end
 
   defp finalize_task(%{stdout: stdout, stderr: stderr}, reason) do
