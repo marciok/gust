@@ -8,6 +8,7 @@ end
 
 # Add support directory to code path for test fixtures and helpers
 Code.compile_file("support/shell_fixtures.ex", __DIR__)
+Code.compile_file("support/task_worker_helpers.ex", __DIR__)
 
 # Start applications needed for testing
 Application.ensure_all_started(:erlexec)
