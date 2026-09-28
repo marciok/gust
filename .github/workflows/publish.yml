@@ -366,6 +366,60 @@ jobs:
         if: steps.release.outputs.published == 'true'
         run: echo "gust_py ${{ steps.release.outputs.version }} is already published; skipping"
 
+  publish-gust-shell:
+    name: Publish gust-shell to Hex
+    needs: [preflight, publish-gust]
+    runs-on: ubuntu-latest
+    environment: release
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27.0'
+
+      - name: Check whether gust_shell is already published
+        id: release
+        working-directory: apps/gust_shell
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' mix.exs)"
+          status=0
+          output="$(mix hex.info gust_shell "${version}" 2>&1)" || status=$?
+
+          if [[ ${status} -eq 0 ]]; then
+            published=true
+          elif [[ "${output}" == *"No release with name"* ]]; then
+            published=false
+          else
+            echo "${output}" >&2
+            exit "${status}"
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "published=${published}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish gust-shell
+        if: steps.release.outputs.published != 'true'
+        working-directory: apps/gust_shell
+        env:
+          HEX_API_KEY: ${{ secrets.HEX }}
+          PUBLISH_DEP: true
+        run: |
+          mix deps.get
+          mix hex.build
+          mix hex.publish --yes
+
+      - name: Report existing gust_shell release
+        if: steps.release.outputs.published == 'true'
+        run: echo "gust_shell ${{ steps.release.outputs.version }} is already published; skipping"
+
   publish-docker:
     name: Publish ${{ matrix.image }} Docker image
     needs: preflight
