@@ -29,6 +29,10 @@ A task orchestration system designed to be efficient, fast, developer-friendly, 
     <img src="https://img.shields.io/hexpm/v/gust_py?color=0084d1&label=Gust+Python" alt="Gust Python" />
   </a>
 
+  <a href="https://hexdocs.pm/gust_shell">
+    <img src="https://img.shields.io/hexpm/v/gust_shell?color=0084d1&label=Gust+Shell" alt="Gust Shell" />
+  </a>
+
   <a href="https://opensource.org/license/MIT">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License-MIT" />
   </a>
