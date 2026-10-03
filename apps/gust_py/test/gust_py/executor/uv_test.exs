@@ -82,7 +82,7 @@ defmodule GustPy.Executor.UVTest do
     }
 
     context = %{"attempt" => 1, "owner" => "gust"}
-    expected_ctx = Jason.encode!(context)
+    expected_ctx = Glazer.JSON.encode!(context)
 
     os_pid = UV.start_task(dag_def, "task_alpha", context)
 

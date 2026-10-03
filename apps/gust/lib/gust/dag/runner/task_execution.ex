@@ -27,9 +27,16 @@ defmodule Gust.DAG.Runner.TaskExecution do
   def cancel(task, dag_def) do
     case Registry.lookup(Gust.Registry, TaskWorker.registry_name(task)) do
       [{task_pid, _value}] ->
-        dag_def.adapter
-        |> Adapter.impl!(:runtime)
-        |> then(& &1.kill(task_pid))
+        adapter = Adapter.impl!(dag_def.adapter, :runtime)
+
+        case adapter.kill(task_pid) do
+          true -> :ok
+          # Compatibility with non-standard adapters/mocks
+          :ok -> :ok
+          false -> {:error, :task_kill_failed}
+          {:error, reason} -> {:error, reason}
+          reason -> {:error, reason}
+        end
 
       [] ->
         {:error, :task_worker_not_found}

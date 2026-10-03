@@ -30,7 +30,7 @@ defmodule Gust.DAG.Adapter do
     adapters()
     |> Keyword.values()
     |> Enum.find_value(fn %{parser: parser} ->
-      if parser.extension() == extension, do: parser, else: nil
+      if extension in parser.extensions(), do: parser, else: nil
     end)
   end
 

@@ -238,7 +238,7 @@ defmodule GustWeb.RunLive.Index do
   end
 
   defp pretty_json!(value) do
-    Jason.encode_to_iodata!(value, pretty: true, escape_html: true)
+    Glazer.JSON.encode!(value, pretty: true, escape_html: true)
   end
 
   defp run_status_options, do: status_filter_options(Flows.Run)
@@ -310,7 +310,7 @@ defmodule GustWeb.RunLive.Index do
 
   defp params_match?(run, params_search) do
     run.params
-    |> Jason.encode!()
+    |> Glazer.JSON.encode!()
     |> String.downcase()
     |> String.contains?(String.downcase(params_search))
   end

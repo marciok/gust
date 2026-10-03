@@ -12,4 +12,25 @@ defmodule Gust.ApplicationEnvHelpers do
       end
     end)
   end
+
+  def restore_dag_source(value \\ nil) do
+    case value do
+      nil -> Application.delete_env(:gust, :dag_source)
+      previous -> Application.put_env(:gust, :dag_source, previous)
+    end
+  end
+
+  def init_dag_source(_context) do
+    previous = Application.get_env(:gust, :dag_source)
+
+    ExUnit.Callbacks.on_exit(fn ->
+      restore_dag_source(previous)
+    end)
+
+    :ok
+  end
+
+  def init_idempotent_test(context) do
+    init_dag_source(context)
+  end
 end

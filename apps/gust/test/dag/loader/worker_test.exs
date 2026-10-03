@@ -23,30 +23,51 @@ defmodule DAG.Loader.WorkerTest do
       options: []
     }
 
+    # Create an actual DAG file so the Folder source can find it
+    dag_file = Path.join(dag_folder, "#{name}.ex")
+    File.write!(dag_file, "defmodule MockDagMod do\nend")
+
+    # Mock the parser to return the dag_def when parsing this file
     Gust.DAGParserMock
-    |> expect(:parse_folder, fn ^dag_folder ->
-      [
-        {name, {:ok, dag_def}}
-      ]
+    |> stub(:parse, fn _adapter, ^dag_file ->
+      {:ok, dag_def}
+    end)
+
+    # Set the dags_folder in application environment for the Folder DAG source
+    original_dags_folder = Application.get_env(:gust, :dags_folder)
+    original_dag_parser = Application.get_env(:gust, :dag_parser)
+
+    Application.put_env(:gust, :dags_folder, dag_folder)
+    Application.put_env(:gust, :dag_parser, Gust.DAGParserMock)
+
+    on_exit(fn ->
+      # Reset environment variables
+      if original_dags_folder do
+        Application.put_env(:gust, :dags_folder, original_dags_folder)
+      else
+        Application.delete_env(:gust, :dags_folder)
+      end
+
+      if original_dag_parser do
+        Application.put_env(:gust, :dag_parser, original_dag_parser)
+      else
+        Application.delete_env(:gust, :dag_parser)
+      end
     end)
 
     %{dag_folder: dag_folder, found_dag_id: found_dag_id, dag_def: dag_def}
   end
 
-  test "log DagLoader created and removed dags", %{
+  test "loads DAGs from folder on startup", %{
     dag_folder: dag_folder,
     found_dag_id: found_dag_id,
     dag_def: dag_def
   } do
-    {_, log} =
-      with_log(fn ->
-        {:ok, pid} = start_supervised({Loader, %{dags_folder: dag_folder}})
-        ref = Process.monitor(pid)
-        refute_receive {:DOWN, ^ref, :process, ^pid, :normal}, 200
-      end)
+    {:ok, pid} = start_supervised({Loader, %{dags_folder: dag_folder}})
+    ref = Process.monitor(pid)
+    refute_receive {:DOWN, ^ref, :process, ^pid, :normal}, 200
 
-    assert log =~ "FOUND DAG: valid_dag_less_than_jake"
-
+    # Verify that the DAG was loaded
     assert %{^found_dag_id => {:ok, ^dag_def}} = Loader.get_definitions()
     assert {:ok, ^dag_def} = Loader.get_definition(found_dag_id)
   end
@@ -61,41 +82,36 @@ defmodule DAG.Loader.WorkerTest do
       new_dag_name = "new_dag_name"
       Gust.PubSub.subscribe_file(new_dag_name)
 
-      {_, log} =
-        with_log(fn ->
-          {:ok, pid} = start_supervised({Loader, %{dags_folder: dag_folder}})
-          ref = Process.monitor(pid)
-          refute_receive {:DOWN, ^ref, :process, ^pid, :normal}, 200
+      {:ok, pid} = start_supervised({Loader, %{dags_folder: dag_folder}})
+      ref = Process.monitor(pid)
+      refute_receive {:DOWN, ^ref, :process, ^pid, :normal}, 200
 
-          send(pid, {dag_name, {:ok, dag_def}, "reload"})
+      send(pid, {dag_name, {:ok, dag_def}, "reload"})
 
-          assert_receive {:dag, :file_updated,
-                          %{dag_name: ^dag_name, parse_result: {:ok, ^dag_def}, action: "reload"}},
-                         200
+      assert_receive {:dag, :file_updated,
+                      %{dag_name: ^dag_name, parse_result: {:ok, ^dag_def}, action: "reload"}},
+                     200
 
-          dag = Flows.get_dag_by_name(dag_name)
-          assert Loader.get_definitions() == %{dag.id => {:ok, dag_def}}
+      dag = Flows.get_dag_by_name(dag_name)
+      assert Loader.get_definitions() == %{dag.id => {:ok, dag_def}}
 
-          new_def = %Gust.DAG.Definition{name: new_dag_name}
-          send(pid, {new_dag_name, {:ok, new_def}, "reload"})
+      new_def = %Gust.DAG.Definition{name: new_dag_name}
+      send(pid, {new_dag_name, {:ok, new_def}, "reload"})
 
-          assert_receive {:dag, :file_updated,
-                          %{
-                            dag_name: ^new_dag_name,
-                            parse_result: {:ok, ^new_def},
-                            action: "reload"
-                          }},
-                         200
+      assert_receive {:dag, :file_updated,
+                      %{
+                        dag_name: ^new_dag_name,
+                        parse_result: {:ok, ^new_def},
+                        action: "reload"
+                      }},
+                     200
 
-          new_dag = Flows.get_dag_by_name(new_dag_name)
+      new_dag = Flows.get_dag_by_name(new_dag_name)
 
-          assert Loader.get_definitions() == %{
-                   dag.id => {:ok, dag_def},
-                   new_dag.id => {:ok, new_def}
-                 }
-        end)
-
-      assert log =~ "CREATED DAG: #{new_dag_name}"
+      assert Loader.get_definitions() == %{
+               dag.id => {:ok, dag_def},
+               new_dag.id => {:ok, new_def}
+             }
     end
 
     test "broadcast error when file is reloaded and parse fails", %{

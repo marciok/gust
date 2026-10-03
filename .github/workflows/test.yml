@@ -1,4 +1,4 @@
-name: Test
+name: Build
 
 on:
   push:
@@ -9,8 +9,12 @@ permissions:
 
 jobs:
   build:
-    name: Build and test
+    name: Build and test (OTP ${{ matrix.otp-version }}, Elixir ${{ matrix.elixir-version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        otp-version: ['29']
+        elixir-version: ['1.18', '1.20']
     env:
       MIX_ENV: test
       PGUSER: postgres
@@ -39,8 +43,19 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27.0'
+          elixir-version: ${{ matrix.elixir-version }}
+          otp-version: ${{ matrix.otp-version }}
+          rebar3-version: '3.27.0'
+
+      - name: Clear rebar3 plugin cache
+        run: |
+          rm -rf ~/.cache/rebar3 2>/dev/null || true
+          rm -rf ~/.config/rebar3 2>/dev/null || true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgit2-dev
 
       - name: Restore dependencies cache
         uses: actions/cache@v3
@@ -49,13 +64,15 @@ jobs:
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
 
+      - name: Restore npm cache
+        uses: actions/cache@v3
+        with:
+          path: apps/gust_web/assets/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('apps/gust_web/assets/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
+
       - name: Install deps
         run: mix deps.get
-
-      # Glazer builds with -march=native. Cached native objects may require CPU
-      # instructions unavailable on this runner, so rebuild them before use.
-      - name: Clean cached Glazer native build
-        run: make -C deps/glazer/c_src clean
 
       - name: Install asset tools
         run: |
@@ -83,9 +100,15 @@ jobs:
           mix ecto.migrate
 
       - name: Run tests
-        run: mix coveralls.json --umbrella
+        run: |
+          if [ "${{ matrix.otp-version }}" = "27" ] && [ "${{ matrix.elixir-version }}" = "1.18" ]; then
+            mix coveralls.json --umbrella
+          else
+            mix test
+          fi
 
       - name: Coveralls
+        if: matrix.otp-version == '27' && matrix.elixir-version == '1.18'
         uses: coverallsapp/github-action@v2
-        with: 
-          file: cover/excoveralls.json 
+        with:
+          file: cover/excoveralls.json

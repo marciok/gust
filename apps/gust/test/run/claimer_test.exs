@@ -75,8 +75,10 @@ defmodule Gust.Run.ClaimerTest do
 
       run = run_fixture(%{dag_id: dag.id, status: :created})
 
-      Gust.RunClaimMock |> expect(:next_run, fn -> run end)
-      Gust.RunClaimMock |> expect(:next_run, fn -> nil end)
+      Gust.RunClaimMock
+      |> expect(:next_run, fn -> run end)
+      |> expect(:next_run, fn -> nil end)
+      |> expect(:next_run, fn -> nil end)
 
       dag_def = %Gust.DAG.Definition{name: dag.name}
       dag_id = dag.id

@@ -62,11 +62,14 @@ config :tailwind,
 config :gust, dag_logger: Gust.DAG.Logger.Database
 # Configures Elixir's Logger
 config :logger, :default_formatter,
-  format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id, :task_id, :attempt]
+  format: {Gust.LoggerFormatter, :format},
+  metadata: [:request_id, :task_id, :attempt, :file, :line]
 
-# Use Jason for JSON parsing in Phoenix
-config :phoenix, :json_library, Jason
+# Use Glazer.JSON for JSON parsing in Phoenix
+config :phoenix, :json_library, Glazer.JSON
+
+# Compile-time/build-time environment
+config :gust, env: config_env()
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

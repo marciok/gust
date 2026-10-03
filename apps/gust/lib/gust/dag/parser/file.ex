@@ -7,9 +7,9 @@ defmodule Gust.DAG.Parser.File do
   @impl true
   def parse_folder(folder) do
     Enum.map(Adapter.parser_modules(), fn adapter ->
-      ext = adapter.extension()
-
-      Folder.list_files(folder, ext)
+      adapter.extensions()
+      |> Enum.map(&Folder.list_files(folder, &1))
+      |> Enum.concat()
       |> Enum.map(&Folder.absolute_path(folder, &1))
       |> Enum.map(fn path ->
         name = Folder.dag_name(path)

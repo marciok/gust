@@ -1,7 +1,6 @@
 defmodule Gust.DAG.Loader.Worker do
   @behaviour Gust.DAG.Loader
   @moduledoc false
-  alias Gust.DAG.Parser
   alias Gust.Flows
   alias Gust.PubSub
   use GenServer
@@ -84,8 +83,9 @@ defmodule Gust.DAG.Loader.Worker do
   end
 
   @impl true
-  def handle_continue(:bootstrap, %{dags_folder: folder} = state) do
-    dag_defs = load_folder(folder)
+  def handle_continue(:bootstrap, state) do
+    source = get_source()
+    dag_defs = load_dags_from_source(source)
     Flows.delete_not_found_ids(Map.keys(dag_defs))
 
     {:noreply, state |> put_dag_defs(dag_defs)}
@@ -101,24 +101,40 @@ defmodule Gust.DAG.Loader.Worker do
     Map.put(state, :dag_defs, dag_defs)
   end
 
-  defp load_folder(folder) do
-    Parser.parse_folder(folder)
-    |> Enum.map(fn {name, parser_result} ->
-      dag = get_or_create_dag(name)
-      {dag.id, parser_result}
-    end)
-    |> Map.new()
+  defp get_source do
+    Gust.DAG.Source.module()
+  end
+
+  defp load_dags_from_source(source) do
+    case source.load() do
+      %{success: success, error: error} ->
+        # Combine success and error lists, re-wrapping for consistency with handle_info
+        success_wrapped = success |> Enum.map(fn {name, value} -> {name, {:ok, value}} end)
+        error_wrapped = error |> Enum.map(fn {name, reason} -> {name, {:error, reason}} end)
+
+        (success_wrapped ++ error_wrapped)
+        |> Enum.map(fn {name, parser_result} ->
+          dag = get_or_create_dag(name)
+          {dag.id, parser_result}
+        end)
+        |> Map.new()
+
+      {:error, reason} ->
+        # On source-level error, return empty map (no DAGs loaded)
+        Logger.error("Failed to load DAGs from source '#{source.name()}': #{inspect(reason)}")
+        %{}
+    end
   end
 
   def get_or_create_dag(name) do
     case Flows.get_dag_by_name(name) do
       %Flows.Dag{} = dag ->
-        Logger.warning("FOUND DAG: #{name}")
+        Logger.info("FOUND DAG: #{name}")
         dag
 
       nil ->
         {:ok, dag} = Flows.create_dag(%{name: name})
-        Logger.warning("CREATED DAG: #{name}")
+        Logger.info("CREATED DAG: #{name}")
         dag
     end
   end

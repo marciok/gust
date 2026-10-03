@@ -7,14 +7,14 @@ defmodule GustPy.Parser.Adapter do
   alias GustPy.Executor
 
   @impl true
-  def extension, do: ".py"
+  def extensions, do: [".py"]
 
   @impl true
   def parse_file(file_path) do
-    name = Path.basename(file_path, extension())
+    name = Path.basename(file_path, extensions() |> hd())
 
     with {out, 0} <- Executor.run(["parse", "--file", file_path]),
-         [dag_json | _] <- Jason.decode!(out),
+         [dag_json | _] <- Glazer.JSON.decode!(out),
          {:ok, dag_def} <- parse_dag_def(dag_json, name) do
       {:ok, dag_def}
     else

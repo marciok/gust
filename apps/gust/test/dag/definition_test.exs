@@ -64,6 +64,6 @@ defmodule DAG.DefinitionTest do
                  "downstream" => []
                }
              }
-           } = Jason.decode!(json)
+           } = Glazer.JSON.decode!(json)
   end
 end

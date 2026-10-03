@@ -34,7 +34,7 @@ defmodule DAG.Parser.FileTest do
       File.write!(second_path, "")
 
       Gust.DAGParserAdapterMock
-      |> expect(:extension, fn -> ".mock" end)
+      |> expect(:extensions, fn -> [".mock"] end)
       |> expect(:parse_file, fn ^first_path -> {:ok, :first_parsed} end)
       |> expect(:parse_file, fn ^second_path -> {:ok, :second_parsed} end)
 

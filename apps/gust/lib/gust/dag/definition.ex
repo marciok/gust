@@ -30,7 +30,13 @@ defmodule Gust.DAG.Definition do
 
   def empty_errors?(%__MODULE__{error: error}), do: map_size(error) == 0
 
-  def to_json(%__MODULE__{} = dag_def), do: dag_def |> to_map() |> Jason.encode()
+  def to_json(%__MODULE__{} = dag_def) do
+    {:ok, dag_def |> to_map() |> Glazer.JSON.encode!()}
+  rescue
+    error in Glazer.ParseError ->
+      %Glazer.ParseError{message: {:encode_error, {reason, _}}} = error
+      {:error, "Cannot encode DAG definition to JSON: #{reason}"}
+  end
 
   def to_map(%__MODULE__{} = dag_def) do
     dag_def

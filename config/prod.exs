@@ -16,6 +16,9 @@ config :gust_web, basic_auth: true
 
 config :gust, dags_folder: "/dags"
 
+# DAG Source Configuration
+config :gust, dag_source: {Gust.DAG.Source.Folder, folder: "/dags"}
+
 config :gust, dag_runner_supervisor: Gust.DAG.RunnerSupervisor.DynamicSupervisor
 config :gust, dag_task_runner_supervisor: Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor
 config :gust, dag_scheduler: Gust.DAG.Scheduler.Worker
