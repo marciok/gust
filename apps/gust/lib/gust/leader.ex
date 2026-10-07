@@ -21,17 +21,21 @@ defmodule Gust.Leader do
   end
 
   def init(_args) do
-    state = %{leader: false}
+    Process.flag(:trap_exit, true)
+    state = %{leader: false, lock_task: nil}
     {:ok, state, {:continue, :attempt_lock}}
   end
 
   def attempt_lock do
     parent = self()
-    retry_time = Application.get_env(:gust, :leader_lock_attempt, 3_000)
+    retry_time = retry_time()
 
-    Task.start_link(fn ->
-      Gust.DBLocker.try_lock(@lock_key, &handle_lock_result(&1, parent, retry_time))
-    end)
+    {:ok, pid} =
+      Task.start_link(fn ->
+        Gust.DBLocker.try_lock(@lock_key, &handle_lock_result(&1, parent, retry_time))
+      end)
+
+    pid
   end
 
   def handle_call(:leader?, _from, state) do
@@ -39,17 +43,11 @@ defmodule Gust.Leader do
   end
 
   def handle_continue(:attempt_lock, state) do
-    attempt_lock()
-    {:noreply, state}
+    {:noreply, %{state | lock_task: attempt_lock()}}
   end
 
   def handle_info({:set_leader, false = leader_status}, state) do
-    Logger.warning("Node: #{Node.self()} is a follower")
-
-    for {_, pid, _, _} <- DynamicSupervisor.which_children(Gust.LeaderOnlySupervisor) do
-      DynamicSupervisor.terminate_child(Gust.LeaderOnlySupervisor, pid)
-    end
-
+    step_down()
     {:noreply, %{state | leader: leader_status}}
   end
 
@@ -63,10 +61,34 @@ defmodule Gust.Leader do
     {:noreply, %{state | leader: leader_status}}
   end
 
-  def handle_info(:attempt_lock, state) do
-    attempt_lock()
-    {:noreply, state}
+  def handle_info(:attempt_lock, %{lock_task: nil} = state) do
+    {:noreply, %{state | lock_task: attempt_lock()}}
   end
+
+  def handle_info({:EXIT, pid, :normal}, %{lock_task: pid} = state) do
+    {:noreply, %{state | lock_task: nil}}
+  end
+
+  def handle_info({:EXIT, pid, reason}, %{lock_task: pid} = state) do
+    Logger.warning("Node: #{Node.self()} lost the leader lock: #{inspect(reason)}")
+    step_down()
+    Process.send_after(self(), :attempt_lock, retry_time())
+    {:noreply, %{state | leader: false, lock_task: nil}}
+  end
+
+  def handle_info({:EXIT, _pid, reason}, state) do
+    {:stop, reason, state}
+  end
+
+  defp step_down do
+    Logger.warning("Node: #{Node.self()} is a follower")
+
+    for {_, pid, _, _} <- DynamicSupervisor.which_children(Gust.LeaderOnlySupervisor) do
+      DynamicSupervisor.terminate_child(Gust.LeaderOnlySupervisor, pid)
+    end
+  end
+
+  defp retry_time, do: Application.get_env(:gust, :leader_lock_attempt, 3_000)
 
   defp handle_lock_result(false, parent, retry_time) do
     send(parent, {:set_leader, false})
