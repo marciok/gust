@@ -9,6 +9,7 @@ defmodule GustWeb.Application do
   def start(_type, _args) do
     children = [
       GustWeb.Telemetry,
+      {Phoenix.PubSub, name: GustWeb.PubSub},
       GustWeb.Endpoint
     ]
 

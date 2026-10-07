@@ -12,6 +12,7 @@ defmodule DAG.Parser.FileTest do
   setup do
     dir = make_rand_dir!("dags")
     replace_env(:dag_adapter, [])
+    Gust.DAG.Adapter.reload()
 
     on_exit(fn -> File.rm_rf!(dir) end)
 
@@ -20,28 +21,23 @@ defmodule DAG.Parser.FileTest do
 
   describe "parser_folder/1" do
     test "parses files for configured adapters", %{tmp_dir: dags_folder} do
-      Application.put_env(:gust, :dag_adapter,
-        elixir: %{
-          parser: Gust.DAGParserAdapterMock,
-          runtime: Gust.DAG.Runtime.Adapters.Elixir,
-          task_worker: Gust.DAG.TaskWorker.Adapters.Elixir
-        }
-      )
-
       first_path = "#{dags_folder}/first.mock"
       second_path = "#{dags_folder}/second.mock"
       File.write!(first_path, "")
       File.write!(second_path, "")
 
       Gust.DAGParserAdapterMock
-      |> expect(:extension, fn -> ".mock" end)
       |> expect(:parse_file, fn ^first_path -> {:ok, :first_parsed} end)
       |> expect(:parse_file, fn ^second_path -> {:ok, :second_parsed} end)
 
       assert [
                {"first", {:ok, :first_parsed}},
                {"second", {:ok, :second_parsed}}
-             ] == Parser.parse_folder(dags_folder)
+             ] ==
+               Parser.parse_folder(dags_folder,
+                 parser_modules: [Gust.DAGParserAdapterMock],
+                 adapter_by_extension: %{".mock" => Gust.DAGParserAdapterMock}
+               )
     end
   end
 

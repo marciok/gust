@@ -29,15 +29,19 @@ defmodule Gust.DAG.Runtime.Adapters.Elixir do
     :ok
   end
 
-  defp compile(%Definition{file_path: file_path} = dag_def, runtime_id) do
-    {:ok, ast} = Code.string_to_quoted(File.read!(file_path))
+  defp compile(%Definition{} = dag_def, runtime_id) do
+    source = dag_source(dag_def)
+    {:ok, ast} = Code.string_to_quoted(source)
 
     runtime_mod = Module.concat(["Gust", "Runner", "#{dag_def.mod}_#{runtime_id}"])
     dag_ast = patch_module(ast, runtime_mod)
 
-    {dag_module, _} = Code.compile_quoted(dag_ast, file_path) |> List.first()
+    {dag_module, _} = Code.compile_quoted(dag_ast, dag_def.file_path) |> List.first()
     dag_module
   end
+
+  defp dag_source(%Definition{source: source}) when is_binary(source), do: source
+  defp dag_source(%Definition{file_path: file_path}), do: File.read!(file_path)
 
   defp purge(mod) do
     :code.purge(mod)

@@ -27,17 +27,28 @@ defmodule Gust.DAG.FolderTest do
     assert :ok = Folder.verify!("test", missing_folder())
   end
 
-  test "lists sorted files matching the extension", %{folder: folder} do
+  test "loads matching files from a folder path", %{folder: folder} do
     File.write!(Path.join(folder, "second.ex"), "")
     File.write!(Path.join(folder, "ignored.py"), "")
     File.write!(Path.join(folder, "first.ex"), "")
 
-    assert ["first.ex", "second.ex"] = Folder.list_files(folder, ".ex")
+    expected = [Path.join(folder, "first.ex"), Path.join(folder, "second.ex")]
+    actual = Gust.DAG.Parser.File.parse_folder(folder, wildcard: "*.ex")
+
+    assert actual == expected
   end
 
-  test "builds an absolute file path", %{folder: folder} do
-    assert Path.join(Path.absname(folder), "some_dag.ex") ==
-             Folder.absolute_path(folder, "some_dag.ex")
+  test "loads nested files recursively when wildcard matches nested paths", %{folder: folder} do
+    nested = Path.join(folder, "nested")
+    File.mkdir_p!(nested)
+    File.write!(Path.join(folder, "first.ex"), "")
+    File.write!(Path.join(nested, "second.ex"), "")
+    File.write!(Path.join(nested, "third.py"), "")
+
+    expected = [Path.join(folder, "first.ex"), Path.join(nested, "second.ex")]
+    actual = Gust.DAG.Parser.File.parse_folder(folder, wildcard: "**/*.ex")
+
+    assert actual == expected
   end
 
   test "extracts the DAG name from a path" do

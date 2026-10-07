@@ -46,6 +46,16 @@ defmodule GustWeb.Router do
     end
   end
 
+  # Git webhook endpoints for real-time DAG updates
+  scope "/api/webhooks" do
+    pipe_through(:api)
+
+    post("/github", GustWeb.DagWebhookController, :github)
+    post("/gitlab", GustWeb.DagWebhookController, :gitlab)
+    post("/gitea", GustWeb.DagWebhookController, :gitea)
+    post("/generic", GustWeb.DagWebhookController, :generic)
+  end
+
   # Enable LiveDashboard in development
   if Application.compile_env(:gust_web, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put

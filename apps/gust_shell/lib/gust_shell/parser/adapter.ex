@@ -31,7 +31,7 @@ defmodule GustShell.Parser.Adapter do
   @std_keys ~w(stdin stdout stderr)a
 
   @impl true
-  def extension, do: ".yml"
+  def extensions, do: [".yml", ".yaml"]
 
   @impl true
   def parse_file(file_path) do
@@ -81,9 +81,10 @@ defmodule GustShell.Parser.Adapter do
       )
 
     with {:ok, stages} <- Graph.to_stages(graph) do
+      ext = Path.extname(file_path)
       {:ok,
        %Definition{
-         name: Path.basename(file_path, extension()),
+         name: Path.basename(file_path, ext),
          adapter: :shell,
          file_path: file_path,
          options:

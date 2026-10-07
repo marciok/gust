@@ -42,6 +42,24 @@ defmodule DAG.Runtime.Adapters.ElixirTest do
       assert Code.ensure_loaded?(updated_mod)
       assert "Elixir.Gust.Runner.#{@original_mod_name}_#{runtime_id}" == to_string(updated_mod)
     end
+
+    test "compiles from source snapshot when file is unavailable", %{
+      original_def: %Definition{} = dag_def
+    } do
+      runtime_id = 54_321
+      source = File.read!(dag_def.file_path)
+
+      snapshot_def = %Definition{
+        dag_def
+        | source: source,
+          file_path: "/tmp/missing_dag_source.ex"
+      }
+
+      %{mod: updated_mod} = Adapter.setup(snapshot_def, runtime_id)
+
+      assert Code.ensure_loaded?(updated_mod)
+      assert "Elixir.Gust.Runner.#{@original_mod_name}_#{runtime_id}" == to_string(updated_mod)
+    end
   end
 
   describe "teardown/2" do

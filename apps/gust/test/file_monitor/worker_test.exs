@@ -1,6 +1,7 @@
 defmodule FileMonitor.WorkerTest do
   use Gust.DataCase, async: false
 
+  alias Gust.DAG.Source.MonitorState
   import Gust.FSHelpers
   import Mox
 
@@ -17,6 +18,12 @@ defmodule FileMonitor.WorkerTest do
   setup :set_mox_from_context
 
   setup %{tmp_dir: tmp_dir} do
+    # Set short debounce delay for tests
+    Application.put_env(:gust, :file_reload_delay, 50)
+    Application.delete_env(:gust, :dag_sources)
+    original_dags_folder = Application.get_env(:gust, :dags_folder)
+    Application.put_env(:gust, :dags_folder, tmp_dir)
+
     Application.put_env(:gust, :dag_adapter,
       elixir: %{
         parser: Gust.DAGParserAdapterMock,
@@ -26,11 +33,11 @@ defmodule FileMonitor.WorkerTest do
     )
 
     Gust.DAGParserAdapterMock
-    |> stub(:extension, fn -> ".ex" end)
+    |> stub(:extensions, fn -> [".ex"] end)
 
     Gust.FileMonitorMock
     |> expect(:start_link, fn keywords ->
-      assert [dirs: [tmp_dir], latency: 0] == keywords
+      assert [dirs: [tmp_dir]] == keywords
       {:ok, spawn(fn -> :ok end)}
     end)
 
@@ -40,12 +47,52 @@ defmodule FileMonitor.WorkerTest do
     end)
 
     pid =
-      start_link_supervised!({Gust.FileMonitor.Worker, %{dags_folder: tmp_dir, loader: self()}})
+      start_link_supervised!({Gust.FileMonitor.Worker, %{id: "default-folder", loader: self()}})
 
     Gust.PubSub.subscribe_all_files("update")
     Process.monitor(pid)
 
+    on_exit(fn ->
+      Application.put_env(:gust, :file_reload_delay, 1_000)
+      Application.put_env(:gust, :dags_folder, original_dags_folder)
+    end)
+
     %{dag_watcher_pid: pid}
+  end
+
+  test "persists monitor status in the database and restores it after restart", %{
+    tmp_dir: tmp_dir,
+    dag_watcher_pid: pid
+  } do
+    assert Gust.FileMonitor.Worker.status("default-folder") == :running
+    assert status_from_db("default-folder", Gust.DAG.Source.Folder) == :running
+
+    assert :ok == Gust.FileMonitor.Worker.pause("default-folder")
+    assert status_from_db("default-folder", Gust.DAG.Source.Folder) == :paused
+
+    Process.unlink(pid)
+    GenServer.stop(pid)
+
+    Gust.FileMonitorMock
+    |> stub(:start_link, fn keywords ->
+      assert [dirs: [tmp_dir]] == keywords
+      {:ok, spawn_link(fn -> :ok end)}
+    end)
+
+    Gust.FileMonitorMock
+    |> stub(:watch, fn _pid -> :ok end)
+
+    {:ok, restarted_pid} =
+      GenServer.start_link(Gust.FileMonitor.Worker, %{
+        id: "default-folder",
+        loader: self()
+      })
+
+    assert GenServer.call(restarted_pid, :status) == :paused
+  end
+
+  defp status_from_db(source_id, source_type) do
+    MonitorState.read(source_id, source_type)
   end
 
   test "ignore debounce events", %{tmp_dir: tmp_dir, dag_watcher_pid: pid} do

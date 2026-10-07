@@ -44,7 +44,7 @@ defmodule Gust.CLI do
   def exec(["trigger_run", dag_name, "--run_params", json_string]) do
     load_app()
 
-    run_params = Jason.decode!(json_string)
+    run_params = Glazer.JSON.decode!(json_string)
 
     dag = Flows.get_dag_by_name(dag_name)
     {:ok, run} = Flows.create_run(%{dag_id: dag.id, params: run_params})
@@ -79,7 +79,7 @@ defmodule Gust.CLI do
           error: inspect(error)
         }
     end
-    |> Jason.encode!()
+    |> Glazer.JSON.encode!()
   end
 
   defp load_app do

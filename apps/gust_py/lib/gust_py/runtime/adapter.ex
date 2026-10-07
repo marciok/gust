@@ -11,9 +11,9 @@ defmodule GustPy.Runtime.Adapter do
   end
 
   @impl true
-  def setup(%Definition{file_path: file_path} = dag_def, runtime_id) do
-    tmp_path = tmp_copy_path(file_path, runtime_id)
-    File.cp!(file_path, tmp_path)
+  def setup(%Definition{} = dag_def, runtime_id) do
+    tmp_path = tmp_copy_path(dag_def.file_path, runtime_id)
+    write_runtime_source!(dag_def, tmp_path)
 
     %{dag_def | file_path: tmp_path}
   end
@@ -48,5 +48,13 @@ defmodule GustPy.Runtime.Adapter do
     base = Path.basename(file_path)
 
     Path.join(tmp_dir, "gust_py_dag_#{runtime_id}_#{base}")
+  end
+
+  defp write_runtime_source!(%Definition{source: source}, tmp_path) when is_binary(source) do
+    File.write!(tmp_path, source)
+  end
+
+  defp write_runtime_source!(%Definition{file_path: file_path}, tmp_path) do
+    File.cp!(file_path, tmp_path)
   end
 end

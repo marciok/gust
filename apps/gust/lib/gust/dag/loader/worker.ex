@@ -1,7 +1,7 @@
 defmodule Gust.DAG.Loader.Worker do
   @behaviour Gust.DAG.Loader
   @moduledoc false
-  alias Gust.DAG.Parser
+  alias Gust.DAG.Source.Config
   alias Gust.Flows
   alias Gust.PubSub
   use GenServer
@@ -9,7 +9,7 @@ defmodule Gust.DAG.Loader.Worker do
 
   @impl true
   def init(args) do
-    {:ok, args, {:continue, :bootstrap}}
+    {:ok, normalize_state(args), {:continue, :bootstrap}}
   end
 
   def child_spec(arg) do
@@ -24,6 +24,10 @@ defmodule Gust.DAG.Loader.Worker do
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
+
+  defp normalize_state(args) when is_map(args), do: Map.put_new(args, :dag_defs, %{})
+  defp normalize_state(args) when is_list(args), do: args |> Map.new() |> normalize_state()
+  defp normalize_state(_args), do: %{dag_defs: %{}}
 
   @impl true
   def get_definitions do
@@ -84,8 +88,8 @@ defmodule Gust.DAG.Loader.Worker do
   end
 
   @impl true
-  def handle_continue(:bootstrap, %{dags_folder: folder} = state) do
-    dag_defs = load_folder(folder)
+  def handle_continue(:bootstrap, state) do
+    dag_defs = load_dags_from_sources()
     Flows.delete_not_found_ids(Map.keys(dag_defs))
 
     {:noreply, state |> put_dag_defs(dag_defs)}
@@ -101,8 +105,26 @@ defmodule Gust.DAG.Loader.Worker do
     Map.put(state, :dag_defs, dag_defs)
   end
 
-  defp load_folder(folder) do
-    Parser.parse_folder(folder)
+  defp load_dags_from_sources do
+    Gust.DAG.Source.configs()
+    |> Enum.reduce(%{}, &load_source_dag_defs/2)
+  end
+
+  defp load_source_dag_defs(config, dag_defs_acc) do
+    source_module = Config.source_module(config)
+
+    case source_module.load() do
+      %{success: success, error: error} ->
+        Map.merge(dag_defs_acc, build_source_dag_defs(success, error))
+
+      {:error, reason} ->
+        Logger.error("Failed to load DAGs from source '#{source_module}': #{inspect(reason)}")
+        dag_defs_acc
+    end
+  end
+
+  defp build_source_dag_defs(success, error) do
+    (wrap_success(success) ++ wrap_errors(error))
     |> Enum.map(fn {name, parser_result} ->
       dag = get_or_create_dag(name)
       {dag.id, parser_result}
@@ -110,15 +132,20 @@ defmodule Gust.DAG.Loader.Worker do
     |> Map.new()
   end
 
+  defp wrap_success(entries), do: Enum.map(entries, fn {name, value} -> {name, {:ok, value}} end)
+
+  defp wrap_errors(entries),
+    do: Enum.map(entries, fn {name, reason} -> {name, {:error, reason}} end)
+
   def get_or_create_dag(name) do
     case Flows.get_dag_by_name(name) do
       %Flows.Dag{} = dag ->
-        Logger.warning("FOUND DAG: #{name}")
+        Logger.info("FOUND DAG: #{name}")
         dag
 
       nil ->
         {:ok, dag} = Flows.create_dag(%{name: name})
-        Logger.warning("CREATED DAG: #{name}")
+        Logger.info("CREATED DAG: #{name}")
         dag
     end
   end

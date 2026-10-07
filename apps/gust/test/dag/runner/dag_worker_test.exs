@@ -263,13 +263,13 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     expect_task_starts(1)
 
     Gust.RuntimeAdapterMock
-    |> expect(:kill, fn _task_pid -> {:error, :cannot_kill_task} end)
+    |> expect(:kill, fn _task_pid -> {:error, :run_command_failed} end)
 
     runner = start_runner(run, dag_def)
     runner_ref = Process.monitor(runner)
 
     assert_receive {:task_started, %Flows.Task{name: "running"}, ^runner}
-    assert {:error, :cannot_kill_task} = RunGateway.call(run, :stop)
+    assert {:error, :run_command_failed} = RunGateway.call(run, :stop)
     assert Process.alive?(runner)
     refute_receive {:DOWN, ^runner_ref, :process, ^runner, _reason}
   end

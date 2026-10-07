@@ -129,7 +129,7 @@ defmodule GustWeb.Layouts do
 
         <main
           id="app-content"
-          class={["min-w-0", "max-w-full", "flex-1", "overflow-y-auto"]}
+          class={["min-h-0", "min-w-0", "max-w-full", "flex-1", "overflow-y-auto"]}
         >
           <div class="app-shell__content">
             <div class={["container", "mx-auto", "min-w-0", "max-w-full", "flex-1", "w-full"]}>

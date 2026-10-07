@@ -4,7 +4,7 @@ defmodule Gust.Flows.DagTest do
 
   describe "name format validation" do
     test "accepts valid names" do
-      valid_names = ["some_name", "dag1", "abc_123"]
+      valid_names = ["some_name", "some-name", "dag1", "abc_123"]
 
       for name <- valid_names do
         changeset = Dag.changeset(%Dag{}, %{name: name})
@@ -15,7 +15,7 @@ defmodule Gust.Flows.DagTest do
     end
 
     test "rejects invalid names" do
-      invalid_names = ["SomeName", "some name", "some-name", "some$name", ""]
+      invalid_names = ["SomeName", "some name", "some$name", ""]
 
       for name <- invalid_names do
         changeset = Dag.changeset(%Dag{}, %{name: name})

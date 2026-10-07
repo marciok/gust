@@ -4,7 +4,7 @@ defmodule Gust.Flows.Secret do
   import Ecto.Changeset
 
   @primary_key {:id, :binary_id, autogenerate: true}
-  @derive {Jason.Encoder, only: [:id, :name, :value_type, :inserted_at, :updated_at]}
+  @derive {Glazer.JSON.Encoder, only: [:id, :name, :value_type, :inserted_at, :updated_at]}
   schema "gust_secrets" do
     field :name, :string
     field :value, Gust.Encrypted.Binary, redact: true
@@ -39,7 +39,7 @@ defmodule Gust.Flows.Secret do
   end
 
   defp validate_json(value, changeset) when is_bitstring(value) do
-    case Jason.decode(value) do
+    case Glazer.JSON.decode(value) do
       {:ok, _decoded} -> changeset
       {:error, _} -> add_error(changeset, :value, "must be valid JSON")
     end

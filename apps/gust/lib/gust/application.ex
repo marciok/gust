@@ -39,21 +39,27 @@ defmodule Gust.Application do
 
   ## DAG folder validation
 
-  Outside of `test`, Gust validates that the configured DAG folder exists at
-  startup. If it is missing, the application fails fast.
+  Outside of `test`, each configured DAG source validates its own startup
+  requirements through the optional `c:Gust.DAG.Source.validate/2` callback. For
+  example, a Folder source fails fast when its folder is missing, while Git,
+  Database, or S3 sources do not require a local DAGs folder.
   """
 
   use Application
   alias Gust.DAG
+  alias Gust.DAG.Adapter
+  alias Gust.DAG.Logger.Database, as: DAGLoggerDatabase
+  alias Gust.DAG.Source.Config, as: SourceConfig
 
   @impl true
   def start(_type, _args) do
-    LoggerBackends.add(Gust.DAG.Logger.Database)
+    LoggerBackends.add(DAGLoggerDatabase)
+    Adapter.reload()
+    SourceConfig.reload()
 
     env = System.get_env("MIX_ENV") || Mix.env() |> to_string()
-    folder = Application.get_env(:gust, :dags_folder)
 
-    DAG.Folder.verify!(env, folder)
+    DAG.Source.validate_all!(env, SourceConfig.read())
 
     query = Gust.DNSCluster.parse_query(Application.get_env(:gust, :dns_cluster_query))
     error_tracking = Application.get_env(:gust, :error_tracking, [])
@@ -70,7 +76,7 @@ defmodule Gust.Application do
 
     role = System.get_env("GUST_ROLE", "single")
 
-    children = base_children ++ Gust.AppChildren.for_role(role, env, folder)
+    children = base_children ++ Gust.AppChildren.for_role(role, env)
     Supervisor.start_link(children, strategy: :one_for_one, name: Gust.Supervisor)
   end
 end

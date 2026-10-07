@@ -14,9 +14,12 @@ defmodule GustPy.TaskMessenger.JSON do
 
   @impl true
   def decode(data) do
-    with {:ok, payload} <- Jason.decode(data) do
-      {:ok, new(payload)}
+    case Glazer.JSON.decode(data) do
+      {:ok, payload} -> {:ok, new(payload)}
+      {:error, reason} -> {:error, RuntimeError.exception(inspect(reason))}
     end
+  rescue
+    e in ArgumentError -> {:error, e.message}
   end
 
   @impl true
@@ -53,7 +56,7 @@ defmodule GustPy.TaskMessenger.JSON do
 
   @impl true
   def reply(os_pid, %{ok: ok} = payload) when is_boolean(ok) do
-    response = payload |> Map.put_new(:type, "reply") |> Jason.encode!()
+    response = payload |> Map.put_new(:type, "reply") |> Glazer.JSON.encode!()
     :exec.send(os_pid, FrameCodec.encode(response))
     :ok
   end

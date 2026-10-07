@@ -104,6 +104,12 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
 /* Provide a consistent, high-contrast keyboard focus indicator across both themes. */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--color-primary);
@@ -360,19 +366,19 @@
   }
 
   .sidebar {
-    @apply w-64 shrink-0 bg-base-100 text-base-content border-r border-base-content/20 shadow-sm flex flex-col;
+    @apply flex h-screen w-64 shrink-0 flex-col overflow-hidden border-r border-base-content/20 bg-base-100 text-base-content shadow-sm;
   }
 
   .sidebar__brand {
-    @apply p-5 border-b border-base-content/15 flex items-center gap-3;
+    @apply flex shrink-0 items-center gap-3 border-b border-base-content/15 p-5;
   }
 
   .sidebar__links {
-    @apply px-3 py-4 space-y-1;
+    @apply flex-1 space-y-1 overflow-hidden px-3 py-4;
   }
 
   .sidebar__footer {
-    @apply mt-auto border-t border-base-content/15 p-3;
+    @apply mt-auto shrink-0 border-t border-base-content/15 p-3;
   }
 
   .sidebar__link {
@@ -380,7 +386,7 @@
   }
 
   .app-shell {
-    @apply flex min-h-screen w-full min-w-0 max-w-full flex-col overflow-x-hidden;
+    @apply flex h-screen w-full min-w-0 max-w-full flex-col overflow-hidden;
     color: var(--color-base-content);
     background-color: var(--color-base-200);
     background-image:
@@ -392,11 +398,11 @@
   }
 
   .app-shell__body {
-    @apply flex min-w-0 max-w-full flex-1;
+    @apply flex h-screen min-w-0 max-w-full flex-1 overflow-hidden;
   }
 
   .app-shell__content {
-    @apply flex min-h-full min-w-0 max-w-full flex-col gap-6 px-3 py-4;
+    @apply flex min-h-0 min-w-0 max-w-full flex-col gap-6 px-3 py-4;
   }
 
   @media (max-width: 639px) {

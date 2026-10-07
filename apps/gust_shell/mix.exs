@@ -15,13 +15,7 @@ defmodule GustShell.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test,
-        "coveralls.cobertura": :test
-      ],
+      cli: cli(),
       deps: deps(),
       description: "YAML shell DAG support for Gust",
       package: [
@@ -46,7 +40,7 @@ defmodule GustShell.MixProject do
     [
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:erlexec, "~> 2.5"},
-      {:glazer, "~> 1.0"},
+      {:glazer, "~> 1.0", manager: :mix},
       gust_dep()
     ]
   end
@@ -67,6 +61,16 @@ defmodule GustShell.MixProject do
       extras: extras(),
       groups_for_extras: groups_for_extras()
     ]
+  end
+
+  def cli do
+    [preferred_envs: [
+      coveralls: :test,
+      "coveralls.detail": :test,
+      "coveralls.post": :test,
+      "coveralls.html": :test,
+      "coveralls.cobertura": :test
+    ]]
   end
 
   defp extras, do: ["README.md"] ++ Path.wildcard("guides/*.md")

@@ -69,7 +69,7 @@ defmodule GustWeb.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
       gust_dep(),
-      {:jason, "~> 1.2"},
+      {:glazer, "~> 1.0", manager: :mix},
       {:bandit, "~> 1.5"},
       {:igniter, "~> 0.6", optional: true}
     ]

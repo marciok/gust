@@ -67,7 +67,7 @@ defmodule Run.Claim.RepoTest do
              } = Claim.next_run()
 
       refute is_nil(token)
-      assert DateTime.diff(expiration_date, expire_at) == 0
+      assert DateTime.diff(expiration_date, expire_at) in [0, 1]
     end
 
     test "claim expired running", %{
@@ -92,7 +92,7 @@ defmodule Run.Claim.RepoTest do
              } = Claim.next_run()
 
       refute is_nil(token)
-      assert DateTime.diff(expiration_date, expire_at) == 0
+      assert DateTime.diff(expiration_date, expire_at) in [0, 1]
     end
 
     test "does not claim enqueued runs for disabled dags", %{

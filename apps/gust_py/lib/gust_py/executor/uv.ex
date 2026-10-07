@@ -24,7 +24,7 @@ defmodule GustPy.Executor.UV do
       "--task",
       task_name,
       "--ctx-json",
-      Jason.encode!(task_context)
+      Glazer.JSON.encode!(task_context)
     ]
   end
 

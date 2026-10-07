@@ -243,7 +243,7 @@ defmodule DailyStockDecider do
            }
          ) do
       {:ok, %{status: 200, body: %{"output" => [%{"content" => [content]}]}}} ->
-        Jason.decode!(content["text"])
+        Glazer.JSON.decode!(content["text"])
     end
   end
 
@@ -272,7 +272,7 @@ defmodule DailyStockDecider do
            ]
          }
        }} ->
-        parse_md_json(raw) |> Jason.decode!()
+        parse_md_json(raw) |> Glazer.JSON.decode!()
     end
   end
 
@@ -310,7 +310,7 @@ defmodule DailyStockDecider do
            ]
          }
        }} ->
-        parse_md_json(raw) |> Jason.decode!()
+        parse_md_json(raw) |> Glazer.JSON.decode!()
     end
   end
 
@@ -357,7 +357,7 @@ defmodule DailyStockDecider do
     %{"result" => decide_action} = Flows.get_task_by_name_run("decide_action", run_id).result
 
     %{"password" => password, "to" => to, "from" => from} =
-      Flows.get_secret_by_name("MAILGUN").value |> Jason.decode!()
+      Flows.get_secret_by_name("MAILGUN").value |> Glazer.JSON.decode!()
 
     summary =
       [{"GPT", gpt}, {"Gemini", gemini}, {"Claude", claude}]

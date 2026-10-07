@@ -30,6 +30,18 @@ defmodule GustPy.Runtime.AdapterTest do
     assert File.exists?(original_path)
   end
 
+  test "setup writes source snapshot when file path is unavailable" do
+    dag_def = %Definition{file_path: "/tmp/missing_dag_source.ex", source: "snapshot content"}
+
+    updated_def = Adapter.setup(dag_def, "runtime-id-source")
+
+    assert File.exists?(updated_def.file_path)
+    assert File.read!(updated_def.file_path) == "snapshot content"
+
+    assert :ok = Adapter.teardown(updated_def, "runtime-id-source")
+    refute File.exists?(updated_def.file_path)
+  end
+
   test "on_finished_callback invoke callback via executor" do
     fn_name = "done_here"
     name = "callback_dag"

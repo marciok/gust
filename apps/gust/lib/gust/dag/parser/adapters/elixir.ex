@@ -6,7 +6,7 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
   @behaviour Gust.DAG.Parser.Adapter
 
   @impl true
-  def extension, do: ".ex"
+  def extensions, do: [".ex"]
 
   @impl true
   def parse_file(file_path) do
@@ -67,7 +67,8 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
   end
 
   defp define_dag(file_path) do
-    name = Path.basename(file_path, extension())
+    ext = extensions() |> hd()
+    name = Path.basename(file_path, ext)
     dag_def = default_dag_def(name, file_path)
 
     dag_def =
