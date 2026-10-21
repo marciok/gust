@@ -10,27 +10,6 @@ defmodule Gust.PGNotifier.Worker do
   @channel "run_dispatch"
   @connection Gust.PGNotifier.Connection
 
-  @connection_options [
-    :hostname,
-    :port,
-    :username,
-    :password,
-    :database,
-    :socket,
-    :socket_dir,
-    :endpoints,
-    :ssl,
-    :ssl_opts,
-    :parameters,
-    :connect_timeout,
-    :socket_options,
-    :types,
-    :after_connect,
-    :prepare,
-    :target_server_type,
-    :idle_interval
-  ]
-
   @impl Gust.Run.Dispatcher
   def enqueue_all(runs), do: PGNotifier.enqueue_all(runs)
 
@@ -73,9 +52,8 @@ defmodule Gust.PGNotifier.Worker do
   end
 
   defp connection_opts(opts, notifier_opts) do
-    Gust.Repo.config()
-    |> Keyword.take(@connection_options)
-    |> Keyword.merge(notifier_opts)
+    notifier_opts
+    |> Gust.Repo.connection_opts()
     |> Keyword.merge(opts)
     |> Keyword.put(:name, @connection)
     |> Keyword.put(:sync_connect, true)

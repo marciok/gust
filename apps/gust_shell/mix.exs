@@ -1,8 +1,8 @@
 defmodule GustShell.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
-  @gust_version "0.1.40"
+  @version "0.1.1"
+  @gust_version "0.1.41"
 
   def project do
     [

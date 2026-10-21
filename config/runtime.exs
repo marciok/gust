@@ -34,6 +34,14 @@ if config_env() == :prod do
     # pool_count: 4,
     socket_options: maybe_ipv6
 
+  # Advisory locks and LISTEN/NOTIFY need a connection bound to one database
+  # session. When DATABASE_URL goes through a pooler in transaction mode (e.g.
+  # PgBouncer on Fly.io Managed Postgres), point them at a direct connection.
+  if direct_database_url = System.get_env("DIRECT_DATABASE_URL") do
+    config :gust, :db_locker_connection, url: direct_database_url
+    config :gust, :pg_notifications, url: direct_database_url
+  end
+
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
   # want to use a different value for prod and you most likely don't want
