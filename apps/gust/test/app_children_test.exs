@@ -2,10 +2,15 @@ defmodule AppChildrenTest do
   alias Gust.AppChildren
   use Gust.DataCase
 
+  import ExUnit.CaptureLog
+  import Mox
+
   @dags_folder "folder/path/dags"
 
   describe "for_role/3" do
     setup do
+      stub(Gust.FileMonitorMock, :available?, fn -> true end)
+
       children = [
         Gust.Run.DispatcherSupervisor,
         {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}},
@@ -32,6 +37,21 @@ defmodule AppChildrenTest do
 
       assert [{Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}}] =
                AppChildren.for_role("web", "dev", @dags_folder)
+    end
+
+    test "skips the DAG watcher with a warning when file watching is unavailable" do
+      stub(Gust.FileMonitorMock, :available?, fn -> false end)
+
+      log =
+        capture_log(fn ->
+          children = AppChildren.for_role("single", "dev", @dags_folder)
+
+          refute Enum.any?(children, &match?({Gust.FileMonitor.Worker, _args}, &1))
+          assert {Gust.DAG.Loader.Worker, %{dags_folder: @dags_folder}} in children
+        end)
+
+      assert log =~ "Watching #{@dags_folder} for DAG changes is unavailable"
+      assert log =~ "inotify-tools"
     end
 
     test "starts the run dispatcher supervisor only for execution roles" do

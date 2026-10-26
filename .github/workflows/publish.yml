@@ -47,45 +47,7 @@ jobs:
           cache-dependency-path: apps/gust_web/assets/package-lock.json
 
       - name: Validate release versions
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          release_version="${GITHUB_REF_NAME#v}"
-          gust_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust/mix.exs)"
-          gust_web_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_web/mix.exs)"
-          gust_py_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_py/mix.exs)"
-          gust_py_gust_version="$(sed -n 's/^[[:space:]]*@gust_version "\([^"]*\)".*/\1/p' apps/gust_py/mix.exs)"
-          gust_shell_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_shell/mix.exs)"
-          installer_version="$(sed -n 's/^[[:space:]]*@gust_web_version "\([^"]*\)".*/\1/p' apps/gust_web/lib/gust_web/mix/tasks/gust_web.install.ex)"
-          setup_script_version="$(sed -n 's/^GUST_WEB_VERSION=\${GUST_WEB_VERSION:-\([^}]*\)}.*/\1/p' setup_gust_app.sh)"
-
-          if [[ ! "${release_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid release tag: ${GITHUB_REF_NAME}" >&2
-            exit 1
-          fi
-
-          if [[ "${gust_version}" != "${release_version}" ]]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match gust ${gust_version}" >&2
-            exit 1
-          fi
-
-          if [[ "${gust_web_version}" != "${release_version}" ]]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match gust_web ${gust_web_version}" >&2
-            exit 1
-          fi
-
-          if [[ "${installer_version}" != "${release_version}" ]]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match gust_web.install @gust_web_version ${installer_version}" >&2
-            exit 1
-          fi
-
-          if [[ "${setup_script_version}" != "${release_version}" ]]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match setup_gust_app.sh GUST_WEB_VERSION ${setup_script_version}" >&2
-            exit 1
-          fi
-
-          echo "gust=${gust_version} gust_web=${gust_web_version} gust_py=${gust_py_version} gust_py_gust=${gust_py_gust_version} gust_shell=${gust_shell_version}"
+        run: .github/scripts/check_release_versions.sh "${GITHUB_REF_NAME#v}"
 
       - name: Install NPM packages
         working-directory: apps/gust_web/assets
@@ -113,7 +75,7 @@ jobs:
           mix archive.install hex igniter_new --force
 
       - name: Generate and boot an app with setup_gust_app.sh
-        run: .github/scripts/install_smoke_test.sh "${GITHUB_REF_NAME#v}" "${RUNNER_TEMP}"
+        run: .github/scripts/build_and_run.sh "${GITHUB_REF_NAME#v}" "${RUNNER_TEMP}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
