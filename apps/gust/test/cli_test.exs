@@ -24,7 +24,7 @@ defmodule Gust.CLITest do
       run
     end)
 
-    {:ok, log} =
+    {json, log} =
       with_log(fn ->
         CLI.exec(["trigger_run", dag_name])
       end)
@@ -32,6 +32,8 @@ defmodule Gust.CLITest do
     [last_run] = Flows.get_dag_with_runs!(dag_id).runs
 
     assert log =~ "Triggered DAG cli_test_dag; Run: #{last_run.id}"
+    assert %{"status" => "ok", "run_id" => run_id} = Jason.decode!(json)
+    assert run_id == last_run.id
     assert %Flows.Run{params: %{}} = last_run
   end
 

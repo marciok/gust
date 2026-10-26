@@ -54,4 +54,19 @@ defmodule Mix.Tasks.Gust.CliTest do
              "definition" => %{"name" => "marcio"}
            } = Jason.decode!(json)
   end
+
+  test "prints the triggered run id as json", %{dag: dag} do
+    dag_id = dag.id
+
+    Gust.DAGRunTriggerMock
+    |> expect(:dispatch_run, fn %Gust.Flows.Run{dag_id: ^dag_id} = run -> run end)
+
+    with_log(fn ->
+      GustCli.run(["trigger_run", dag.name])
+    end)
+
+    assert_received {:mix_shell, :info, [json]}
+    assert %{"status" => "ok", "run_id" => run_id} = Jason.decode!(json)
+    assert %Gust.Flows.Run{dag_id: ^dag_id} = Gust.Flows.get_run!(run_id)
+  end
 end
