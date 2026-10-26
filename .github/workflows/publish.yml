@@ -36,8 +36,8 @@ jobs:
       - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27.0'
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -191,8 +191,8 @@ jobs:
       - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27.0'
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -238,8 +238,8 @@ jobs:
       - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27.0'
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Check whether gust is already published
         id: release
@@ -292,8 +292,8 @@ jobs:
       - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27.0'
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -359,8 +359,8 @@ jobs:
       - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27.0'
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Install Phoenix and Igniter generators
         run: |
@@ -412,8 +412,8 @@ jobs:
       - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27.0'
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Check whether gust_py is already published
         id: release
@@ -466,8 +466,8 @@ jobs:
       - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27.0'
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Check whether gust_shell is already published
         id: release
