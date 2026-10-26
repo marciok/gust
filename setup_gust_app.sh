@@ -43,6 +43,7 @@ GUST_WEB_VERSION=${GUST_WEB_VERSION:-0.1.40}
 mix igniter.new "$GUST_APP" \
   --install "gust_web@${GUST_WEB_VERSION},phoenix_live_dashboard@0.9,dns_cluster@0.3" \
   --with phx.new \
+  --yes \
   --with-args="--no-html --no-assets --no-gettext --no-mailer"
 
 cd "$GUST_APP"

@@ -16,6 +16,19 @@ jobs:
     name: Validate release
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:14
+        ports: ['5432:5432']
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -44,6 +57,8 @@ jobs:
           gust_py_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_py/mix.exs)"
           gust_py_gust_version="$(sed -n 's/^[[:space:]]*@gust_version "\([^"]*\)".*/\1/p' apps/gust_py/mix.exs)"
           gust_shell_version="$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' apps/gust_shell/mix.exs)"
+          installer_version="$(sed -n 's/^[[:space:]]*@gust_web_version "\([^"]*\)".*/\1/p' apps/gust_web/lib/gust_web/mix/tasks/gust_web.install.ex)"
+          setup_script_version="$(sed -n 's/^GUST_WEB_VERSION=\${GUST_WEB_VERSION:-\([^}]*\)}.*/\1/p' setup_gust_app.sh)"
 
           if [[ ! "${release_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid release tag: ${GITHUB_REF_NAME}" >&2
@@ -57,6 +72,16 @@ jobs:
 
           if [[ "${gust_web_version}" != "${release_version}" ]]; then
             echo "Tag ${GITHUB_REF_NAME} does not match gust_web ${gust_web_version}" >&2
+            exit 1
+          fi
+
+          if [[ "${installer_version}" != "${release_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match gust_web.install @gust_web_version ${installer_version}" >&2
+            exit 1
+          fi
+
+          if [[ "${setup_script_version}" != "${release_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match setup_gust_app.sh GUST_WEB_VERSION ${setup_script_version}" >&2
             exit 1
           fi
 
@@ -79,6 +104,16 @@ jobs:
           (cd apps/gust_web && PUBLISH_DEP=true mix hex.build --output "${RUNNER_TEMP}/gust_web.tar")
           (cd apps/gust_py && PUBLISH_DEP=true mix hex.build --output "${RUNNER_TEMP}/gust_py.tar")
           (cd apps/gust_shell && PUBLISH_DEP=true mix hex.build --output "${RUNNER_TEMP}/gust_shell.tar")
+
+      - name: Install Phoenix and Igniter generators
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix archive.install hex phx_new --force
+          mix archive.install hex igniter_new --force
+
+      - name: Generate and boot an app with setup_gust_app.sh
+        run: .github/scripts/install_smoke_test.sh "${GITHUB_REF_NAME#v}" "${RUNNER_TEMP}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -311,6 +346,58 @@ jobs:
       - name: Report existing gust_web release
         if: steps.release.outputs.published == 'true'
         run: echo "gust_web ${{ steps.release.outputs.version }} is already published; skipping"
+
+  verify-hex-install:
+    name: Verify setup_gust_app.sh resolves the release from Hex
+    needs: [publish-gust, publish-gust-web]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18'
+          otp-version: '27.0'
+
+      - name: Install Phoenix and Igniter generators
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix archive.install hex phx_new --force
+          mix archive.install hex igniter_new --force
+
+      - name: Generate app and check mix.lock
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+
+          release_version="${GITHUB_REF_NAME#v}"
+
+          # The Hex registry can take a moment to serve a just-published release.
+          for attempt in 1 2 3 4 5; do
+            rm -rf gust_hex_app
+            if sh "${GITHUB_WORKSPACE}/setup_gust_app.sh" gust_hex_app </dev/null; then
+              break
+            fi
+
+            if [[ ${attempt} -eq 5 ]]; then
+              exit 1
+            fi
+
+            sleep 30
+          done
+
+          for pkg in gust gust_web; do
+            if ! grep -q "\"${pkg}\": {:hex, :${pkg}, \"${release_version}\"" gust_hex_app/mix.lock; then
+              echo "mix.lock did not resolve ${pkg} ${release_version}:" >&2
+              grep "\"${pkg}\":" gust_hex_app/mix.lock >&2 || true
+              exit 1
+            fi
+          done
 
   publish-gust-py:
     name: Publish gust-py to Hex
