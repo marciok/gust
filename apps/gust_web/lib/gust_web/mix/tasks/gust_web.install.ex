@@ -4,7 +4,7 @@ if Code.ensure_loaded?(Igniter) do
     @shortdoc "Installs \"gust_web\" into your project"
 
     @dags_dir "dags"
-    @gust_web_version "0.1.40"
+    @gust_web_version "0.1.41"
 
     use Igniter.Mix.Task
 
@@ -45,7 +45,7 @@ if Code.ensure_loaded?(Igniter) do
     defp install_deps(igniter) do
       igniter
       |> Deps.add_dep({:file_system, "~> 1.1", only: :dev})
-      |> Deps.add_dep({:gust_web, @gust_web_version})
+      |> Deps.add_dep({:gust_web, @gust_web_version}, on_exists: :skip)
     end
 
     defp config_setup(igniter, name) do

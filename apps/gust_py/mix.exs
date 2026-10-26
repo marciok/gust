@@ -1,8 +1,8 @@
 defmodule GustPy.MixProject do
   use Mix.Project
 
-  @version "0.1.13"
-  @gust_version "0.1.40"
+  @version "0.1.14"
+  @gust_version "0.1.41"
 
   def project do
     [
