@@ -37,6 +37,12 @@ defmodule GustWeb.RunLiveTest do
       assert html =~ to_string(run.id)
     end
 
+    test "defaults pagination when the URL omits it", %{conn: conn, dag: dag, run: run} do
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs")
+
+      assert has_element?(index_live, "#runs-#{run.id}")
+    end
+
     test "links runs to an pinned dashboard history", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")

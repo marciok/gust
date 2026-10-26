@@ -48,6 +48,13 @@ defmodule GustWeb.RunLive.Index do
      |> stream(:runs, dag.runs, reset: true)}
   end
 
+  def handle_params(%{"name" => _name} = params, uri, socket) do
+    params
+    |> Map.put_new("page_size", "30")
+    |> Map.put_new("page", "1")
+    |> handle_params(uri, socket)
+  end
+
   defp count_and_pages(dag_id, status, params_search, size) do
     count = Flows.count_runs_on_dag(dag_id, status, params_search)
     pages = max(div(count + size - 1, size), 1)

@@ -13,3 +13,6 @@ lint:
 
 console:
 	iex -S mix
+
+preflight:
+	.github/scripts/preflight_in_docker.sh

@@ -51,3 +51,9 @@ gust-logo-*.png
 # Playwright MCP files
 /.playwright-mcp/
 
+# Playwright e2e tests
+/e2e/node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+# Fixture DAGs, despite the `dags/` rule above
+!/e2e/fixtures/dags/

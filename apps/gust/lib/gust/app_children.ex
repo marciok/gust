@@ -26,6 +26,8 @@ defmodule Gust.AppChildren do
   reload DAGs on file changes.
   """
 
+  require Logger
+
   def for_role("web", mix_env, dags_folder) do
     dag_loader_worker(mix_env, dags_folder)
   end
@@ -61,9 +63,16 @@ defmodule Gust.AppChildren do
   defp dag_watcher("prod", _folder), do: []
 
   defp dag_watcher(_env, folder) do
-    [
-      {Gust.FileMonitor.Worker, %{dags_folder: folder, loader: dag_loader()}}
-    ]
+    if Gust.FileMonitor.available?() do
+      [{Gust.FileMonitor.Worker, %{dags_folder: folder, loader: dag_loader()}}]
+    else
+      Logger.warning(
+        "Watching #{folder} for DAG changes is unavailable, so edits won't reload " <>
+          "until restart. On Linux, install inotify-tools to enable it."
+      )
+
+      []
+    end
   end
 
   defp dag_loader_worker("test", _folder), do: []

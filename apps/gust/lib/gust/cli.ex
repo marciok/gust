@@ -9,7 +9,8 @@ defmodule Gust.CLI do
 
   * `trigger_run <dag_name>`: starts the application, looks up the DAG by name,
     creates a run for it, and dispatches that run through the configured
-    `Gust.DAG.Run.Trigger` implementation.
+    `Gust.DAG.Run.Trigger` implementation. Returns the run ID as JSON, e.g.
+    `{"status":"ok","run_id":42}`.
 
     Accepts an optional `--run_params` flag with a JSON string payload:
 
@@ -51,6 +52,8 @@ defmodule Gust.CLI do
     run = Trigger.dispatch_run(run)
 
     Logger.warning("Triggered DAG #{dag.name}; Run: #{run.id}")
+
+    Jason.encode!(%{status: :ok, run_id: run.id})
   end
 
   def exec(["dag_definition", dag_name]) do
