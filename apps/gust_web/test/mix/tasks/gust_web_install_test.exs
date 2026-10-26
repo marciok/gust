@@ -3,6 +3,8 @@ defmodule Mix.Tasks.GustWebInstallTest do
 
   import Igniter.Test
 
+  alias Igniter.Project.Deps
+
   setup do
     project =
       test_project(
@@ -267,6 +269,25 @@ defmodule Mix.Tasks.GustWebInstallTest do
       |> assert_has_patch("lib/my_app_web/router.ex", """
       + | gust_dashboard()
       """)
+    end
+  end
+
+  describe "gust_web dep already present" do
+    setup %{project: project} do
+      igniter =
+        project
+        |> Deps.add_dep({:gust_web, path: "../gust_web", override: true})
+        |> apply_igniter!()
+        |> Igniter.compose_task("gust_web.install")
+
+      %{igniter: igniter}
+    end
+
+    test "keeps the existing gust_web dep", %{igniter: igniter} do
+      mix_diff = diff(igniter, only: "mix.exs")
+
+      refute mix_diff =~ "+ |      {:gust_web"
+      assert mix_diff =~ ~s(+ |      {:file_system, "~> 1.1", only: :dev})
     end
   end
 

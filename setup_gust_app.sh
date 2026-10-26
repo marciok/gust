@@ -36,7 +36,15 @@ fi
 # This script will install gust_web on a minimal Phoenix app,
 # if you wish to extend, and add the missing dependencies like LiveView you can manually add later.
 echo "==> Creating new minimal Igniter Phoenix app: $GUST_APP"
-mix igniter.new "$GUST_APP" --install gust_web --with phx.new --with-args="--no-html --no-assets --no-gettext --no-mailer"
+# Pin gust_web and bump the Phoenix-generated deps it conflicts with; otherwise
+# Hex silently falls back to an older gust_web that fits phx.new's defaults.
+GUST_WEB_VERSION=${GUST_WEB_VERSION:-0.1.40}
+
+mix igniter.new "$GUST_APP" \
+  --install "gust_web@${GUST_WEB_VERSION},phoenix_live_dashboard@0.9,dns_cluster@0.3" \
+  --with phx.new \
+  --yes \
+  --with-args="--no-html --no-assets --no-gettext --no-mailer"
 
 cd "$GUST_APP"
 mix deps.get
