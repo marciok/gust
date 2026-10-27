@@ -1,0 +1,42 @@
+# Dependabot only opens PRs for:
+#   - major version bumps (minor/patch version updates are ignored below)
+#   - security advisories (security updates are not affected by `update-types`
+#     ignore rules; enable them under Settings > Code security > Dependabot)
+version: 2
+
+updates:
+  - package-ecosystem: "mix"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+
+  - package-ecosystem: "npm"
+    directories:
+      - "/apps/gust_web/assets"
+      - "/e2e"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+
+  - package-ecosystem: "docker"
+    directories:
+      - "/apps/gust"
+      - "/apps/gust_web"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
