@@ -3,6 +3,7 @@ defmodule Gust.PubSub do
 
   # Topic bases
   @topic_run "dag:run"
+  @topic_runs_for_dag "dag:runs_for_dag"
   @topic_task "dag:task"
   @topic_file "dag:file"
   @run_dispatch "run_dispatch"
@@ -60,7 +61,7 @@ defmodule Gust.PubSub do
   def broadcast_run_started(dag_id, run_id) do
     Phoenix.PubSub.broadcast(
       __MODULE__,
-      "#{@topic_run}:#{dag_id}",
+      "#{@topic_runs_for_dag}:#{dag_id}",
       {:dag, @event_run_started, %{dag_id: dag_id, run_id: run_id}}
     )
   end
@@ -107,6 +108,6 @@ defmodule Gust.PubSub do
 
   # Subscribe to all runs under a given DAG
   def subscribe_runs_for_dag(dag_id) do
-    Phoenix.PubSub.subscribe(__MODULE__, "#{@topic_run}:#{dag_id}")
+    Phoenix.PubSub.subscribe(__MODULE__, "#{@topic_runs_for_dag}:#{dag_id}")
   end
 end
