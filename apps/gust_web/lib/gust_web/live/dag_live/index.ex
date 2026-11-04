@@ -3,6 +3,7 @@ defmodule GustWeb.DagLive.Index do
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
   alias Gust.PubSub
+  alias GustWeb.DagLive.TriggerMessage
   use GustWeb, :live_view
 
   @impl true
@@ -39,8 +40,11 @@ defmodule GustWeb.DagLive.Index do
     {:ok, run} = Flows.create_run(%{dag_id: dag_id})
 
     run = Flows.get_run_with_tasks!(run.id) |> Trigger.dispatch_run()
+    dag = Flows.get_dag!(dag_id)
 
-    {:noreply, socket |> put_flash(:info, "Run #{run.id} triggered")}
+    {kind, message} = TriggerMessage.flash(dag, run)
+
+    {:noreply, put_flash(socket, kind, message)}
   end
 
   defp list_dags(failed_runs_only?) do
