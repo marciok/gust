@@ -259,5 +259,24 @@ defmodule GustWeb.DagLiveTest do
 
       assert triggered_flash =~ "Run #{last_run.id} triggered"
     end
+
+    test "triggering a paused dag shows a warning", %{conn: conn, dag: dag} do
+      {:ok, _dag} = Flows.toggle_enabled(dag)
+      {:ok, index_live, _html} = live(conn, ~g"/dags")
+
+      GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
+
+      index_live |> element("#trigger-dag-run-#{dag.id}") |> render_click()
+
+      last_run = Flows.get_dag_with_runs!(dag.id).runs |> List.last()
+
+      assert has_element?(
+               index_live,
+               "#flash-warning .alert.alert-warning",
+               "Run #{last_run.id} created, but DAG #{dag.name} is paused."
+             )
+
+      refute has_element?(index_live, "#flash-info")
+    end
   end
 end

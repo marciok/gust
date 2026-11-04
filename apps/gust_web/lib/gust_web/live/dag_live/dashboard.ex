@@ -8,6 +8,7 @@ defmodule GustWeb.DagLive.Dashboard do
   alias Gust.Flows.Run
   alias Gust.Flows.Task
   alias Gust.PubSub
+  alias GustWeb.DagLive.TriggerMessage
   alias GustWeb.Mermaid
   use GustWeb, :live_view
 
@@ -254,21 +255,15 @@ defmodule GustWeb.DagLive.Dashboard do
 
     Trigger.dispatch_run(run)
     run = Flows.get_run_with_tasks!(run.id)
+    dag = Flows.get_dag!(dag_id)
+
+    pinned? = not is_nil(socket.assigns.pinned_run_id)
+    {kind, message} = TriggerMessage.flash(dag, run, pinned?: pinned?)
 
     socket =
-      if socket.assigns.pinned_run_id do
-        put_flash(
-          socket,
-          :warning,
-          "Run #{run.id} triggered. Unpin your history to view it."
-        )
-      else
-        socket
-        |> stream_insert(:runs, run)
-        |> put_flash(:info, "Run #{run.id} triggered")
-      end
+      if pinned?, do: socket, else: stream_insert(socket, :runs, run)
 
-    {:noreply, socket}
+    {:noreply, put_flash(socket, kind, message)}
   end
 
   @impl true
