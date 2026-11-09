@@ -723,6 +723,179 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
   end
 
+  describe "mapped task paging" do
+    test "starts each page after the previous one settles", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 2)
+      dag_def = mapped_definition(run, ["a", "b", "c"])
+      expect_task_starts(3)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0} = first, ^runner}
+      assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
+      refute_receive {:task_started, %Flows.Task{map_index: 2}, ^runner}, 100
+      assert Flows.get_task_by_name("mapped", run.id, 2).status == :created
+
+      send(runner, {:task_result, %{}, first.id, :ok})
+      refute_receive {:task_started, %Flows.Task{map_index: 2}, ^runner}, 100
+
+      send(runner, {:task_result, %{}, second.id, :ok})
+      assert_receive {:task_started, %Flows.Task{map_index: 2} = third, ^runner}
+      refute_receive {:DOWN, ^ref, :process, ^runner, _reason}, 100
+
+      send(runner, {:task_result, %{}, third.id, :ok})
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      assert Flows.get_run!(run.id).status == :succeeded
+    end
+
+    test "a retrying instance holds its page open", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 1)
+      dag_def = mapped_definition(run, ["a", "b"])
+      expect_task_starts(3)
+
+      Gust.DAGTaskDelayerMock
+      |> expect(:calc_delay, fn 1 -> 0 end)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0, attempt: 1} = first, ^runner}
+      send(runner, {:task_result, RuntimeError.exception("temporary"), first.id, :error})
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0, attempt: 2}, ^runner}
+      refute_receive {:task_started, %Flows.Task{map_index: 1}, ^runner}, 100
+
+      send(runner, {:task_result, %{}, first.id, :ok})
+      assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
+
+      send(runner, {:task_result, %{}, second.id, :ok})
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      assert Flows.get_run!(run.id).status == :succeeded
+    end
+
+    test "a failed instance still releases the next page", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 1)
+      dag_def = mapped_definition(run, ["a", "b"])
+      expect_task_starts(2)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0} = first, ^runner}
+
+      send(
+        runner,
+        {:task_result, RuntimeError.exception("failed"), first.id, :non_recoverable_error}
+      )
+
+      assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
+      send(runner, {:task_result, %{}, second.id, :ok})
+
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      assert Flows.get_run!(run.id).status == :failed
+    end
+
+    test "resumes a reclaimed run in pages without rerunning finished instances", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 1)
+      dag_def = mapped_definition(run, ["a", "b", "c"])
+
+      task_fixture(%{run_id: run.id, name: "mapped", status: :succeeded, map_index: 0})
+      task_fixture(%{run_id: run.id, name: "mapped", status: :created, map_index: 1})
+      task_fixture(%{run_id: run.id, name: "mapped", status: :created, map_index: 2})
+
+      expect_task_starts(2)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
+      refute_receive {:task_started, %Flows.Task{map_index: 2}, ^runner}, 100
+
+      send(runner, {:task_result, %{}, second.id, :ok})
+      assert_receive {:task_started, %Flows.Task{map_index: 2} = third, ^runner}
+
+      send(runner, {:task_result, %{}, third.id, :ok})
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      assert Flows.get_run!(run.id).status == :succeeded
+    end
+
+    test "cancelling a queued instance stops it from starting later", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 1)
+      dag_def = mapped_definition(run, ["a", "b", "c"])
+      expect_task_starts(2)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      Gust.PubSub.subscribe_run(run.id)
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0} = first, ^runner}
+      queued = Flows.get_task_by_name("mapped", run.id, 1)
+
+      assert {:ok, %Flows.Task{id: queued_id}} = RunGateway.call(run, {:cancel_task, queued.id})
+      assert queued_id == queued.id
+      assert_task_status(queued.id, :failed)
+
+      send(runner, {:task_result, %{}, first.id, :ok})
+      assert_receive {:task_started, %Flows.Task{map_index: 2} = third, ^runner}
+      refute_receive {:task_started, %Flows.Task{map_index: 1}, ^runner}, 100
+
+      send(runner, {:task_result, %{}, third.id, :ok})
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      assert Flows.get_task!(queued.id).status == :failed
+      assert Flows.get_run!(run.id).status == :failed
+    end
+
+    test "stopping a run does not start queued instances", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 1)
+      dag_def = mapped_definition(run, ["a", "b"])
+      expect_task_starts(1)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:kill, fn _task_pid -> :ok end)
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0}, ^runner}
+      assert {:ok, _run} = RunGateway.call(run, :stop)
+
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      refute_receive {:task_started, %Flows.Task{map_index: 1}, ^runner}, 100
+      assert Flows.get_task_by_name("mapped", run.id, 1).status == :created
+    end
+  end
+
+  defp mapped_definition(run, items) do
+    task_fixture(%{
+      run_id: run.id,
+      name: "source",
+      status: :succeeded,
+      result: %{"gust_task_items" => items}
+    })
+
+    definition(
+      [["mapped"]],
+      %{"mapped" => task_options(upstream: ["source"], map_over: :source)}
+    )
+  end
+
   defp start_runner(run, dag_def) do
     start_supervised!({DAGWorker, %{run: run, dag_def: dag_def}})
   end

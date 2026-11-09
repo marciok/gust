@@ -10,13 +10,14 @@ defmodule GustWeb.DagLive.Dashboard do
   alias Gust.PubSub
   alias GustWeb.DagLive.TriggerMessage
   alias GustWeb.Mermaid
+  alias GustWeb.Pagination
   use GustWeb, :live_view
 
   @page_size 30
   @impl true
   def mount(params, _session, socket) do
     pinned_run_id = params["pinned_run_id"]
-    page = if pinned_run_id, do: 1, else: parse_page(params["page"])
+    page = if pinned_run_id, do: 1, else: Pagination.parse_page(params["page"])
     dag = load_dag(page, params["name"], pinned_run_id)
 
     dag_def = Loader.get_definition(dag.id)
@@ -57,7 +58,6 @@ defmodule GustWeb.DagLive.Dashboard do
   defp mount_success(socket, %Dag{runs: runs} = dag, dag_def, params, page, pinned_run_id) do
     selected_item = SelectedItem.load(params)
     mermaid_task_statuses = run_task_statuses(runs, selected_item)
-    expanded_items = SelectedItem.expanded_items(selected_item)
     logs = SelectedItem.logs(selected_item)
 
     if connected?(socket), do: subscribe_updates(dag, runs)
@@ -73,27 +73,15 @@ defmodule GustWeb.DagLive.Dashboard do
      |> assign(:mermaid_task_statuses, mermaid_task_statuses)
      |> assign(SelectedItem.attributes(selected_item))
      |> assign(:reload_dag_file, {dag_def.file_path, time()})
-     |> assign_mapped_task_status("")
-     |> assign(:task_selection_form, to_form(%{"task_ids" => []}))
      |> assign(:mapped_task_status_options, status_filter_options(Task))
      |> assign(:selected_task_ids, [])
      |> stream(:logs, logs)
      |> assign(:empty_logs, logs == [])
      |> assign(:expanded_item_ids, SelectedItem.expanded_ids(selected_item))
-     |> stream(:mapped_tasks, expanded_items, dom_id: &mapped_task_dom_id/1)
      |> stream(:runs, runs |> Enum.reverse())}
   end
 
   def get_expanded(item), do: SelectedItem.expanded(item)
-
-  defp parse_page(nil), do: 1
-
-  defp parse_page(page) do
-    case Integer.parse(page) do
-      {page, ""} when page > 0 -> page
-      _invalid -> 1
-    end
-  end
 
   defp mount_error(socket, dag) do
     {:ok,
@@ -159,12 +147,22 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   @impl true
-  def handle_event("filter_mapped_task_status", %{"status" => status}, socket) do
+  def handle_params(params, _uri, socket) do
+    status = Map.get(params, "mapped_task_status", "")
+    page = params["mapped_task_page"]
+    tasks = SelectedItem.expanded_items(socket.assigns.selected_item)
+
     {:noreply,
      socket
      |> assign_mapped_task_status(status)
+     |> assign(:mapped_task_page, if(page, do: Pagination.parse_page(page)))
      |> clear_task_selection()
-     |> stream_mapped_tasks(socket.assigns.selected_item, status)}
+     |> stream_mapped_tasks(tasks, status)}
+  end
+
+  @impl true
+  def handle_event("filter_mapped_task_status", %{"status" => status}, socket) do
+    {:noreply, push_patch(socket, to: mapped_tasks_path(socket, nil, status))}
   end
 
   @impl true
@@ -174,8 +172,18 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply,
      socket
      |> assign(:selected_task_ids, selected_ids)
+     |> assign(:mapped_task_page, displayed_mapped_task_page(socket))
      |> assign_task_selection_form()
      |> stream_mapped_tasks(socket.assigns.selected_item, socket.assigns.mapped_task_status)}
+  end
+
+  @impl true
+  def handle_event("select_mapped_task_page", %{"page" => page}, socket) do
+    page = Pagination.parse_page(page)
+    page = if page != socket.assigns.mapped_task_paging.running, do: page
+    path = mapped_tasks_path(socket, page, socket.assigns.mapped_task_status)
+
+    {:noreply, push_patch(socket, to: path)}
   end
 
   @impl true
@@ -337,7 +345,7 @@ defmodule GustWeb.DagLive.Dashboard do
         {:dag, :run_status, %{run_id: run_id, status: _status, task_id: task_id}},
         socket
       ) do
-    run = Flows.get_run_with_tasks!(run_id)
+    run = Flows.get_run_with_tasks!(run_id, :omit_payloads)
 
     socket =
       if task_id do
@@ -369,8 +377,8 @@ defmodule GustWeb.DagLive.Dashboard do
   defp assign_task_reload(socket, task_id) do
     cond do
       task_id in socket.assigns.expanded_item_ids ->
-        task = Flows.get_task!(task_id)
-        tasks = Flows.get_tasks_by_name(task.name, task.run_id)
+        [%Task{name: name, run_id: run_id} | _tasks] = socket.assigns.selected_item
+        tasks = Flows.get_tasks_by_name(name, run_id, :omit_payloads)
 
         socket
         |> assign(:selected_item, tasks)
@@ -400,6 +408,28 @@ defmodule GustWeb.DagLive.Dashboard do
 
     query = URI.encode_query(query_params)
     ~g"/dags/#{name}/dashboard?#{query}"
+  end
+
+  defp mapped_tasks_path(socket, mapped_task_page, status) do
+    [%Task{name: name, run_id: run_id} | _tasks] = socket.assigns.selected_item
+
+    extra_params =
+      Enum.reject(
+        [
+          {"task_name", name},
+          {"mapped_task_status", status},
+          {"mapped_task_page", mapped_task_page}
+        ],
+        fn {_key, value} -> value in [nil, ""] end
+      )
+
+    dashboard_item_path(
+      socket.assigns.dag_def.name,
+      run_id,
+      socket.assigns.page,
+      socket.assigns.pinned_run_id,
+      extra_params
+    )
   end
 
   defp history_position_params(page, nil), do: [{"page", page}]
@@ -444,17 +474,35 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   defp stream_mapped_tasks(socket, tasks, status) do
-    stream(socket, :mapped_tasks, MappedTasks.filter(tasks, status),
+    paging = MappedTasks.paging(tasks, status, socket.assigns.mapped_task_page)
+
+    socket
+    |> assign(:mapped_task_paging, paging)
+    |> stream(:mapped_tasks, MappedTasks.visible(tasks, status, paging),
       dom_id: &mapped_task_dom_id/1,
       reset: true
     )
   end
 
+  defp displayed_mapped_task_page(socket) do
+    paging = socket.assigns.mapped_task_paging
+
+    if paging, do: paging.page
+  end
+
+  defp mapped_task_paging_summary(%{running: nil, size: size}), do: "#{size} at a time"
+
+  defp mapped_task_paging_summary(%{running: running, total: total, size: size}),
+    do: "Running page #{running} of #{total} · #{size} at a time"
+
   defp mapped_task_dom_id(task), do: "mapped-task-run-#{task.id}"
 
   defp cancel_selected_tasks(socket, selected_tasks) do
     socket = reset_mapped_tasks(socket)
-    flash = selected_tasks |> TaskActions.filter(:cancellable?) |> TaskActions.cancel_many()
+
+    flash =
+      selected_tasks |> TaskActions.filter(:mapped_cancellable?) |> TaskActions.cancel_many()
+
     put_task_flash(socket, flash)
   end
 

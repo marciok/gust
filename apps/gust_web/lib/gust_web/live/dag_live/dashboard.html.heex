@@ -301,7 +301,16 @@
     <section :if={@expanded_item_ids != []} id="mapped-task-runs-component" class="dag-card__body">
       <div class="border-t border-base-content/20 -mx-4 mb-3" />
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
+        <div class="flex flex-wrap items-center gap-2">
+          <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
+          <span
+            :if={@mapped_task_paging && @mapped_task_status == ""}
+            id="mapped-task-paging-summary"
+            class="badge badge-sm badge-soft"
+          >
+            {mapped_task_paging_summary(@mapped_task_paging)}
+          </span>
+        </div>
         <.form
           for={@mapped_task_status_form}
           id="mapped-task-status-filter"
@@ -392,6 +401,19 @@
           </table>
         </div>
       </.form>
+
+      <Pagination.pagination
+        :if={@mapped_task_paging}
+        id="mapped-task-pagination"
+        prefix="mapped-task"
+        label="Task runs pagination"
+        class="pt-3"
+        page={@mapped_task_paging.page}
+        total={@mapped_task_paging.total}
+        running={@mapped_task_paging.running}
+        event="select_mapped_task_page"
+        compact
+      />
     </section>
 
     <section :if={@expanded_item_ids == []} class="dag-card__body">
