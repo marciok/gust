@@ -1,14 +1,24 @@
 defmodule Gust.DAG.MappedTasks do
   @moduledoc false
 
+  require Logger
+
   def validate!(config \\ config()) do
     config = Keyword.validate!(config, [:max_parallel])
     max_parallel = config[:max_parallel]
 
-    if is_nil(max_parallel) or (is_integer(max_parallel) and max_parallel > 0) do
-      :ok
-    else
-      raise ArgumentError, ":max_parallel must be a positive integer"
+    cond do
+      is_nil(max_parallel) ->
+        Logger.warning(
+          "No :max_parallel configured: mapped tasks will run every instance at once. " <>
+            "Limit them with `config :gust, :mapped_tasks, max_parallel: 20`."
+        )
+
+      is_integer(max_parallel) and max_parallel > 0 ->
+        :ok
+
+      true ->
+        raise ArgumentError, ":max_parallel must be a positive integer"
     end
   end
 

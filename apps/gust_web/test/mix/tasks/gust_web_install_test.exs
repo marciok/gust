@@ -216,6 +216,10 @@ defmodule Mix.Tasks.GustWebInstallTest do
     |> assert_has_notice(&String.contains?(&1, "PG_USER"))
   end
 
+  test "limits mapped task concurrency", %{igniter: igniter} do
+    assert diff(igniter, only: "config/config.exs") =~ "mapped_tasks: [max_parallel: 20]"
+  end
+
   test "configures test mocks", %{igniter: igniter} do
     igniter
     |> assert_has_patch("config/test.exs", """
