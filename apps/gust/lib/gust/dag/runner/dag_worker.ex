@@ -89,14 +89,9 @@ defmodule Gust.DAG.Runner.DAGWorker do
          :ok <- validate_mapped_task_restart(state, task),
          {:ok, coord} <- Coord.restart_task(state.coord, task.id),
          {:ok, task} <- Flows.prepare_task_restart(task) do
-      case TaskExecution.start(task, state.dag_def, self()) do
-        {:ok, restarted_task} ->
-          {:reply, {:ok, restarted_task}, %{state | coord: coord}}
-
-        {:error, reason} ->
-          TaskExecution.fail_start(task, reason)
-          {:reply, {:error, reason}, state}
-      end
+      state.pager
+      |> TaskPager.admit(task)
+      |> restart_admitted_task(task, coord, state)
     else
       nil ->
         {:reply, {:error, :task_not_found}, state}
@@ -221,6 +216,23 @@ defmodule Gust.DAG.Runner.DAGWorker do
     }
 
     process_stage(startable_stage, state)
+  end
+
+  defp restart_admitted_task({:queued, pager}, task, coord, state) do
+    task = TaskExecution.update_status!(task, :created)
+
+    {:reply, {:ok, task}, %{state | coord: coord, pager: pager}}
+  end
+
+  defp restart_admitted_task({:start, pager}, task, coord, state) do
+    case TaskExecution.start(task, state.dag_def, self()) do
+      {:ok, restarted_task} ->
+        {:reply, {:ok, restarted_task}, %{state | coord: coord, pager: pager}}
+
+      {:error, reason} ->
+        TaskExecution.fail_start(task, reason)
+        {:reply, {:error, reason}, state}
+    end
   end
 
   defp start_next_page(%State{pager: pager} = state, settled_task_id) do

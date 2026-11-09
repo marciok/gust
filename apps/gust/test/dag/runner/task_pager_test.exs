@@ -68,6 +68,59 @@ defmodule Gust.DAG.Runner.TaskPagerTest do
     assert {_pager, [3, 4]} = TaskPager.settle(pager, 1)
   end
 
+  describe "admit/2" do
+    test "starts tasks that are not paged" do
+      {pager, _startable} = TaskPager.new([{:ok, task(1, "mapped", 0)}])
+
+      assert TaskPager.admit(pager, task(1, "mapped", 0)) == {:start, pager}
+    end
+
+    test "starts a restart while the page has capacity and holds the page for it" do
+      {pager, _startable} = TaskPager.new(mapped_stage(3))
+      {pager, []} = TaskPager.settle(pager, 0)
+
+      assert {:start, pager} = TaskPager.admit(pager, task(0, "mapped", 0))
+      refute TaskPager.queued?(pager, 0)
+
+      assert {pager, []} = TaskPager.settle(pager, 1)
+      assert {_pager, [2]} = TaskPager.settle(pager, 0)
+    end
+
+    test "queues a restart ahead of the next page when the page is full" do
+      {pager, _startable} = TaskPager.new(mapped_stage(5))
+      {pager, []} = TaskPager.settle(pager, 0)
+      {pager, [2, 3]} = TaskPager.settle(pager, 1)
+
+      assert {:queued, pager} = TaskPager.admit(pager, task(1, "mapped", 1))
+      assert TaskPager.queued?(pager, 1)
+
+      {pager, []} = TaskPager.settle(pager, 2)
+      assert {pager, [1, 4]} = TaskPager.settle(pager, 3)
+      refute TaskPager.queued?(pager, 1)
+
+      {pager, []} = TaskPager.settle(pager, 1)
+      assert {_pager, []} = TaskPager.settle(pager, 4)
+    end
+
+    test "applies the limit to instances finished before a reclaim" do
+      stage = [{:already_processed, task(0, "mapped", 0)} | Enum.drop(mapped_stage(3), 1)]
+      {pager, _startable} = TaskPager.new(stage)
+
+      assert {:queued, pager} = TaskPager.admit(pager, task(0, "mapped", 0))
+      assert TaskPager.queued?(pager, 0)
+    end
+
+    test "starts a cancelled queued instance only once when restarted" do
+      {pager, _startable} = TaskPager.new(mapped_stage(3))
+      pager = TaskPager.drop(pager, 2)
+
+      {:queued, pager} = TaskPager.admit(pager, task(2, "mapped", 2))
+
+      {pager, []} = TaskPager.settle(pager, 0)
+      assert {_pager, [2]} = TaskPager.settle(pager, 1)
+    end
+  end
+
   test "counts finished instances but never pages them" do
     stage = [
       {:already_processed, task(0, "mapped", 0)},

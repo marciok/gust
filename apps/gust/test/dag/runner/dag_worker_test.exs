@@ -861,6 +861,99 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
       assert Flows.get_run!(run.id).status == :failed
     end
 
+    test "a restart waits for a free slot when the page is full", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 1)
+      dag_def = mapped_definition(run, ["a", "b"])
+      expect_task_starts(3)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      Gust.PubSub.subscribe_run(run.id)
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0} = first, ^runner}
+      send(runner, {:task_result, %{}, first.id, :ok})
+      assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
+
+      assert {:ok, %Flows.Task{status: :created}} =
+               RunGateway.call(run, {:restart_mapped_task, first.id})
+
+      assert_task_status(first.id, :created)
+      refute_receive {:task_started, %Flows.Task{map_index: 0}, ^runner}, 100
+
+      assert {:error, :task_not_restartable} =
+               RunGateway.call(run, {:restart_mapped_task, first.id})
+
+      send(runner, {:task_result, %{}, second.id, :ok})
+      assert_receive {:task_started, %Flows.Task{map_index: 0}, ^runner}
+      refute_receive {:DOWN, ^ref, :process, ^runner, _reason}, 100
+
+      send(runner, {:task_result, %{}, first.id, :ok})
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      assert Flows.get_run!(run.id).status == :succeeded
+    end
+
+    test "a restart that fits holds back the next page", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 2)
+      dag_def = mapped_definition(run, ["a", "b", "c"])
+      expect_task_starts(4)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      Gust.PubSub.subscribe_run(run.id)
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0} = first, ^runner}
+      assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
+
+      send(runner, {:task_result, %{}, first.id, :ok})
+      assert_task_status(first.id, :succeeded)
+
+      assert {:ok, %Flows.Task{status: :running}} =
+               RunGateway.call(run, {:restart_mapped_task, first.id})
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0}, ^runner}
+
+      send(runner, {:task_result, %{}, second.id, :ok})
+      refute_receive {:task_started, %Flows.Task{map_index: 2}, ^runner}, 100
+
+      send(runner, {:task_result, %{}, first.id, :ok})
+      assert_receive {:task_started, %Flows.Task{map_index: 2} = third, ^runner}
+
+      send(runner, {:task_result, %{}, third.id, :ok})
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      assert Flows.get_run!(run.id).status == :succeeded
+    end
+
+    test "cancelling a queued restart stops it from starting", %{run: run} do
+      replace_env(:mapped_tasks, max_parallel: 1)
+      dag_def = mapped_definition(run, ["a", "b"])
+      expect_task_starts(2)
+
+      Gust.RuntimeAdapterMock
+      |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+      runner = start_runner(run, dag_def)
+      ref = Process.monitor(runner)
+
+      assert_receive {:task_started, %Flows.Task{map_index: 0} = first, ^runner}
+      send(runner, {:task_result, %{}, first.id, :ok})
+      assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
+
+      assert {:ok, _task} = RunGateway.call(run, {:restart_mapped_task, first.id})
+      assert {:ok, _task} = RunGateway.call(run, {:cancel_task, first.id})
+
+      send(runner, {:task_result, %{}, second.id, :ok})
+
+      assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+      refute_received {:task_started, %Flows.Task{map_index: 0}, ^runner}
+      assert Flows.get_task!(first.id).status == :failed
+    end
+
     test "stopping a run does not start queued instances", %{run: run} do
       replace_env(:mapped_tasks, max_parallel: 1)
       dag_def = mapped_definition(run, ["a", "b"])

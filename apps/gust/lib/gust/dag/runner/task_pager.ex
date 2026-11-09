@@ -21,6 +21,13 @@ defmodule Gust.DAG.Runner.TaskPager do
     %{pager | queued: MapSet.delete(queued, task_id)}
   end
 
+  def admit(%__MODULE__{} = pager, %{id: task_id, name: name}) do
+    case pager.groups[name] do
+      nil -> {:start, pager}
+      group -> admit_to_group(pager, name, group, task_id)
+    end
+  end
+
   def settle(%__MODULE__{} = pager, task_id) do
     name = pager.task_groups[task_id]
     group = pager.groups[name]
@@ -29,6 +36,19 @@ defmodule Gust.DAG.Runner.TaskPager do
       release(pager, name, group, task_id)
     else
       {pager, []}
+    end
+  end
+
+  defp admit_to_group(pager, name, group, task_id) do
+    pager = put_in(pager.task_groups[task_id], name)
+
+    if MapSet.size(group.active) < group.size do
+      active = MapSet.put(group.active, task_id)
+      {:start, put_in(pager.groups[name], %{group | active: active})}
+    else
+      pending = [task_id | List.delete(group.pending, task_id)]
+      pager = put_in(pager.groups[name], %{group | pending: pending})
+      {:queued, %{pager | queued: MapSet.put(pager.queued, task_id)}}
     end
   end
 
