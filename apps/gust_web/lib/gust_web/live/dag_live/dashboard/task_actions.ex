@@ -17,16 +17,13 @@ defmodule GustWeb.DagLive.Dashboard.TaskActions do
 
   def cancel(%Task{name: name, status: status} = task) do
     if TaskStatus.cancellable?(status) do
-      case Terminator.cancel(task) do
-        {:ok, _task} -> {:info, "Task: #{name} was cancelled"}
-        {:error, reason} -> {:error, "Task: #{name} could not be cancelled: #{reason}"}
-      end
+      terminate(task)
     else
       {:info, "Task: #{name} is not running"}
     end
   end
 
-  def cancel_many(tasks), do: aggregate_result(tasks, &cancel/1, "canceled")
+  def cancel_many(tasks), do: aggregate_result(tasks, &terminate/1, "canceled")
 
   def restart(dag_def_tasks, %Task{name: name, map_index: map_index} = task) do
     result = Trigger.reset_task(dag_def_tasks, task)
@@ -49,6 +46,13 @@ defmodule GustWeb.DagLive.Dashboard.TaskActions do
 
       {:error, reason} ->
         {:error, "Task: #{name} could not be restarted: #{reason}"}
+    end
+  end
+
+  defp terminate(%Task{name: name} = task) do
+    case Terminator.cancel(task) do
+      {:ok, _task} -> {:info, "Task: #{name} was cancelled"}
+      {:error, reason} -> {:error, "Task: #{name} could not be cancelled: #{reason}"}
     end
   end
 

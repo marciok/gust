@@ -8,5 +8,6 @@ defmodule Gust.DAG.TaskStatus do
   def restartable_statuses, do: @restartable_statuses
 
   def cancellable?(status), do: status in @cancellable_statuses
+  def mapped_cancellable?(status), do: cancellable?(status) or status == :created
   def restartable?(status), do: status in @restartable_statuses
 end

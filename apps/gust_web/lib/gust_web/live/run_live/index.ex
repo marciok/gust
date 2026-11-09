@@ -3,6 +3,7 @@ defmodule GustWeb.RunLive.Index do
   alias Gust.DAG.Terminator
   alias Gust.Flows
   alias Gust.PubSub
+  alias GustWeb.Pagination
   use GustWeb, :live_view
 
   @completed_run_statuses [:failed, :succeeded]
@@ -21,7 +22,7 @@ defmodule GustWeb.RunLive.Index do
         socket
       ) do
     page_size = String.to_integer(page_size)
-    page = String.to_integer(page)
+    page = Pagination.parse_page(page)
     selected_status = run_status(params["status"])
     selected_status_param = status_param(selected_status)
     params_search = parse_search_params(params["params_search"])
@@ -57,8 +58,7 @@ defmodule GustWeb.RunLive.Index do
 
   defp count_and_pages(dag_id, status, params_search, size) do
     count = Flows.count_runs_on_dag(dag_id, status, params_search)
-    pages = max(div(count + size - 1, size), 1)
-    {count, pages}
+    {count, Pagination.total_pages(count, size)}
   end
 
   @impl true
@@ -389,32 +389,6 @@ defmodule GustWeb.RunLive.Index do
       |> maybe_add_query_param("params_search", params_search)
 
     ~g"/dags/#{name}/runs?#{URI.encode_query(query_params)}"
-  end
-
-  defp pagination_items(current_page, pages) do
-    total_pages = Enum.max(pages)
-
-    cond do
-      total_pages <= 7 ->
-        Enum.to_list(pages)
-
-      current_page <= 4 ->
-        [1, 2, 3, 4, 5, :ellipsis, total_pages]
-
-      current_page >= total_pages - 3 ->
-        [1, :ellipsis | Enum.to_list((total_pages - 4)..total_pages)]
-
-      true ->
-        [
-          1,
-          :ellipsis,
-          current_page - 1,
-          current_page,
-          current_page + 1,
-          :ellipsis,
-          total_pages
-        ]
-    end
   end
 
   defp maybe_add_query_param(query_params, _key, ""), do: query_params

@@ -67,6 +67,7 @@ if Code.ensure_loaded?(Igniter) do
         {:gust, [:dag_cron_reload], true},
         {:gust, [:dag_scheduler], Gust.DAG.Scheduler.Worker},
         {:gust, [:dag_loader], Gust.DAG.Loader.Worker},
+        {:gust, [:mapped_tasks, :max_parallel], 20},
         {:gust_web, [:dashboard_path], "/gust"}
       ])
     end
