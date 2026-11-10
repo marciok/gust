@@ -62,7 +62,7 @@ jobs:
           tar -czf gust_static_assets.tar.gz static
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: release_assets/gust_static_assets.tar.gz
           token: ${{ secrets.GITHUB_TOKEN }}
