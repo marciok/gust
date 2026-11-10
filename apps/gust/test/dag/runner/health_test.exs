@@ -94,8 +94,9 @@ defmodule Gust.DAG.Runner.HealthTest do
 
     test "reports an external OS process that has exited as dead", %{run: run} do
       task = task_fixture(%{run_id: run.id, name: "task", status: :running})
-      port = Port.open({:spawn, "true"}, [:exit_status])
-      {:os_pid, os_pid} = Port.info(port, :os_pid)
+      port = Port.open({:spawn, "sh -c 'echo $$'"}, [:binary, :exit_status])
+      assert_receive {^port, {:data, output}}
+      os_pid = output |> String.trim() |> String.to_integer()
       assert_receive {^port, {:exit_status, 0}}
 
       register(TaskWorker.registry_name(task), fn ->
