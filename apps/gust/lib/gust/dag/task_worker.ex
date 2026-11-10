@@ -93,13 +93,15 @@ defmodule Gust.DAG.TaskWorker do
 
   defmacro __before_compile__(_env) do
     quote do
+      alias Gust.DAG.TaskWorker
+
       defoverridable handle_info: 2
 
       @impl true
       def handle_info(message, state) do
         message
         |> super(state)
-        |> Gust.DAG.TaskWorker.publish_os_pid(state)
+        |> TaskWorker.publish_os_pid(state)
       end
     end
   end
