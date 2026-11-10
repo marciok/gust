@@ -44,4 +44,24 @@ defmodule Gust.PubSubTest do
       refute_receive _any, 50
     end
   end
+
+  describe "run and dag topics" do
+    test "a run status does not reach subscribers of a dag with the same id" do
+      id = 25
+
+      assert :ok == Gust.PubSub.subscribe_runs_for_dag(id)
+      assert :ok == Gust.PubSub.broadcast_run_status(id, :running)
+
+      refute_receive _any, 50
+    end
+
+    test "a run started event does not reach subscribers of a run with the same id" do
+      id = 25
+
+      assert :ok == Gust.PubSub.subscribe_run(id)
+      assert :ok == Gust.PubSub.broadcast_run_started(id, 28)
+
+      refute_receive _any, 50
+    end
+  end
 end

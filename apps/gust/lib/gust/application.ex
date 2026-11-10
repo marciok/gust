@@ -54,6 +54,7 @@ defmodule Gust.Application do
     folder = Application.get_env(:gust, :dags_folder)
 
     DAG.Folder.verify!(env, folder)
+    DAG.MappedTasks.validate!()
 
     query = Gust.DNSCluster.parse_query(Application.get_env(:gust, :dns_cluster_query))
     error_tracking = Application.get_env(:gust, :error_tracking, [])

@@ -3,7 +3,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
   use GenServer
 
   alias Gust.DAG.{Adapter, Definition, TaskStatus}
-  alias Gust.DAG.Runner.{StageBuilder, TaskExecution}
+  alias Gust.DAG.Runner.{StageBuilder, TaskExecution, TaskPager}
   alias Gust.DAG.StageCoordinator, as: Coord
   alias Gust.Flows
   alias Gust.PubSub
@@ -16,6 +16,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
             stages: [],
             current_task_ids: MapSet.new(),
             coord: nil,
+            pager: %TaskPager{},
             reclaim_run_delay: nil,
             runtime_id: nil
 
@@ -88,14 +89,9 @@ defmodule Gust.DAG.Runner.DAGWorker do
          :ok <- validate_mapped_task_restart(state, task),
          {:ok, coord} <- Coord.restart_task(state.coord, task.id),
          {:ok, task} <- Flows.prepare_task_restart(task) do
-      case TaskExecution.start(task, state.dag_def, self()) do
-        {:ok, restarted_task} ->
-          {:reply, {:ok, restarted_task}, %{state | coord: coord}}
-
-        {:error, reason} ->
-          TaskExecution.fail_start(task, reason)
-          {:reply, {:error, reason}, state}
-      end
+      state.pager
+      |> TaskPager.admit(task)
+      |> restart_admitted_task(task, coord, state)
     else
       nil ->
         {:reply, {:error, :task_not_found}, state}
@@ -109,7 +105,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
   def handle_call({:cancel_task, task_id}, _from, %State{} = state) do
     with %Flows.Task{} = task <- Flows.get_task(task_id),
          :ok <- validate_cancel(state, task),
-         :ok <- cancel_execution(task, state) do
+         {:ok, state} <- cancel_task(task, state) do
       send(self(), {:task_result, nil, task.id, :cancelled})
       {:reply, {:ok, task}, state}
     else
@@ -144,7 +140,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
       {:continue, coord} ->
         TaskExecution.finish(task, status)
         TaskExecution.maybe_report_error(task, status, result, dag_def.name)
-        {:noreply, %{state | coord: coord}}
+        {:noreply, start_next_page(%{state | coord: coord}, task.id)}
 
       {:reschedule, coord, task, time} ->
         task = TaskExecution.schedule_retry(task, time)
@@ -210,14 +206,42 @@ defmodule Gust.DAG.Runner.DAGWorker do
   defp start_stage(%State{run: run, dag_def: dag_def} = state, stage_names) do
     stage = StageBuilder.build(stage_names, run.id, dag_def)
     task_ids = StageBuilder.task_ids(stage)
+    {pager, startable_stage} = TaskPager.new(stage)
 
     state = %{
       state
       | current_task_ids: MapSet.new(task_ids),
-        coord: Coord.new(task_ids)
+        coord: Coord.new(task_ids),
+        pager: pager
     }
 
-    process_stage(stage, state)
+    process_stage(startable_stage, state)
+  end
+
+  defp restart_admitted_task({:queued, pager}, task, coord, state) do
+    task = TaskExecution.update_status!(task, :created)
+
+    {:reply, {:ok, task}, %{state | coord: coord, pager: pager}}
+  end
+
+  defp restart_admitted_task({:start, pager}, task, coord, state) do
+    case TaskExecution.start(task, state.dag_def, self()) do
+      {:ok, restarted_task} ->
+        {:reply, {:ok, restarted_task}, %{state | coord: coord, pager: pager}}
+
+      {:error, reason} ->
+        TaskExecution.fail_start(task, reason)
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  defp start_next_page(%State{pager: pager} = state, settled_task_id) do
+    {pager, task_ids} = TaskPager.settle(pager, settled_task_id)
+
+    Enum.reduce(task_ids, %{state | pager: pager}, fn task_id, state ->
+      {:continue, state} = process_stage_entry({:ok, Flows.get_task!(task_id)}, state)
+      state
+    end)
   end
 
   defp process_stage(stage, state) do
@@ -316,11 +340,20 @@ defmodule Gust.DAG.Runner.DAGWorker do
     end
   end
 
-  defp validate_cancel(%State{current_task_ids: task_ids}, task) do
+  defp validate_cancel(%State{current_task_ids: task_ids} = state, task) do
     cond do
       not MapSet.member?(task_ids, task.id) -> {:error, :task_not_on_current_stage}
+      TaskPager.queued?(state.pager, task.id) -> :ok
       not TaskStatus.cancellable?(task.status) -> {:error, :task_not_cancellable}
       true -> :ok
+    end
+  end
+
+  defp cancel_task(%Flows.Task{} = task, %State{pager: pager} = state) do
+    if TaskPager.queued?(pager, task.id) do
+      {:ok, %{state | pager: TaskPager.drop(pager, task.id)}}
+    else
+      with :ok <- cancel_execution(task, state), do: {:ok, state}
     end
   end
 

@@ -43,6 +43,13 @@ defmodule GustWeb.RunLiveTest do
       assert has_element?(index_live, "#runs-#{run.id}")
     end
 
+    test "falls back to the first page for an invalid page", %{conn: conn, dag: dag, run: run} do
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=abc")
+
+      assert has_element?(index_live, "#runs-#{run.id}")
+      assert has_element?(index_live, "#run-page-1.btn-active[aria-current='page']")
+    end
+
     test "links runs to an pinned dashboard history", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} =
         live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
@@ -247,8 +254,8 @@ defmodule GustWeb.RunLiveTest do
       assert index_live |> has_element?("#runs-table-container.table-viewport + #runs-pagination")
       assert index_live |> has_element?("#run-page-2.btn-active[aria-current='page']")
       refute index_live |> has_element?("#run-page-3")
-      refute index_live |> has_element?("#previous-page[disabled]")
-      assert index_live |> has_element?("#next-page[disabled]")
+      refute index_live |> has_element?("#run-previous-page[disabled]")
+      assert index_live |> has_element?("#run-next-page[disabled]")
 
       index_live
       |> element("#run-page-1")

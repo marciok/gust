@@ -4,7 +4,7 @@ if Code.ensure_loaded?(Igniter) do
     @shortdoc "Installs \"gust_web\" into your project"
 
     @dags_dir "dags"
-    @gust_web_version "0.1.41"
+    @gust_web_version "0.1.42"
 
     use Igniter.Mix.Task
 
@@ -67,6 +67,7 @@ if Code.ensure_loaded?(Igniter) do
         {:gust, [:dag_cron_reload], true},
         {:gust, [:dag_scheduler], Gust.DAG.Scheduler.Worker},
         {:gust, [:dag_loader], Gust.DAG.Loader.Worker},
+        {:gust, [:mapped_tasks, :max_parallel], 20},
         {:gust_web, [:dashboard_path], "/gust"}
       ])
     end
