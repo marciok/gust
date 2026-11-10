@@ -10,6 +10,12 @@ defmodule Gust.DAG.TaskStatusTest do
     refute TaskStatus.cancellable?(:failed)
   end
 
+  test "classifies mapped cancellable statuses" do
+    assert Enum.all?(TaskStatus.cancellable_statuses(), &TaskStatus.mapped_cancellable?/1)
+    assert TaskStatus.mapped_cancellable?(:created)
+    refute TaskStatus.mapped_cancellable?(:failed)
+  end
+
   test "classifies restartable statuses" do
     assert TaskStatus.restartable_statuses() == [:failed, :succeeded]
 

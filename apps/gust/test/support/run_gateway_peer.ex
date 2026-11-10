@@ -21,6 +21,20 @@ defmodule Gust.RunGatewayPeer do
     {:ok, worker}
   end
 
+  def register_idle(key, parent) do
+    pid =
+      spawn(fn ->
+        {:ok, _owner} = Registry.register(Gust.Registry, key, nil)
+        send(parent, {:remote_registered, key, node()})
+
+        receive do
+          :stop -> :ok
+        end
+      end)
+
+    {:ok, pid}
+  end
+
   defp handle_command(:reply, from, command) do
     GenServer.reply(from, {:ok, {node(), command}})
   end

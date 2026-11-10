@@ -731,6 +731,30 @@ defmodule FlowsTest do
                Flows.get_tasks_by_name("first", run.id)
     end
 
+    test "get_tasks_by_name/3 orders instances and omits their payloads" do
+      dag = dag_fixture()
+      run = run_fixture(%{dag_id: dag.id})
+      second = task_fixture(%{run_id: run.id, name: "first", map_index: 1, result: %{"a" => 1}})
+      first = task_fixture(%{run_id: run.id, name: "first", map_index: 0, result: %{"a" => 1}})
+
+      tasks = Flows.get_tasks_by_name("first", run.id, :omit_payloads)
+
+      assert Enum.map(tasks, & &1.id) == [first.id, second.id]
+      assert Enum.all?(tasks, &(&1.result == %{}))
+    end
+
+    test "get_run_with_tasks!/2 omits task payloads" do
+      dag = dag_fixture()
+      run = run_fixture(%{dag_id: dag.id})
+      task = task_fixture(%{run_id: run.id, name: "first", result: %{"a" => 1}})
+      task_id = task.id
+
+      assert %{tasks: [%{id: ^task_id, result: result}]} =
+               Flows.get_run_with_tasks!(run.id, :omit_payloads)
+
+      assert result == %{}
+    end
+
     test "get_task_statuses_by_name/2 returns only statuses for matching task instances" do
       dag = dag_fixture(%{name: "task_statuses_by_name_dag"})
       run = run_fixture(%{dag_id: dag.id})

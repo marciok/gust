@@ -144,7 +144,16 @@
     <section class="dag-card__header">
       <div class="dag-card__title-row">
         <div class="flex flex-col gap-1">
-          <h3 class="dag-card__title text-base">Selected {@item_name}</h3>
+          <div class="flex items-center gap-1">
+            <h3 class="dag-card__title text-base">Selected {@item_name}</h3>
+            <div
+              :if={HealthCheckComponent.target(@selected_item)}
+              class="tooltip tooltip-right"
+              data-tip="Health check"
+            >
+              <HealthCheckComponent.trigger id="health-check" />
+            </div>
+          </div>
           <span :if={@item_id} class="text-sm text-base-content/70">ID {@item_id}</span>
         </div>
         <.live_component
@@ -301,7 +310,16 @@
     <section :if={@expanded_item_ids != []} id="mapped-task-runs-component" class="dag-card__body">
       <div class="border-t border-base-content/20 -mx-4 mb-3" />
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
+        <div class="flex flex-wrap items-center gap-2">
+          <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
+          <span
+            :if={@mapped_task_paging && @mapped_task_status == ""}
+            id="mapped-task-paging-summary"
+            class="badge badge-sm badge-soft"
+          >
+            {mapped_task_paging_summary(@mapped_task_paging)}
+          </span>
+        </div>
         <.form
           for={@mapped_task_status_form}
           id="mapped-task-status-filter"
@@ -377,21 +395,44 @@
                   {strftime(task.updated_at)}
                 </td>
                 <td class="px-3 py-2 whitespace-nowrap">
-                  <button
-                    class="btn btn-xs btn-soft"
-                    type="button"
-                    phx-click="show_mapped_task"
-                    phx-value-task-id={task.id}
-                    id={"show-mapped-task-#{task.id}"}
-                  >
-                    Show
-                  </button>
+                  <div class="flex flex-col items-start gap-1">
+                    <button
+                      class="btn btn-xs btn-soft"
+                      type="button"
+                      phx-click="show_mapped_task"
+                      phx-value-task-id={task.id}
+                      id={"show-mapped-task-#{task.id}"}
+                    >
+                      Show
+                    </button>
+                    <HealthCheckComponent.trigger
+                      id={"health-mapped-task-#{task.id}"}
+                      task_id={task.id}
+                      label="Health"
+                      class=""
+                      icon_class="h-3.5 w-3.5"
+                      aria-label={"Health check for mapped task #{task.map_index}"}
+                    />
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
       </.form>
+
+      <Pagination.pagination
+        :if={@mapped_task_paging}
+        id="mapped-task-pagination"
+        prefix="mapped-task"
+        label="Task runs pagination"
+        class="pt-3"
+        page={@mapped_task_paging.page}
+        total={@mapped_task_paging.total}
+        running={@mapped_task_paging.running}
+        event="select_mapped_task_page"
+        compact
+      />
     </section>
 
     <section :if={@expanded_item_ids == []} class="dag-card__body">
@@ -543,4 +584,10 @@ config:
         </pre>
     </div>
   </div>
+
+  <.live_component
+    module={HealthCheckComponent}
+    id={HealthCheckComponent.component_id()}
+    selected_item={@selected_item}
+  />
 </Layouts.app>

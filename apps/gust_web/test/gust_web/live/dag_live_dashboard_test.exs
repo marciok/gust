@@ -1260,6 +1260,53 @@ defmodule GustWeb.DagLiveDashboardTest do
       refute has_element?(dashboard_live, "#run-status-cell-#{triggered_run.id}")
     end
 
+    test "triggering a paused dag shows a warning and lists the created run", %{
+      conn: conn,
+      dag: dag
+    } do
+      {:ok, _dag} = Flows.toggle_enabled(dag)
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
+
+      GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
+
+      dashboard_live |> element("#trigger-dag-run-#{dag.id}") |> render_click()
+
+      triggered_run = Flows.get_dag_with_runs!(dag.id).runs |> List.last()
+
+      assert has_element?(
+               dashboard_live,
+               "#flash-warning .alert.alert-warning",
+               "Run #{triggered_run.id} created, but DAG #{dag.name} is paused."
+             )
+
+      refute has_element?(dashboard_live, "#flash-info")
+      assert has_element?(dashboard_live, "#run-status-cell-#{triggered_run.id}.status-created")
+    end
+
+    test "triggering a paused dag with pinned history mentions both", %{
+      conn: conn,
+      dag: dag,
+      run: pinned_run
+    } do
+      {:ok, _dag} = Flows.toggle_enabled(dag)
+
+      {:ok, dashboard_live, _html} =
+        live(
+          conn,
+          ~g"/dags/#{dag.name}/dashboard?run_id=#{pinned_run.id}&pinned_run_id=#{pinned_run.id}"
+        )
+
+      GustWeb.DAGRunTriggerMock |> expect(:dispatch_run, fn new_run -> new_run end)
+
+      dashboard_live |> element("#trigger-dag-run-#{dag.id}") |> render_click()
+
+      triggered_run = Flows.get_dag_with_runs!(dag.id).runs |> List.last()
+
+      assert has_element?(dashboard_live, "#flash-warning", "DAG #{dag.name} is paused.")
+      assert has_element?(dashboard_live, "#flash-warning", "Unpin your history to view it.")
+      refute has_element?(dashboard_live, "#run-status-cell-#{triggered_run.id}")
+    end
+
     test "display run params when present", %{
       conn: conn,
       dag: dag

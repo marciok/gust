@@ -87,9 +87,9 @@ defmodule GustWeb.DagLive.Dashboard.SelectedItem do
     do: Flows.get_task_by_name(task_name, run_id, task_index)
 
   defp fetch(%{"run_id" => run_id, "task_name" => task_name}) do
-    case Flows.get_tasks_by_name(task_name, run_id) do
+    case Flows.get_tasks_by_name(task_name, run_id, :omit_payloads) do
       [] -> nil
-      [task] when is_nil(task.map_index) -> task
+      [task] when is_nil(task.map_index) -> Flows.get_task!(task.id)
       tasks -> tasks
     end
   end

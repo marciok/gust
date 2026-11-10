@@ -109,6 +109,17 @@ defmodule Gust.Flows do
     get_run!(id) |> Repo.preload(:tasks)
   end
 
+  @task_fields_without_payloads [:id, :name, :status, :map_index, :run_id, :updated_at]
+
+  @doc """
+  Gets a run with its tasks, leaving out each task's params, result and error.
+  """
+  def get_run_with_tasks!(id, :omit_payloads) do
+    tasks_q = from t in Task, select: struct(t, ^@task_fields_without_payloads)
+
+    get_run!(id) |> Repo.preload(tasks: tasks_q)
+  end
+
   @doc """
   Gets runs for a list of DAG IDs with the given statuses.
 
@@ -526,6 +537,17 @@ defmodule Gust.Flows do
     Task
     |> where(run_id: ^run_id, name: ^name)
     |> order_by([task], asc_nulls_first: task.map_index)
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets task instances by name and run ID without their params, result or error.
+  """
+  def get_tasks_by_name(name, run_id, :omit_payloads) do
+    Task
+    |> where(run_id: ^run_id, name: ^name)
+    |> order_by([task], asc_nulls_first: task.map_index)
+    |> select([task], struct(task, ^@task_fields_without_payloads))
     |> Repo.all()
   end
 

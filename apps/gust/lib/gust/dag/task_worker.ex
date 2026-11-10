@@ -6,9 +6,33 @@ defmodule Gust.DAG.TaskWorker do
     "task_#{id}#{suffix}"
   end
 
+  @doc """
+  Publishes the OS pid of the external process backing a worker in its
+  `Gust.Registry` entry, so health checks can read it without calling into the
+  (possibly busy) worker.
+
+  Every worker built with `use Gust.DAG.TaskWorker` calls this after each
+  `handle_info/2`: when the callback stores a new `:os_pid` in the state, it is
+  published. Adapters only need to keep `:os_pid` in their state.
+  """
+  def publish_os_pid(result, previous_state) when elem(result, 0) == :noreply do
+    %{task: %{id: id} = task} = state = elem(result, 1)
+    os_pid = Map.get(state, :os_pid)
+
+    if is_integer(os_pid) and os_pid != Map.get(previous_state, :os_pid) do
+      key = registry_name(%{id: id, map_index: Map.get(task, :map_index)})
+      Registry.update_value(Gust.Registry, key, fn _value -> %{os_pid: os_pid} end)
+    end
+
+    result
+  end
+
+  def publish_os_pid(result, _previous_state), do: result
+
   defmacro __using__(_opts) do
     quote do
       use GenServer
+      @before_compile Gust.DAG.TaskWorker
       alias Gust.DAG
       alias Gust.DAG.Runner.TaskExecution
       alias Gust.DAG.TaskWorker
@@ -63,6 +87,21 @@ defmodule Gust.DAG.TaskWorker do
 
       defp exit_error(reason) do
         %RuntimeError{message: "Linked process exited: #{inspect(reason)}"}
+      end
+    end
+  end
+
+  defmacro __before_compile__(_env) do
+    quote do
+      alias Gust.DAG.TaskWorker
+
+      defoverridable handle_info: 2
+
+      @impl true
+      def handle_info(message, state) do
+        message
+        |> super(state)
+        |> TaskWorker.publish_os_pid(state)
       end
     end
   end
