@@ -144,7 +144,16 @@
     <section class="dag-card__header">
       <div class="dag-card__title-row">
         <div class="flex flex-col gap-1">
-          <h3 class="dag-card__title text-base">Selected {@item_name}</h3>
+          <div class="flex items-center gap-1">
+            <h3 class="dag-card__title text-base">Selected {@item_name}</h3>
+            <div
+              :if={HealthCheckComponent.target(@selected_item)}
+              class="tooltip tooltip-right"
+              data-tip="Health check"
+            >
+              <HealthCheckComponent.trigger id="health-check" />
+            </div>
+          </div>
           <span :if={@item_id} class="text-sm text-base-content/70">ID {@item_id}</span>
         </div>
         <.live_component
@@ -386,15 +395,25 @@
                   {strftime(task.updated_at)}
                 </td>
                 <td class="px-3 py-2 whitespace-nowrap">
-                  <button
-                    class="btn btn-xs btn-soft"
-                    type="button"
-                    phx-click="show_mapped_task"
-                    phx-value-task-id={task.id}
-                    id={"show-mapped-task-#{task.id}"}
-                  >
-                    Show
-                  </button>
+                  <div class="flex flex-col items-start gap-1">
+                    <button
+                      class="btn btn-xs btn-soft"
+                      type="button"
+                      phx-click="show_mapped_task"
+                      phx-value-task-id={task.id}
+                      id={"show-mapped-task-#{task.id}"}
+                    >
+                      Show
+                    </button>
+                    <HealthCheckComponent.trigger
+                      id={"health-mapped-task-#{task.id}"}
+                      task_id={task.id}
+                      label="Health"
+                      class=""
+                      icon_class="h-3.5 w-3.5"
+                      aria-label={"Health check for mapped task #{task.map_index}"}
+                    />
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -565,4 +584,10 @@ config:
         </pre>
     </div>
   </div>
+
+  <.live_component
+    module={HealthCheckComponent}
+    id={HealthCheckComponent.component_id()}
+    selected_item={@selected_item}
+  />
 </Layouts.app>

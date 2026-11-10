@@ -2,8 +2,10 @@ defmodule GustShell.TaskWorker.AdapterTest do
   use ExUnit.Case, async: false
 
   alias Gust.DAG.Definition
+  alias Gust.DAG.TaskWorker
   alias Gust.Flows.Task
   alias GustShell.TaskWorker.Adapter
+  alias GustShell.TaskWorkerHelpers
 
   import Mox
 
@@ -284,6 +286,27 @@ defmodule GustShell.TaskWorker.AdapterTest do
       # Note: This test just verifies the cast handler exists and calls :exec.stop
       # Actual kill behavior would be tested with real process communication
       assert {:stop, :normal, ^state} = Adapter.handle_cast({:kill}, state)
+    end
+  end
+
+  describe "health check metadata" do
+    test "records the OS pid in the worker's registry entry", %{task: task, dag_def: dag_def} do
+      key = TaskWorker.registry_name(task)
+      {:ok, _owner} = Registry.register(Gust.Registry, key, nil)
+      on_exit(fn -> Registry.unregister(Gust.Registry, key) end)
+
+      state = %{
+        task: task,
+        dag_def: dag_def,
+        owner_pid: self(),
+        opts: %{run: "printf hi", exec_opts: [:monitor, :stdout, :stderr]}
+      }
+
+      assert {:noreply, %{os_pid: os_pid} = running} = Adapter.handle_info(:run, state)
+      assert [{_pid, %{os_pid: ^os_pid}}] = Registry.lookup(Gust.Registry, key)
+
+      TaskWorkerHelpers.await_exit(running)
+      assert_receive {:task_result, _result, 123, :ok}
     end
   end
 

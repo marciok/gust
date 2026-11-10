@@ -9,6 +9,7 @@ defmodule GustWeb.DagLive.Dashboard do
   alias Gust.Flows.Task
   alias Gust.PubSub
   alias GustWeb.DagLive.TriggerMessage
+  alias GustWeb.HealthCheckComponent
   alias GustWeb.Mermaid
   alias GustWeb.Pagination
   use GustWeb, :live_view
