@@ -102,7 +102,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build gust Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/gust/Dockerfile
@@ -113,7 +113,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=gust
 
       - name: Build gust-python Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/gust/Dockerfile
@@ -125,7 +125,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=gust-python
 
       - name: Build gust-shell Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/gust/Dockerfile
@@ -137,7 +137,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=gust-shell
 
       - name: Build gust-web Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/gust_web/Dockerfile
@@ -148,7 +148,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=gust-web
 
       - name: Build gust-web-python Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/gust_web/Dockerfile
