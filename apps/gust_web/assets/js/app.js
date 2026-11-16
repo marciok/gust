@@ -49,6 +49,10 @@ darkThemeQuery.addEventListener("change", event => {
   applyTheme(event.matches ? "dark" : "light")
 })
 
+mermaid.initialize({ startOnLoad: false })
+
+let mermaidRenderCount = 0
+
 let Hooks = {}
 
 Hooks.Mermaid = {
@@ -68,10 +72,16 @@ Hooks.Mermaid = {
 
   renderDiagram() {
     const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "base"
-    this.el.textContent = this.source.replace("theme: 'base'", `theme: '${theme}'`)
-    this.el.removeAttribute("data-processed")
-    mermaid.run({ nodes: [this.el] }).catch(error => {
-      console.error("Mermaid failed to render", error)
+    const source = this.source.replace("theme: 'base'", `theme: '${theme}'`)
+    const renderId = ++mermaidRenderCount
+    this.latestRenderId = renderId
+
+    mermaid.render(`${this.el.id}-svg-${renderId}`, source).then(({ svg, bindFunctions }) => {
+      if (renderId !== this.latestRenderId || !this.el.isConnected) return
+      this.el.innerHTML = svg
+      bindFunctions?.(this.el)
+    }).catch(error => {
+      if (renderId === this.latestRenderId) console.error("Mermaid failed to render", error)
     })
   },
 }
