@@ -35,6 +35,13 @@ defmodule GustWeb.DagLive.Dashboard.MappedTasks do
     Enum.filter(tasks, &MapSet.member?(selected_ids, &1.id))
   end
 
+  def all_selected?([], _selected_ids), do: false
+
+  def all_selected?(tasks, selected_ids) do
+    selected_ids = MapSet.new(selected_ids)
+    Enum.all?(tasks, &MapSet.member?(selected_ids, &1.id))
+  end
+
   def filter(tasks, ""), do: tasks
   def filter(tasks, status), do: Enum.filter(tasks, &(to_string(&1.status) == status))
 

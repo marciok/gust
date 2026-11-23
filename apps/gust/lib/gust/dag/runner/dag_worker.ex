@@ -84,21 +84,9 @@ defmodule Gust.DAG.Runner.DAGWorker do
   end
 
   @impl true
-  def handle_call({:restart_mapped_task, task_id}, _from, %State{} = state) do
-    with %Flows.Task{} = task <- Flows.get_task(task_id),
-         :ok <- validate_mapped_task_restart(state, task),
-         {:ok, coord} <- Coord.restart_task(state.coord, task.id),
-         {:ok, task} <- Flows.prepare_task_restart(task) do
-      state.pager
-      |> TaskPager.admit(task)
-      |> restart_admitted_task(task, coord, state)
-    else
-      nil ->
-        {:reply, {:error, :task_not_found}, state}
-
-      {:error, reason} ->
-        {:reply, {:error, reason}, state}
-    end
+  def handle_call({:restart_mapped_tasks, task_ids}, _from, %State{} = state) do
+    {results, state} = Enum.map_reduce(task_ids, state, &restart_mapped_task/2)
+    {:reply, {:ok, results}, state}
   end
 
   @impl true
@@ -218,20 +206,34 @@ defmodule Gust.DAG.Runner.DAGWorker do
     process_stage(startable_stage, state)
   end
 
+  defp restart_mapped_task(task_id, %State{} = state) do
+    with %Flows.Task{} = task <- Flows.get_task(task_id),
+         :ok <- validate_mapped_task_restart(state, task),
+         {:ok, coord} <- Coord.restart_task(state.coord, task.id),
+         {:ok, task} <- Flows.prepare_task_restart(task) do
+      state.pager
+      |> TaskPager.admit(task)
+      |> restart_admitted_task(task, coord, state)
+    else
+      nil -> {{:error, :task_not_found}, state}
+      {:error, reason} -> {{:error, reason}, state}
+    end
+  end
+
   defp restart_admitted_task({:queued, pager}, task, coord, state) do
     task = TaskExecution.update_status!(task, :created)
 
-    {:reply, {:ok, task}, %{state | coord: coord, pager: pager}}
+    {{:ok, task}, %{state | coord: coord, pager: pager}}
   end
 
   defp restart_admitted_task({:start, pager}, task, coord, state) do
     case TaskExecution.start(task, state.dag_def, self()) do
       {:ok, restarted_task} ->
-        {:reply, {:ok, restarted_task}, %{state | coord: coord, pager: pager}}
+        {{:ok, restarted_task}, %{state | coord: coord, pager: pager}}
 
       {:error, reason} ->
         TaskExecution.fail_start(task, reason)
-        {:reply, {:error, reason}, state}
+        {{:error, reason}, state}
     end
   end
 

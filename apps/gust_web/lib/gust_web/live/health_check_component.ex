@@ -154,8 +154,6 @@ defmodule GustWeb.HealthCheckComponent do
     """
   end
 
-  defp open(nil, socket), do: {:noreply, socket}
-
   defp open(check_target, socket) do
     {:noreply,
      socket

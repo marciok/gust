@@ -30,59 +30,72 @@ defmodule Gust.DAG.Run.Trigger.Requeue do
     Dispatcher.enqueue(run)
   end
 
+  @doc """
+  Restarts a single task. A mapped instance is restarted as a batch of one
+  through `reset_mapped_tasks/2`.
+  """
   @impl true
-  def reset_task(graph, [%Flows.Task{} = task | _tasks]),
-    do: restart_or_requeue(graph, task, :group)
+  def reset_task(graph, %Flows.Task{map_index: nil} = task), do: reset_group(graph, task)
 
-  def reset_task(graph, %Flows.Task{map_index: nil} = task),
-    do: restart_or_requeue(graph, task, :group)
-
-  def reset_task(graph, %Flows.Task{} = task), do: restart_or_requeue(graph, task, :instance)
-
-  defp restart_or_requeue(graph, task, type) do
-    run = Flows.get_run!(task.run_id)
-
-    message =
-      case type do
-        :group ->
-          {:restart_task_group, task.name}
-
-        :instance ->
-          {:restart_mapped_task, task.id}
-      end
-
-    case RunGateway.call(run, message) do
-      {:error, :run_not_active} -> {:ok, requeue_tasks(graph, run, task, type)}
-      result -> result
+  def reset_task(graph, %Flows.Task{} = task) do
+    case reset_mapped_tasks(graph, [task]) do
+      {:ok, [result]} -> result
+      {:error, reason} -> {:error, reason}
     end
   end
 
-  defp requeue_tasks(graph, run, task, scope) do
+  @doc """
+  Restarts every instance of a mapped task, along with its downstream branch.
+  Rejected while the run is active.
+  """
+  @impl true
+  def reset_task_group(graph, [%Flows.Task{} = task | _tasks]), do: reset_group(graph, task)
+
+  @doc """
+  Restarts one or more instances of the same mapped task as a single batch.
+
+  An active run owner restarts every instance in one call. Without one, all
+  instances and the downstream branch are reset together and the run is
+  enqueued once, so the new worker consumes the whole selection in parallel.
+  Returns one result per instance.
+  """
+  @impl true
+  def reset_mapped_tasks(graph, [%Flows.Task{name: name, run_id: run_id} | _tasks] = tasks) do
+    run = Flows.get_run!(run_id)
+
+    case RunGateway.call(run, {:restart_mapped_tasks, Enum.map(tasks, & &1.id)}) do
+      {:error, :run_not_active} ->
+        restarted = graph |> requeue(run, name, tasks) |> Enum.filter(&(&1.name == name))
+        {:ok, Enum.map(restarted, &{:ok, &1})}
+
+      result ->
+        result
+    end
+  end
+
+  defp reset_group(graph, %Flows.Task{name: name, run_id: run_id}) do
+    run = Flows.get_run!(run_id)
+
+    case RunGateway.call(run, {:restart_task_group, name}) do
+      {:error, :run_not_active} ->
+        {:ok, requeue(graph, run, name, Flows.get_tasks_by_name(name, run.id))}
+
+      result ->
+        result
+    end
+  end
+
+  defp requeue(graph, run, name, restarted_tasks) do
     cleared_tasks =
       graph
-      |> tasks_to_clear(task.name)
-      |> Enum.flat_map(fn task_name ->
-        if task_name == task.name && scope == :group do
-          task_name
-          |> Flows.get_tasks_by_name(run.id)
-          |> set_created!()
-        else
-          [reset_task_name(task_name, task, run.id, scope)]
-        end
+      |> tasks_to_clear(name)
+      |> Enum.flat_map(fn
+        ^name -> set_created!(restarted_tasks)
+        task_name -> [task_name |> Flows.get_tasks_by_name(run.id) |> reset_all!()]
       end)
 
     Dispatcher.enqueue(run)
     cleared_tasks
-  end
-
-  defp reset_task_name(task_name, task, _run_id, :instance) when task_name == task.name do
-    set_created!(task)
-  end
-
-  defp reset_task_name(task_name, _task, run_id, _scope) do
-    task_name
-    |> Flows.get_tasks_by_name(run_id)
-    |> reset_all!()
   end
 
   defp tasks_to_clear(graph, starting_at) do

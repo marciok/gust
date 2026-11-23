@@ -41,7 +41,9 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert {:error, :cannot_restart_task_group_on_active_run} =
              RunGateway.call(run, {:restart_task_group, "first"})
 
-    assert {:error, :task_not_found} = RunGateway.call(run, {:restart_mapped_task, -1})
+    assert {:ok, [{:error, :task_not_found}]} =
+             RunGateway.call(run, {:restart_mapped_tasks, [-1]})
+
     assert Process.alive?(runner)
     assert_receive {:dag, :run_status, %{run_id: run_id, status: :running}}
     assert run_id == run.id
@@ -120,8 +122,8 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
 
     failed_task = Flows.get_task!(first.id)
 
-    assert {:ok, %Flows.Task{status: :running, id: restarted_id}} =
-             RunGateway.call(run, {:restart_mapped_task, failed_task.id})
+    assert {:ok, [{:ok, %Flows.Task{status: :running, id: restarted_id}}]} =
+             RunGateway.call(run, {:restart_mapped_tasks, [failed_task.id]})
 
     assert restarted_id == first.id
     assert_receive {:task_started, %Flows.Task{id: ^restarted_id, map_index: 0}, ^runner}
@@ -138,6 +140,50 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
     assert Flows.get_run!(run.id).status == :succeeded
     assert Flows.get_task!(restarted_id).status == :succeeded
+  end
+
+  test "restarts several failed mapped instances in one call", %{run: run} do
+    task_fixture(%{
+      run_id: run.id,
+      name: "source",
+      status: :succeeded,
+      result: %{"gust_task_items" => ["a", "b", "c"]}
+    })
+
+    dag_def =
+      definition(
+        [["mapped"]],
+        %{"mapped" => task_options(upstream: ["source"], map_over: :source)}
+      )
+
+    expect_task_starts(5)
+
+    Gust.PubSub.subscribe_run(run.id)
+    runner = start_runner(run, dag_def)
+
+    assert_receive {:task_started, %Flows.Task{map_index: 0} = first, ^runner}
+    assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
+    assert_receive {:task_started, %Flows.Task{map_index: 2}, ^runner}
+
+    for task <- [first, second] do
+      send(
+        runner,
+        {:task_result, RuntimeError.exception("failed"), task.id, :non_recoverable_error}
+      )
+
+      assert_task_status(task.id, :failed)
+    end
+
+    first_id = first.id
+    second_id = second.id
+
+    assert {:ok, [{:ok, %Flows.Task{id: ^first_id}}, {:ok, %Flows.Task{id: ^second_id}}, error]} =
+             RunGateway.call(run, {:restart_mapped_tasks, [first.id, second.id, -1]})
+
+    assert error == {:error, :task_not_found}
+    assert_receive {:task_started, %Flows.Task{id: ^first_id}, ^runner}
+    assert_receive {:task_started, %Flows.Task{id: ^second_id}, ^runner}
+    assert Process.alive?(runner)
   end
 
   test "does not start a duplicate of an already running mapped instance", %{run: run} do
@@ -160,8 +206,8 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert_receive {:task_started, %Flows.Task{map_index: 0} = first, ^runner}
     assert_receive {:task_started, %Flows.Task{map_index: 1}, ^runner}
 
-    assert {:error, :task_not_restartable} =
-             RunGateway.call(run, {:restart_mapped_task, first.id})
+    assert {:ok, [{:error, :task_not_restartable}]} =
+             RunGateway.call(run, {:restart_mapped_tasks, [first.id]})
   end
 
   test "uses all mapped outcomes instead of the last task result", %{run: run} do
@@ -458,8 +504,8 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
 
     assert_task_status(failed.id, :failed)
 
-    assert {:error, :max_children} =
-             RunGateway.call(run, {:restart_mapped_task, failed.id})
+    assert {:ok, [{:error, :max_children}]} =
+             RunGateway.call(run, {:restart_mapped_tasks, [failed.id]})
 
     assert %Flows.Task{
              status: :failed,
@@ -877,14 +923,14 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
       send(runner, {:task_result, %{}, first.id, :ok})
       assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
 
-      assert {:ok, %Flows.Task{status: :created}} =
-               RunGateway.call(run, {:restart_mapped_task, first.id})
+      assert {:ok, [{:ok, %Flows.Task{status: :created}}]} =
+               RunGateway.call(run, {:restart_mapped_tasks, [first.id]})
 
       assert_task_status(first.id, :created)
       refute_receive {:task_started, %Flows.Task{map_index: 0}, ^runner}, 100
 
-      assert {:error, :task_not_restartable} =
-               RunGateway.call(run, {:restart_mapped_task, first.id})
+      assert {:ok, [{:error, :task_not_restartable}]} =
+               RunGateway.call(run, {:restart_mapped_tasks, [first.id]})
 
       send(runner, {:task_result, %{}, second.id, :ok})
       assert_receive {:task_started, %Flows.Task{map_index: 0}, ^runner}
@@ -913,8 +959,8 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
       send(runner, {:task_result, %{}, first.id, :ok})
       assert_task_status(first.id, :succeeded)
 
-      assert {:ok, %Flows.Task{status: :running}} =
-               RunGateway.call(run, {:restart_mapped_task, first.id})
+      assert {:ok, [{:ok, %Flows.Task{status: :running}}]} =
+               RunGateway.call(run, {:restart_mapped_tasks, [first.id]})
 
       assert_receive {:task_started, %Flows.Task{map_index: 0}, ^runner}
 
@@ -944,7 +990,7 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
       send(runner, {:task_result, %{}, first.id, :ok})
       assert_receive {:task_started, %Flows.Task{map_index: 1} = second, ^runner}
 
-      assert {:ok, _task} = RunGateway.call(run, {:restart_mapped_task, first.id})
+      assert {:ok, [{:ok, _task}]} = RunGateway.call(run, {:restart_mapped_tasks, [first.id]})
       assert {:ok, _task} = RunGateway.call(run, {:cancel_task, first.id})
 
       send(runner, {:task_result, %{}, second.id, :ok})
