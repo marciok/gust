@@ -32,6 +32,12 @@ of the date. The publish workflow requires the version to have a dated entry.
   The table opens on the first page and only changes page when you pick one;
   the pager marks the page where instances are running.
 - Select all mapped task instances on the displayed page from the dashboard.
+- Start Python DAGs with a cleared environment with
+  `config :gust_py, :clear_env, true`, so DAG code cannot read values such as
+  `DATABASE_URL` from the Gust app. `uv` keeps `PATH`, `HOME`, locale, temp
+  dir, TLS and proxy settings and `UV_*` variables; pass more with
+  `config :gust_py, :env_passthrough, [...]`. Python DAGs still inherit the
+  environment by default ([#150](https://github.com/marciok/gust/issues/150)).
 - Warning on the dashboard when a paused DAG is triggered
   ([#173](https://github.com/marciok/gust/issues/173),
   [#175](https://github.com/marciok/gust/pull/175)).

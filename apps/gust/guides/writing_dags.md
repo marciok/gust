@@ -117,3 +117,16 @@ end
 Action argument and execution failures follow the ordinary task failure and retry behavior.
 When `save: true`, the action must return a map or list accepted by Gust's normal result
 persistence rules.
+
+## Trusted code
+
+DAG code is trusted: whoever can add a DAG can run arbitrary
+code with the same access as your Gust app. Elixir DAGs run inside the
+application, next to the database connection and the key that encrypts
+secrets. Control who can write to the DAG folder instead of relying on Gust to
+sandbox DAGs.
+
+Python and shell DAGs run as separate OS processes that inherit the app's
+environment. For Python DAGs you can start them with a cleared environment to
+keep values such as `DATABASE_URL` out of task code and logs; see the
+`gust_py` installation guide.
