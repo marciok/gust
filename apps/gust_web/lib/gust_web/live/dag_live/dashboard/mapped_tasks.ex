@@ -1,16 +1,30 @@
 defmodule GustWeb.DagLive.Dashboard.MappedTasks do
   @moduledoc false
 
-  alias Gust.DAG.MappedTasks, as: Limits
   alias Gust.DAG.TaskStatus
   alias GustWeb.Pagination
 
+  @default_page_size 50
+
+  @doc """
+  Pages the instances for display. Opens on the first page and only moves when
+  a page is requested, so the table never shifts while instances progress.
+  `running` marks the page of the furthest active instance.
+  """
   def paging(tasks, status, requested_page) do
-    case Limits.page_size(length(tasks)) do
-      nil -> nil
-      size -> build_paging(tasks, status, requested_page, size)
-    end
+    size = page_size()
+
+    if length(tasks) > size, do: build_paging(tasks, status, requested_page, size)
   end
+
+  @doc """
+  How many mapped instances the dashboard lists per page.
+
+  Purely a display setting, independent from `:max_parallel`, which limits how
+  many instances run at once. Configure with
+  `config :gust_web, :mapped_task_page_size, 50`.
+  """
+  def page_size, do: Application.get_env(:gust_web, :mapped_task_page_size, @default_page_size)
 
   def visible(tasks, status, nil), do: filter(tasks, status)
 
@@ -56,28 +70,15 @@ defmodule GustWeb.DagLive.Dashboard.MappedTasks do
   defp build_paging(tasks, status, requested_page, size) do
     total = tasks |> filter(status) |> length() |> Pagination.total_pages(size)
     running = if status == "", do: running_page(tasks, size)
-    page = requested_page || default_page(tasks, status, size, total)
+    page = min(requested_page || 1, total)
 
-    %{size: size, total: total, page: min(page, total), running: running}
+    %{size: size, total: total, page: page, running: running}
   end
 
   defp running_page(tasks, size) do
     case indexes_with_status(tasks, [:running, :retrying]) do
       [] -> nil
       active -> active |> Enum.max() |> page_of(size)
-    end
-  end
-
-  defp default_page(tasks, "", size, total) do
-    running_page(tasks, size) || first_pending_page(tasks, size) || total
-  end
-
-  defp default_page(_tasks, _status, _size, _total), do: 1
-
-  defp first_pending_page(tasks, size) do
-    case indexes_with_status(tasks, [:created, :waiting]) do
-      [] -> nil
-      pending -> pending |> Enum.min() |> page_of(size)
     end
   end
 
