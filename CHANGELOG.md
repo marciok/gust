@@ -27,6 +27,11 @@ of the date. The publish workflow requires the version to have a dated entry.
   logged when no limit is set
   ([#177](https://github.com/marciok/gust/issues/177),
   [#178](https://github.com/marciok/gust/pull/178)).
+- The dashboard lists mapped task instances 50 per page, independently of
+  `max_parallel`. Change it with `config :gust_web, :mapped_task_page_size, n`.
+  The table opens on the first page and only changes page when you pick one;
+  the pager marks the page where instances are running.
+- Select all mapped task instances on the displayed page from the dashboard.
 - Warning on the dashboard when a paused DAG is triggered
   ([#173](https://github.com/marciok/gust/issues/173),
   [#175](https://github.com/marciok/gust/pull/175)).
@@ -36,6 +41,11 @@ of the date. The publish workflow requires the version to have a dated entry.
 
 ### Fixed
 
+### Fixed
+
+- Restarting several selected mapped task instances restarts all of them in
+  one batch. Before, only the first one restarted on a finished run and the
+  rest failed while the new run worker was starting.
 - The dashboard run history no longer shows runs from other DAGs whose PubSub
   topic collided ([#172](https://github.com/marciok/gust/issues/172),
   [#174](https://github.com/marciok/gust/pull/174)).

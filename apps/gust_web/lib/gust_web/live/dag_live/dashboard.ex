@@ -173,7 +173,6 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply,
      socket
      |> assign(:selected_task_ids, selected_ids)
-     |> assign(:mapped_task_page, displayed_mapped_task_page(socket))
      |> assign_task_selection_form()
      |> stream_mapped_tasks(socket.assigns.selected_item, socket.assigns.mapped_task_status)}
   end
@@ -188,7 +187,6 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply,
      socket
      |> assign(:selected_task_ids, selected_ids)
-     |> assign(:mapped_task_page, displayed_mapped_task_page(socket))
      |> assign_task_selection_form()
      |> stream_mapped_tasks(socket.assigns.selected_item, socket.assigns.mapped_task_status)}
   end
@@ -196,7 +194,6 @@ defmodule GustWeb.DagLive.Dashboard do
   @impl true
   def handle_event("select_mapped_task_page", %{"page" => page}, socket) do
     page = Pagination.parse_page(page)
-    page = if page != socket.assigns.mapped_task_paging.running, do: page
     path = mapped_tasks_path(socket, page, socket.assigns.mapped_task_status)
 
     {:noreply, push_patch(socket, to: path)}
@@ -503,16 +500,10 @@ defmodule GustWeb.DagLive.Dashboard do
     |> stream(:mapped_tasks, visible, dom_id: &mapped_task_dom_id/1, reset: true)
   end
 
-  defp displayed_mapped_task_page(socket) do
-    paging = socket.assigns.mapped_task_paging
-
-    if paging, do: paging.page
-  end
-
-  defp mapped_task_paging_summary(%{running: nil, size: size}), do: "#{size} at a time"
+  defp mapped_task_paging_summary(%{running: nil, size: size}), do: "#{size} per page"
 
   defp mapped_task_paging_summary(%{running: running, total: total, size: size}),
-    do: "Running page #{running} of #{total} · #{size} at a time"
+    do: "Running page #{running} of #{total} · #{size} per page"
 
   defp mapped_task_dom_id(task), do: "mapped-task-run-#{task.id}"
 

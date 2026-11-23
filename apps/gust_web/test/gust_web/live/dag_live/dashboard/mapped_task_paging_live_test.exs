@@ -13,12 +13,12 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
   @task_name "insert_models"
 
   setup do
-    previous = Application.fetch_env(:gust, :mapped_tasks)
+    previous = Application.fetch_env(:gust_web, :mapped_task_page_size)
 
     on_exit(fn ->
       case previous do
-        {:ok, value} -> Application.put_env(:gust, :mapped_tasks, value)
-        :error -> Application.delete_env(:gust, :mapped_tasks)
+        {:ok, value} -> Application.put_env(:gust_web, :mapped_task_page_size, value)
+        :error -> Application.delete_env(:gust_web, :mapped_task_page_size)
       end
     end)
 
@@ -57,7 +57,7 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
 
   describe "when the expansion is paged" do
     setup do
-      Application.put_env(:gust, :mapped_tasks, max_parallel: 2)
+      Application.put_env(:gust_web, :mapped_task_page_size, 2)
     end
 
     test "shows only the running page and marks it", %{conn: conn} = context do
@@ -81,14 +81,29 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
       assert has_element?(view, "#task-status-progress.status-failed")
     end
 
-    test "follows execution to the next page", %{conn: conn} = context do
+    test "stays on the first page while execution moves on", %{conn: conn} = context do
       view = open_dashboard(conn, context)
 
       advance_to_second_page(view, context)
 
-      assert visible?(view, context.third)
-      refute visible?(view, context.first)
+      assert visible?(view, context.first)
+      refute visible?(view, context.third)
+      assert has_element?(view, "#mapped-task-page-1.btn-active[aria-current='page']")
       assert has_element?(view, "#mapped-task-page-2[data-running]")
+    end
+
+    test "stays on the first page once every instance has finished",
+         %{conn: conn} = context do
+      view = open_dashboard(conn, context)
+
+      for task <- [context.second, context.third] do
+        {:ok, _task} = Flows.update_task_status(task, :succeeded)
+        notify(view, context, task)
+      end
+
+      assert visible?(view, context.first)
+      refute visible?(view, context.third)
+      refute has_element?(view, "[data-running]")
     end
 
     test "reacts to an instance on a page that is not displayed", %{conn: conn} = context do
@@ -112,16 +127,6 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
 
       assert visible?(view, context.third)
       refute visible?(view, context.first)
-    end
-
-    test "resumes following when the running page is chosen", %{conn: conn} = context do
-      view = open_dashboard(conn, context)
-
-      view |> element("#mapped-task-page-2") |> render_click()
-      view |> element("#mapped-task-page-1") |> render_click()
-      advance_to_second_page(view, context)
-
-      assert visible?(view, context.third)
     end
 
     test "stays on the page while instances are selected", %{conn: conn} = context do
@@ -238,12 +243,12 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
       assert assert_patch(view) =~ "mapped_task_page=2"
     end
 
-    test "removes the page from the URL when following again", %{conn: conn} = context do
+    test "keeps the chosen running page in the URL", %{conn: conn} = context do
       view = open_dashboard(conn, context, "&mapped_task_page=2")
 
       view |> element("#mapped-task-page-1") |> render_click()
 
-      refute assert_patch(view) =~ "mapped_task_page"
+      assert assert_patch(view) =~ "mapped_task_page=1"
     end
 
     test "writes the status filter to the URL and drops the page", %{conn: conn} = context do
@@ -269,7 +274,7 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
   end
 
   test "lists every instance without a pager within the limit", %{conn: conn} = context do
-    Application.put_env(:gust, :mapped_tasks, max_parallel: 3)
+    Application.put_env(:gust_web, :mapped_task_page_size, 3)
 
     view = open_dashboard(conn, context)
 

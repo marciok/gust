@@ -5,13 +5,13 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingTest do
   alias GustWeb.DagLive.Dashboard.MappedTasks
 
   setup do
-    previous = Application.fetch_env(:gust, :mapped_tasks)
-    Application.put_env(:gust, :mapped_tasks, max_parallel: 2)
+    previous = Application.fetch_env(:gust_web, :mapped_task_page_size)
+    Application.put_env(:gust_web, :mapped_task_page_size, 2)
 
     on_exit(fn ->
       case previous do
-        {:ok, value} -> Application.put_env(:gust, :mapped_tasks, value)
-        :error -> Application.delete_env(:gust, :mapped_tasks)
+        {:ok, value} -> Application.put_env(:gust_web, :mapped_task_page_size, value)
+        :error -> Application.delete_env(:gust_web, :mapped_task_page_size)
       end
     end)
   end
@@ -20,8 +20,26 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingTest do
     assert MappedTasks.paging(tasks([:running, :created]), "", nil) == nil
   end
 
-  test "is nil when no limit is configured" do
-    Application.delete_env(:gust, :mapped_tasks)
+  test "pages by 50 instances by default" do
+    Application.delete_env(:gust_web, :mapped_task_page_size)
+
+    assert MappedTasks.paging(tasks(List.duplicate(:created, 50)), "", nil) == nil
+
+    assert %{size: 50, total: 2} =
+             MappedTasks.paging(tasks(List.duplicate(:created, 51)), "", nil)
+  end
+
+  test "ignores the max_parallel concurrency limit" do
+    Application.delete_env(:gust_web, :mapped_task_page_size)
+    previous = Application.fetch_env(:gust, :mapped_tasks)
+    Application.put_env(:gust, :mapped_tasks, max_parallel: 1)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, value} -> Application.put_env(:gust, :mapped_tasks, value)
+        :error -> Application.delete_env(:gust, :mapped_tasks)
+      end
+    end)
 
     assert MappedTasks.paging(tasks([:running, :created, :created]), "", nil) == nil
   end
@@ -30,22 +48,22 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingTest do
     assert %{size: 2, total: 3} = MappedTasks.paging(tasks(List.duplicate(:created, 5)), "", nil)
   end
 
-  test "opens the page of the furthest active instance" do
+  test "opens the first page and marks the page of the furthest active instance" do
     statuses = [:running, :succeeded, :succeeded, :succeeded, :retrying, :created]
 
-    assert %{page: 3, running: 3, total: 3} = MappedTasks.paging(tasks(statuses), "", nil)
+    assert %{page: 1, running: 3, total: 3} = MappedTasks.paging(tasks(statuses), "", nil)
   end
 
-  test "opens the first pending page when nothing is active" do
+  test "opens the first page when nothing is active" do
     statuses = [:succeeded, :failed, :succeeded, :created, :created]
 
-    assert %{page: 2, running: nil} = MappedTasks.paging(tasks(statuses), "", nil)
+    assert %{page: 1, running: nil} = MappedTasks.paging(tasks(statuses), "", nil)
   end
 
-  test "opens the last page when every instance has finished" do
+  test "opens the first page when every instance has finished" do
     statuses = [:succeeded, :failed, :succeeded, :skipped, :succeeded]
 
-    assert %{page: 3, running: nil, total: 3} = MappedTasks.paging(tasks(statuses), "", nil)
+    assert %{page: 1, running: nil, total: 3} = MappedTasks.paging(tasks(statuses), "", nil)
   end
 
   test "keeps a requested page while another one runs" do
