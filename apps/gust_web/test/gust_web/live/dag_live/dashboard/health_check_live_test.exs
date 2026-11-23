@@ -230,28 +230,13 @@ defmodule GustWeb.DagLive.Dashboard.HealthCheckLiveTest do
       %{first: first, second: second}
     end
 
-    test "each mapped task row has its own health check", %{conn: conn} = ctx do
+    test "mapped task rows have no health check of their own", %{conn: conn} = ctx do
       view = open_dashboard(conn, ctx)
 
       assert has_element?(view, "#mapped-task-runs")
+      assert has_element?(view, "#show-mapped-task-#{ctx.first.id}")
       refute has_element?(view, "#health-check")
-      assert has_element?(view, "#health-mapped-task-#{ctx.first.id}")
-
-      view |> element("#health-mapped-task-#{ctx.second.id}") |> render_click()
-      render_async(view)
-
-      assert has_element?(view, "#health-task-#{ctx.second.id}")
-      refute has_element?(view, "#health-task-#{ctx.first.id}")
-    end
-
-    test "ignores a mapped task id outside the selected group", %{conn: conn} = ctx do
-      view = open_dashboard(conn, ctx)
-
-      view
-      |> with_target("#health-check-component")
-      |> render_click("open", %{"task-id" => "-1"})
-
-      refute has_element?(view, "#health-modal")
+      refute has_element?(view, "#mapped-task-runs [phx-click='open']")
     end
 
     test "checks only the selected mapped task", %{conn: conn} = ctx do
