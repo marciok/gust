@@ -150,6 +150,64 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
       refute has_element?(view, "#mapped-task-select-#{context.second.id}[checked]")
     end
 
+    test "selects every instance on the displayed page", %{conn: conn} = context do
+      view = open_dashboard(conn, context)
+
+      view |> element("#select-all-mapped-tasks") |> render_click()
+
+      assert has_element?(view, "#select-all-mapped-tasks[checked]")
+      assert has_element?(view, "#mapped-task-select-#{context.first.id}[checked]")
+      assert has_element?(view, "#mapped-task-select-#{context.second.id}[checked]")
+      assert has_element?(view, "#selected-mapped-tasks-count", "(2)")
+      refute has_element?(view, "#restart[disabled]")
+    end
+
+    test "clears the selection when toggled again", %{conn: conn} = context do
+      view = open_dashboard(conn, context)
+
+      view |> element("#select-all-mapped-tasks") |> render_click()
+      view |> element("#select-all-mapped-tasks") |> render_click()
+
+      refute has_element?(view, "#select-all-mapped-tasks[checked]")
+      refute has_element?(view, "#mapped-task-select-#{context.first.id}[checked]")
+      refute has_element?(view, "#selected-mapped-tasks-count")
+      assert has_element?(view, "#restart[disabled]")
+    end
+
+    test "marks all selected once every displayed instance is checked",
+         %{conn: conn} = context do
+      view = open_dashboard(conn, context)
+
+      view
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{"task_ids" => [to_string(context.first.id)]})
+
+      refute has_element?(view, "#select-all-mapped-tasks[checked]")
+
+      view
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{
+        "task_ids" => [to_string(context.first.id), to_string(context.second.id)]
+      })
+
+      assert has_element?(view, "#select-all-mapped-tasks[checked]")
+    end
+
+    test "selects only the instances matching the status filter", %{conn: conn} = context do
+      view = open_dashboard(conn, context, "&mapped_task_status=created")
+
+      view |> element("#select-all-mapped-tasks") |> render_click()
+
+      assert has_element?(view, "#mapped-task-select-#{context.third.id}[checked]")
+      assert has_element?(view, "#selected-mapped-tasks-count", "(1)")
+    end
+
+    test "disables select all when no instance is displayed", %{conn: conn} = context do
+      view = open_dashboard(conn, context, "&mapped_task_status=failed")
+
+      assert has_element?(view, "#select-all-mapped-tasks[disabled]")
+    end
+
     test "opens the page named in the URL", %{conn: conn} = context do
       view = open_dashboard(conn, context, "&mapped_task_page=2")
 

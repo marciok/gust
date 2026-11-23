@@ -179,6 +179,21 @@ defmodule GustWeb.DagLive.Dashboard do
   end
 
   @impl true
+  def handle_event("select_all_mapped_tasks", _params, socket) do
+    selected_ids =
+      if socket.assigns.all_tasks_selected?,
+        do: [],
+        else: Enum.map(socket.assigns.visible_mapped_tasks, & &1.id)
+
+    {:noreply,
+     socket
+     |> assign(:selected_task_ids, selected_ids)
+     |> assign(:mapped_task_page, displayed_mapped_task_page(socket))
+     |> assign_task_selection_form()
+     |> stream_mapped_tasks(socket.assigns.selected_item, socket.assigns.mapped_task_status)}
+  end
+
+  @impl true
   def handle_event("select_mapped_task_page", %{"page" => page}, socket) do
     page = Pagination.parse_page(page)
     page = if page != socket.assigns.mapped_task_paging.running, do: page
@@ -476,13 +491,16 @@ defmodule GustWeb.DagLive.Dashboard do
 
   defp stream_mapped_tasks(socket, tasks, status) do
     paging = MappedTasks.paging(tasks, status, socket.assigns.mapped_task_page)
+    visible = MappedTasks.visible(tasks, status, paging)
 
     socket
     |> assign(:mapped_task_paging, paging)
-    |> stream(:mapped_tasks, MappedTasks.visible(tasks, status, paging),
-      dom_id: &mapped_task_dom_id/1,
-      reset: true
+    |> assign(:visible_mapped_tasks, visible)
+    |> assign(
+      :all_tasks_selected?,
+      MappedTasks.all_selected?(visible, socket.assigns.selected_task_ids)
     )
+    |> stream(:mapped_tasks, visible, dom_id: &mapped_task_dom_id/1, reset: true)
   end
 
   defp displayed_mapped_task_page(socket) do

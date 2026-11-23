@@ -1666,7 +1666,9 @@ defmodule GustWeb.DagLiveDashboardTest do
       task_id = task.id
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^task_id} -> {:ok, []} end)
+      |> expect(:reset_mapped_tasks, fn ^tasks_graph, [%Flows.Task{id: ^task_id} = task] ->
+        {:ok, [{:ok, task}]}
+      end)
 
       on_exit(fn -> File.rm_rf!(dag_file) end)
 
@@ -1801,9 +1803,12 @@ defmodule GustWeb.DagLiveDashboardTest do
       second_id = second_task.id
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^first_id} -> {:ok, []} end)
-      |> expect(:reset_task, fn ^tasks_graph, %Flows.Task{id: ^second_id} ->
-        {:error, :run_owner_unavailable}
+      |> expect(:reset_mapped_tasks, fn ^tasks_graph,
+                                        [
+                                          %Flows.Task{id: ^first_id} = first,
+                                          %Flows.Task{id: ^second_id}
+                                        ] ->
+        {:ok, [{:ok, first}, {:error, :task_not_restartable}]}
       end)
 
       on_exit(fn -> File.rm_rf!(dag_file) end)
@@ -1821,6 +1826,82 @@ defmodule GustWeb.DagLiveDashboardTest do
 
       assert render(element(dashboard_live, "#flash-error")) =~
                "1 tasks could not be restarted"
+    end
+
+    test "restarts every selected instance in one batch and reports a batch failure", %{
+      conn: conn
+    } do
+      dag_name = "mapped_restart_batch_error_dag"
+      dag = dag_fixture(%{name: dag_name})
+      run = run_fixture(%{dag_id: dag.id})
+      task_name = "insert_models"
+
+      first_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 0
+        })
+
+      second_task =
+        task_fixture(%{
+          run_id: run.id,
+          name: task_name,
+          status: :failed,
+          map_index: 1
+        })
+
+      dag_file = Path.join(System.tmp_dir!(), "mapped_restart_batch_error_dag.ex")
+      File.write!(dag_file, @code)
+
+      dag_def = %Definition{
+        name: dag_name,
+        mod: @mock_mod,
+        task_list: [task_name],
+        stages: [[task_name]],
+        tasks: %{
+          task_name => %{
+            upstream: MapSet.new([]),
+            downstream: MapSet.new([]),
+            map_over: :say_by,
+            store_result: false
+          }
+        },
+        file_path: dag_file
+      }
+
+      GustWeb.DAGLoaderMock
+      |> expect(:get_definition, 2, fn dag_id ->
+        assert dag_id == dag.id
+        {:ok, dag_def}
+      end)
+
+      tasks_graph = dag_def.tasks
+      first_id = first_task.id
+      second_id = second_task.id
+
+      GustWeb.DAGRunTriggerMock
+      |> expect(:reset_mapped_tasks, fn ^tasks_graph,
+                                        [%Flows.Task{id: ^first_id}, %Flows.Task{id: ^second_id}] ->
+        {:error, :run_owner_unavailable}
+      end)
+
+      on_exit(fn -> File.rm_rf!(dag_file) end)
+
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}&task_name=#{task_name}")
+
+      dashboard_live
+      |> element("#mapped-task-selection-form")
+      |> render_change(%{
+        "task_ids" => [to_string(first_task.id), to_string(second_task.id)]
+      })
+
+      dashboard_live |> element("#restart") |> render_click()
+
+      assert render(element(dashboard_live, "#flash-error")) =~
+               "2 tasks could not be restarted: run_owner_unavailable"
     end
 
     test "restarts every mapped task instance in one call from the aggregate view", %{
@@ -1877,7 +1958,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       mapped_task_id = mapped_task.id
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn ^tasks_graph, tasks ->
+      |> expect(:reset_task_group, fn ^tasks_graph, tasks ->
         assert MapSet.new(Enum.map(tasks, & &1.id)) == MapSet.new([task_id, mapped_task_id])
         {:ok, []}
       end)
@@ -1942,7 +2023,7 @@ defmodule GustWeb.DagLiveDashboardTest do
       tasks_graph = dag_def.tasks
 
       GustWeb.DAGRunTriggerMock
-      |> expect(:reset_task, fn ^tasks_graph, _tasks -> {:error, :run_owner_unavailable} end)
+      |> expect(:reset_task_group, fn ^tasks_graph, _tasks -> {:error, :run_owner_unavailable} end)
 
       on_exit(fn -> File.rm_rf!(dag_file) end)
 

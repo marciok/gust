@@ -4,8 +4,8 @@ defmodule GustWeb.HealthCheckComponent do
 
   Owns everything about the check: which task or run is inspected, the async
   lookup through `Gust.DAG.Runner.Health`, and polling while the modal is open.
-  The dashboard only renders this component and `trigger/1` buttons that
-  target it.
+  The dashboard only renders this component and the `trigger/1` button that
+  targets it.
 
   The next poll is scheduled only after a check returns, so slow checks never
   overlap. Each poll tick carries a token, and ticks from a closed modal or an
@@ -49,18 +49,14 @@ defmodule GustWeb.HealthCheckComponent do
 
   @doc """
   What the header button inspects for the selected item: a single task or a
-  whole run. Mapped groups have no target of their own; each mapped task row
-  has its own trigger instead.
+  whole run. Mapped groups have no target of their own; a mapped task must be
+  selected with "Show" before it can be checked.
   """
   def target(%Task{} = task), do: {:task, task}
   def target(%Run{} = run), do: {:run, run}
   def target(_item), do: nil
 
   attr :id, :string, required: true
-  attr :task_id, :integer, default: nil
-  attr :label, :string, default: nil
-  attr :class, :string, default: "btn-square"
-  attr :icon_class, :string, default: "h-4 w-4"
   attr :rest, :global, default: %{"aria-label" => "Health check"}
 
   @doc "A button that opens the health check modal."
@@ -73,15 +69,13 @@ defmodule GustWeb.HealthCheckComponent do
       type="button"
       phx-click="open"
       phx-target={@target}
-      phx-value-task-id={@task_id}
       class={[
-        "btn btn-outline btn-xs border-base-300 text-base-content/60",
-        "hover:border-info hover:bg-transparent hover:text-info",
-        @class
+        "btn btn-outline btn-xs btn-square border-base-300 text-base-content/60",
+        "hover:border-info hover:bg-transparent hover:text-info"
       ]}
       {@rest}
     >
-      <.icon name="hero-cpu-chip" class={@icon_class} />{@label}
+      <.icon name="hero-cpu-chip" class="h-4 w-4" />
     </button>
     """
   end
@@ -105,12 +99,6 @@ defmodule GustWeb.HealthCheckComponent do
   def update(assigns, socket), do: {:ok, assign(socket, assigns)}
 
   @impl true
-  def handle_event("open", %{"task-id" => task_id}, socket) do
-    socket.assigns.selected_item
-    |> mapped_target(task_id)
-    |> open(socket)
-  end
-
   def handle_event("open", _params, socket) do
     socket.assigns.selected_item
     |> target()
@@ -165,15 +153,6 @@ defmodule GustWeb.HealthCheckComponent do
     </div>
     """
   end
-
-  defp mapped_target([%Task{} | _rest] = tasks, task_id) do
-    case Enum.find(tasks, &(to_string(&1.id) == to_string(task_id))) do
-      %Task{} = task -> {:task, task}
-      nil -> nil
-    end
-  end
-
-  defp open(nil, socket), do: {:noreply, socket}
 
   defp open(check_target, socket) do
     {:noreply,
