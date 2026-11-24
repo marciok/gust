@@ -38,7 +38,7 @@ defmodule Gust.DAG.Options do
   @json_runs_keys %{"retention" => :retention, "max_count" => :max_count}
 
   @pruning_off_warning "runs retention is set but pruning is off: " <>
-                         "set config :gust, :runs, prune_schedule: \"...\""
+                         "set config :gust, :run_pruner, schedule: \"...\""
 
   @doc """
   Validates the options of a DAG.
@@ -82,8 +82,8 @@ defmodule Gust.DAG.Options do
 
   @doc """
   Returns warnings, shaped like compiler warnings, for valid options that
-  won't take effect: a `runs` retention while `prune_schedule` is unset or
-  invalid, so the DAG's runs would never be pruned.
+  won't take effect: a `runs` retention while the `:run_pruner` schedule is
+  unset or invalid, so the DAG's runs would never be pruned.
   """
   @spec warnings(keyword(), String.t()) :: [map()]
   def warnings(options, file_path) do

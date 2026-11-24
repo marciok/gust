@@ -190,7 +190,7 @@ defmodule DAG.Parser.Adapters.ElixirTest do
     end
 
     test "file has runs retention", %{tmp_dir: dags_folder} do
-      replace_env(:runs, prune_schedule: "@daily")
+      replace_env(:run_pruner, schedule: "@daily")
 
       file =
         write_dag!(dags_folder, """
@@ -209,8 +209,8 @@ defmodule DAG.Parser.Adapters.ElixirTest do
       assert dag_def.options == [runs: [retention: [max_count: 5_000]]]
     end
 
-    test "file has runs retention without prune_schedule", %{tmp_dir: dags_folder} do
-      replace_env(:runs, [])
+    test "file has runs retention without a pruner schedule", %{tmp_dir: dags_folder} do
+      replace_env(:run_pruner, [])
 
       file =
         write_dag!(dags_folder, """

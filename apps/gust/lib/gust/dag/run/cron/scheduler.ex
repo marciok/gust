@@ -19,7 +19,7 @@ defmodule Gust.DAG.Run.Cron.Scheduler do
         config
 
       {:error, reason} ->
-        Logger.error("Run pruning is off, invalid :runs prune_schedule: #{reason}")
+        Logger.error("Run pruning is off, invalid :run_pruner schedule: #{reason}")
         config
     end
   end

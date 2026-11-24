@@ -43,9 +43,16 @@
       </div>
       <div class="system-panel__body">
         <div>
-          <div class="system-label">Prune schedule</div>
+          <div class="system-label">Schedule</div>
           <div id="pruning-schedule" class="system-value">
             {if(@system.pruning.schedule, do: inspect(@system.pruning.schedule), else: "Not set")}
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <div class="system-label">Deletion batch size</div>
+          <div id="pruning-batch-size" class="system-value">
+            {@system.pruning.deletion_batch_size}
           </div>
         </div>
 
@@ -58,7 +65,7 @@
           id="pruning-hint"
           class="mt-2 text-xs text-base-content/70"
         >
-          No runs are deleted until <code>config :gust, :runs, prune_schedule: "@daily"</code>
+          No runs are deleted until <code>config :gust, :run_pruner, schedule: "@daily"</code>
           (or another crontab expression) is set.
         </p>
 

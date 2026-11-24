@@ -76,7 +76,7 @@ end
 - **`on_finished_callback`** — a function on the DAG module invoked once the
   run finishes, with its final status.
 - **`runs: [retention: [max_count: n]]`** — keeps the last `n` finished runs
-  of the DAG and deletes older ones. Needs `prune_schedule`; see
+  of the DAG and deletes older ones. Needs the `:run_pruner` schedule; see
   [Run Retention](configuration.md#run-retention).
 
 See `Gust.DSL` for the full macro reference.

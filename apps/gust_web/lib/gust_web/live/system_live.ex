@@ -60,6 +60,7 @@ defmodule GustWeb.SystemLive do
       badge: @pruning_badges[status],
       error: error,
       schedule: Pruner.configured_schedule(),
+      deletion_batch_size: Pruner.deletion_batch_size(),
       dags: Pruner.retained_dags()
     }
   end

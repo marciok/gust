@@ -21,8 +21,8 @@ defmodule Gust.CLI do
 
   * `prune_runs <dag_name> --max-count <n> [--dry-run]`: deletes the DAG's
     finished runs beyond the `n` most recent ones, now. `n` is chosen for this
-    call only: the DAG's `runs: [retention: ...]` and the `prune_schedule`
-    config don't apply. Unfinished runs are never deleted. `--dry-run` deletes
+    call only: the DAG's `runs: [retention: ...]` and the `:run_pruner`
+    schedule don't apply. Unfinished runs are never deleted. `--dry-run` deletes
     nothing and reports how many runs would be deleted, e.g.
     `{"status":"ok","dag_name":"my_dag","max_count":100,"dry_run":true,"pruned":120}`.
 

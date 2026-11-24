@@ -122,31 +122,31 @@ defmodule DAG.OptionsTest do
   end
 
   describe "warnings/2" do
-    test "warns about a retention without prune_schedule" do
-      replace_env(:runs, [])
+    test "warns about a retention without a pruner schedule" do
+      replace_env(:run_pruner, [])
 
       assert [%{message: message, severity: :warning, file: "/dags/a.ex"}] =
                Options.warnings([runs: [retention: [max_count: 10]]], "/dags/a.ex")
 
       assert message =~ "pruning is off"
-      assert message =~ "prune_schedule"
+      assert message =~ ":run_pruner"
     end
 
-    test "warns about a retention with an invalid prune_schedule" do
-      replace_env(:runs, prune_schedule: "nope")
+    test "warns about a retention with an invalid pruner schedule" do
+      replace_env(:run_pruner, schedule: "nope")
 
       assert [%{severity: :warning}] =
                Options.warnings([runs: [retention: [max_count: 10]]], "/dags/a.ex")
     end
 
-    test "doesn't warn when prune_schedule is set" do
-      replace_env(:runs, prune_schedule: "@daily")
+    test "doesn't warn when the pruner schedule is set" do
+      replace_env(:run_pruner, schedule: "@daily")
 
       assert [] == Options.warnings([runs: [retention: [max_count: 10]]], "/dags/a.ex")
     end
 
     test "doesn't warn without a retention" do
-      replace_env(:runs, [])
+      replace_env(:run_pruner, [])
 
       assert [] == Options.warnings([schedule: "* * * * *"], "/dags/a.ex")
     end

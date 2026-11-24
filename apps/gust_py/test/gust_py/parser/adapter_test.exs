@@ -124,7 +124,7 @@ defmodule GustPy.Parser.AdapterTest do
     end
 
     test "parses runs retention from executor output" do
-      Gust.ApplicationEnvHelpers.replace_env(:runs, prune_schedule: "@daily")
+      Gust.ApplicationEnvHelpers.replace_env(:run_pruner, schedule: "@daily")
       expect_options(%{"schedule" => nil, "runs" => %{"retention" => %{"max_count" => 5000}}})
 
       assert {:ok, %Definition{} = dag_def} = Adapter.parse_file(@file_path)
@@ -132,8 +132,8 @@ defmodule GustPy.Parser.AdapterTest do
       assert dag_def.messages == []
     end
 
-    test "warns about runs retention without prune_schedule" do
-      Gust.ApplicationEnvHelpers.replace_env(:runs, [])
+    test "warns about runs retention without a pruner schedule" do
+      Gust.ApplicationEnvHelpers.replace_env(:run_pruner, [])
       expect_options(%{"runs" => %{"retention" => %{"max_count" => 5000}}})
 
       assert {:ok, %Definition{error: error, messages: [warning]}} =

@@ -86,21 +86,25 @@ leader's cron scheduler. The job is registered only when the app sets a
 schedule, as a crontab expression:
 
 ```elixir
-config :gust, :runs, prune_schedule: "@daily"
+config :gust, :run_pruner, schedule: "@daily", deletion_batch_size: 200
 ```
 
-Any expression works, including shortcuts like `@hourly`, `@daily` and
+`deletion_batch_size` is how many runs each delete statement removes; it
+defaults to 200. Smaller batches keep each transaction shorter on DAGs with
+many tasks and logs per run.
+
+Any `schedule` expression works, including shortcuts like `@hourly`, `@daily` and
 `@weekly`, or `"* * * * *"` for every minute. A prune never overlaps the
 previous one. An invalid expression (or `@reboot`) logs an error and leaves
 pruning off. The schedule is read when the scheduler starts, so a change takes
 effect after a restart or a leader change.
 
-Without `prune_schedule` nothing is deleted, even for DAGs that set a
+Without a `schedule` nothing is deleted, even for DAGs that set a
 retention. Those DAGs get a parse warning, shown on the DAG page and in
 `mix gust.cli dag_definition`, so the setting doesn't silently do nothing.
 
 To prune a DAG once, keeping the number of runs you choose for that call, use
-the CLI. It ignores the DAG's retention and `prune_schedule`, and still never
+the CLI. It ignores the DAG's retention and the pruner `schedule`, and still never
 deletes unfinished runs. `--dry-run` reports how many runs would be deleted:
 
 ```sh
@@ -108,8 +112,8 @@ mix gust.cli prune_runs <dag_name> --max-count <n> [--dry-run]
 ```
 
 The **System** page (`/system`) has a "Run pruning" panel. It shows whether
-pruning is on, the configured `prune_schedule` (or why it's invalid), and the
-DAGs that set a retention with their `max_count`.
+pruning is on, the configured `schedule` (or why it's invalid), the deletion
+batch size, and the DAGs that set a retention with their `max_count`.
 
 Deleting rows doesn't shrink tables on disk. Autovacuum makes the space
 reusable, so tables stop growing once retention is in place, but they don't

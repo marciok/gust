@@ -1,4 +1,6 @@
 defmodule Gust.Run.Pruner do
+  @default_deletion_batch_size 200
+
   @moduledoc """
   Deletes old finished runs of DAGs that set a run retention.
 
@@ -9,12 +11,16 @@ defmodule Gust.Run.Pruner do
 
   Pruning runs on a schedule only when the app configures one:
 
-      config :gust, :runs, prune_schedule: "@daily"
+      config :gust, :run_pruner, schedule: "@daily", deletion_batch_size: 200
 
-  The schedule is a crontab expression, including shortcuts such as `@hourly`
-  or `@daily`. `Gust.DAG.Run.Cron.Scheduler` registers the job, so it runs on
-  the leader only and never overlaps itself. Without `prune_schedule` nothing
-  is deleted, unless `prune/3` is called directly (e.g. by the CLI).
+    * `schedule` - a crontab expression, including shortcuts such as
+      `@hourly` or `@daily`. `Gust.DAG.Run.Cron.Scheduler` registers the job,
+      so it runs on the leader only and never overlaps itself. Without it
+      nothing is deleted, unless `prune/3` is called directly (e.g. by the
+      CLI).
+    * `deletion_batch_size` - runs deleted per statement. Defaults to
+      #{@default_deletion_batch_size}; anything but a positive integer uses the
+      default.
 
   Runs are deleted in batches, each one a single short statement, and every
   batch broadcasts `Gust.PubSub.broadcast_runs_pruned/2` so open dashboards
@@ -34,10 +40,8 @@ defmodule Gust.Run.Pruner do
   alias Gust.Flows
   alias Gust.PubSub
 
-  @batch_size 200
-
   @doc """
-  Returns the configured `prune_schedule`, parsed.
+  Returns the configured `schedule`, parsed.
 
   Returns `:disabled` when it isn't configured, and an error for an invalid
   expression or `@reboot`, which would only prune when the Scheduler starts.
@@ -46,12 +50,24 @@ defmodule Gust.Run.Pruner do
   def schedule, do: parse_schedule(configured_schedule())
 
   @doc """
-  Returns the `prune_schedule` as configured, or `nil` when it isn't set.
+  Returns the `schedule` as configured, or `nil` when it isn't set.
   """
   @spec configured_schedule() :: term()
-  def configured_schedule do
-    :gust |> Application.get_env(:runs, []) |> Keyword.get(:prune_schedule)
+  def configured_schedule, do: Keyword.get(config(), :schedule)
+
+  @doc """
+  Returns the configured `deletion_batch_size`, or the default of
+  #{@default_deletion_batch_size} when it's unset or not a positive integer.
+  """
+  @spec deletion_batch_size() :: pos_integer()
+  def deletion_batch_size do
+    case Keyword.get(config(), :deletion_batch_size) do
+      size when is_integer(size) and size > 0 -> size
+      _unset_or_invalid -> @default_deletion_batch_size
+    end
   end
+
+  defp config, do: Application.get_env(:gust, :run_pruner, [])
 
   defp parse_schedule(nil), do: :disabled
 
@@ -101,15 +117,13 @@ defmodule Gust.Run.Pruner do
 
     * `:dry_run` - when `true`, deletes nothing and returns how many runs
       would be deleted. Defaults to `false`.
-    * `:batch_size` - runs deleted per statement. Defaults to #{@batch_size}.
   """
   @spec prune(integer(), pos_integer(), keyword()) :: non_neg_integer()
   def prune(dag_id, max_count, opts \\ []) do
     if Keyword.get(opts, :dry_run, false) do
       Flows.count_prunable_runs(dag_id, max_count)
     else
-      batch_size = Keyword.get(opts, :batch_size, @batch_size)
-      deleted = delete_batches(dag_id, max_count, batch_size, 0)
+      deleted = delete_batches(dag_id, max_count, deletion_batch_size(), 0)
 
       if deleted > 0 do
         Logger.info("Pruned #{deleted} runs of DAG #{dag_id}, keeping the last #{max_count}")

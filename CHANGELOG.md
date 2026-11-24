@@ -17,9 +17,10 @@ of the date. The publish workflow requires the version to have a dated entry.
 
 - Run retention: `use Gust.DSL, runs: [retention: [max_count: n]]` keeps the
   last `n` finished runs of a DAG and deletes older ones with their tasks and
-  logs. Pruning runs on the leader when `config :gust, :runs, prune_schedule:`
-  is set to a crontab expression (e.g. `"@daily"`); nothing is deleted unless
-  both are set. The System page shows the prune schedule and the DAGs with a
+  logs. Pruning runs on the leader when
+  `config :gust, :run_pruner, schedule: "@daily"` (any crontab expression) is
+  set, deleting `deletion_batch_size` runs per statement (default 200);
+  nothing is deleted unless both are set. The System page shows the prune schedule and the DAGs with a
   retention ([#189](https://github.com/marciok/gust/issues/189)).
 - `mix gust.cli prune_runs <dag_name> --max-count <n> [--dry-run]` prunes a
   DAG once, keeping the `n` most recent finished runs, regardless of its

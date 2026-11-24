@@ -63,8 +63,8 @@ defmodule GustWeb.SystemLiveTest do
   end
 
   describe "run pruning" do
-    test "is off without prune_schedule", %{conn: conn} do
-      replace_env(:runs, [])
+    test "is off without a pruner schedule", %{conn: conn} do
+      replace_env(:run_pruner, [])
 
       {:ok, view, _html} = live(conn, ~g"/system")
 
@@ -75,7 +75,7 @@ defmodule GustWeb.SystemLiveTest do
     end
 
     test "shows the schedule and the dags with retention", %{conn: conn} do
-      replace_env(:runs, prune_schedule: "@daily")
+      replace_env(:run_pruner, schedule: "@daily")
 
       stub(GustWeb.DAGLoaderMock, :get_definitions, fn ->
         %{
@@ -90,14 +90,23 @@ defmodule GustWeb.SystemLiveTest do
 
       assert view |> element("#pruning-status") |> render() =~ "On"
       assert view |> element("#pruning-schedule") |> render() =~ "@daily"
+      assert view |> element("#pruning-batch-size") |> render() =~ "200"
       refute has_element?(view, "#pruning-hint")
       assert view |> element("#pruning-dag-1") |> render() =~ "max_count: 50"
       assert has_element?(view, "#pruning-dag-1 a[href='/dags/minutely/dashboard']")
       refute has_element?(view, "#pruning-dag-2")
     end
 
+    test "shows the configured deletion batch size", %{conn: conn} do
+      replace_env(:run_pruner, schedule: "@daily", deletion_batch_size: 50)
+
+      {:ok, view, _html} = live(conn, ~g"/system")
+
+      assert view |> element("#pruning-batch-size") |> render() =~ "50"
+    end
+
     test "shows why an invalid schedule is off", %{conn: conn} do
-      replace_env(:runs, prune_schedule: "@reboot")
+      replace_env(:run_pruner, schedule: "@reboot")
 
       {:ok, view, _html} = live(conn, ~g"/system")
 

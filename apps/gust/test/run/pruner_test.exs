@@ -79,8 +79,9 @@ defmodule Gust.Run.PrunerTest do
 
       Gust.PubSub.subscribe_runs_for_dag(dag.id)
       dag_id = dag.id
+      replace_env(:run_pruner, deletion_batch_size: 3)
 
-      assert 4 == Pruner.prune(dag.id, 1, batch_size: 3)
+      assert 4 == Pruner.prune(dag.id, 1)
 
       assert_receive {:dag, :runs_pruned, %{dag_id: ^dag_id, run_ids: ^first_batch}}
       assert_receive {:dag, :runs_pruned, %{dag_id: ^dag_id, run_ids: ^second_batch}}
@@ -126,22 +127,41 @@ defmodule Gust.Run.PrunerTest do
     end
   end
 
+  describe "deletion_batch_size/0" do
+    test "defaults to 200" do
+      replace_env(:run_pruner, [])
+      assert 200 == Pruner.deletion_batch_size()
+    end
+
+    test "uses the configured size" do
+      replace_env(:run_pruner, deletion_batch_size: 50)
+      assert 50 == Pruner.deletion_batch_size()
+    end
+
+    test "uses the default for a size that isn't a positive integer" do
+      for size <- [0, -5, "100"] do
+        replace_env(:run_pruner, deletion_batch_size: size)
+        assert 200 == Pruner.deletion_batch_size()
+      end
+    end
+  end
+
   describe "schedule/0" do
-    test "is disabled without prune_schedule" do
-      replace_env(:runs, [])
+    test "is disabled without a pruner schedule" do
+      replace_env(:run_pruner, [])
       assert :disabled == Pruner.schedule()
     end
 
     test "parses crontab expressions and shortcuts" do
       for expression <- ["* * * * *", "0 3 * * *", "@daily", "@hourly", "@minutely"] do
-        replace_env(:runs, prune_schedule: expression)
+        replace_env(:run_pruner, schedule: expression)
         assert {:ok, %Crontab.CronExpression{}} = Pruner.schedule()
       end
     end
 
     test "rejects invalid expressions, @reboot and non-strings" do
       for expression <- ["nope", "@reboot", :daily] do
-        replace_env(:runs, prune_schedule: expression)
+        replace_env(:run_pruner, schedule: expression)
         assert {:error, _reason} = Pruner.schedule()
       end
     end
