@@ -377,6 +377,26 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply, socket |> stream_insert(:runs, run)}
   end
 
+  @impl true
+  def handle_info({:dag, :runs_pruned, %{run_ids: run_ids}}, socket) do
+    if viewing_pruned_run?(socket.assigns, run_ids) do
+      {:noreply,
+       socket
+       |> put_flash(:warning, "The selected run was deleted by the DAG's run retention")
+       |> push_navigate(to: ~g"/dags/#{socket.assigns.dag.name}/dashboard")}
+    else
+      {:noreply,
+       run_ids
+       |> Enum.reduce(socket, &stream_delete(&2, :runs, %Run{id: &1}))
+       |> put_flash(:info, "#{length(run_ids)} run(s) was deleted by the DAG's run retention")}
+    end
+  end
+
+  defp viewing_pruned_run?(assigns, run_ids) do
+    SelectedItem.run_id(assigns.selected_item) in run_ids or
+      assigns.pinned_run_id in Enum.map(run_ids, &to_string/1)
+  end
+
   defp assign_run_reload(socket, run) do
     if socket.assigns.item_id == run.id do
       socket

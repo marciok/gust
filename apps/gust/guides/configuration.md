@@ -78,6 +78,44 @@ dedicated Postgrex connection to a transaction-pooled URL does not bypass
 PgBouncer or make session locks safe. Gust does not detect the pooler's mode;
 without this override it continues to use the repo's connection settings.
 
+## Run Retention
+
+DAGs that set `runs: [retention: [max_count: n]]` keep their last `n` finished
+runs. Older runs are deleted, with their tasks and logs, by a job on the
+leader's cron scheduler. The job is registered only when the app sets a
+schedule, as a crontab expression:
+
+```elixir
+config :gust, :runs, prune_schedule: "@daily"
+```
+
+Any expression works, including shortcuts like `@hourly`, `@daily` and
+`@weekly`, or `"* * * * *"` for every minute. A prune never overlaps the
+previous one. An invalid expression (or `@reboot`) logs an error and leaves
+pruning off. The schedule is read when the scheduler starts, so a change takes
+effect after a restart or a leader change.
+
+Without `prune_schedule` nothing is deleted, even for DAGs that set a
+retention. Those DAGs get a parse warning, shown on the DAG page and in
+`mix gust.cli dag_definition`, so the setting doesn't silently do nothing.
+
+To prune a DAG once, keeping the number of runs you choose for that call, use
+the CLI. It ignores the DAG's retention and `prune_schedule`, and still never
+deletes unfinished runs. `--dry-run` reports how many runs would be deleted:
+
+```sh
+mix gust.cli prune_runs <dag_name> --max-count <n> [--dry-run]
+```
+
+The **System** page (`/system`) has a "Run pruning" panel. It shows whether
+pruning is on, the configured `prune_schedule` (or why it's invalid), and the
+DAGs that set a retention with their `max_count`.
+
+Deleting rows doesn't shrink tables on disk. Autovacuum makes the space
+reusable, so tables stop growing once retention is in place, but they don't
+get smaller. On an instance that is already large, run `VACUUM FULL` (which
+locks the table) or `pg_repack` once to reclaim the space.
+
 ## DAG Adapters
 
 Gust parses and runs DAGs through language adapters registered under

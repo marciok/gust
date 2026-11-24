@@ -226,6 +226,42 @@ defmodule GustWeb.DagLiveDashboardTest do
       assert_redirect dashboard_live, ~g"/dags/#{dag.name}/dashboard?page=1"
     end
 
+    test "drops runs deleted by the pruner", %{conn: conn, dag: dag, run: run} do
+      kept_run = run_fixture(%{dag_id: dag.id})
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
+      assert has_element?(dashboard_live, "#runs-#{run.id}")
+
+      Gust.PubSub.broadcast_runs_pruned(dag.id, [run.id])
+
+      refute has_element?(dashboard_live, "#runs-#{run.id}")
+      assert has_element?(dashboard_live, "#runs-#{kept_run.id}")
+
+      assert has_element?(
+               dashboard_live,
+               "#flash-info",
+               "1 run(s) was deleted by the DAG's run retention"
+             )
+    end
+
+    test "leaves a selected run deleted by the pruner", %{conn: conn, dag: dag, run: run} do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?run_id=#{run.id}")
+
+      Gust.PubSub.broadcast_runs_pruned(dag.id, [run.id])
+
+      flash = assert_redirect(dashboard_live, ~g"/dags/#{dag.name}/dashboard")
+      assert flash["warning"] =~ "deleted by the DAG's run retention"
+    end
+
+    test "leaves a pinned run deleted by the pruner", %{conn: conn, dag: dag, run: run} do
+      {:ok, dashboard_live, _html} =
+        live(conn, ~g"/dags/#{dag.name}/dashboard?pinned_run_id=#{run.id}")
+
+      Gust.PubSub.broadcast_runs_pruned(dag.id, [run.id])
+
+      assert_redirect(dashboard_live, ~g"/dags/#{dag.name}/dashboard")
+    end
+
     test "display task logs", %{
       conn: conn,
       dag: dag,

@@ -12,6 +12,7 @@ defmodule Gust.PubSub do
   # Event atoms
   @event_run_started :run_started
   @event_run_status :run_status
+  @event_runs_pruned :runs_pruned
   @event_file_update :file_updated
   @dispatch_wake :wake
 
@@ -63,6 +64,14 @@ defmodule Gust.PubSub do
       __MODULE__,
       "#{@topic_runs_for_dag}:#{dag_id}",
       {:dag, @event_run_started, %{dag_id: dag_id, run_id: run_id}}
+    )
+  end
+
+  def broadcast_runs_pruned(dag_id, run_ids) do
+    Phoenix.PubSub.broadcast(
+      __MODULE__,
+      "#{@topic_runs_for_dag}:#{dag_id}",
+      {:dag, @event_runs_pruned, %{dag_id: dag_id, run_ids: run_ids}}
     )
   end
 

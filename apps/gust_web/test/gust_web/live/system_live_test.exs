@@ -2,6 +2,17 @@ defmodule GustWeb.SystemLiveTest do
   use GustWeb.ConnCase
 
   import Phoenix.LiveViewTest
+  import Gust.ApplicationEnvHelpers
+  import Mox
+
+  alias Gust.DAG.Definition
+
+  setup :verify_on_exit!
+
+  setup do
+    stub(GustWeb.DAGLoaderMock, :get_definitions, fn -> %{} end)
+    :ok
+  end
 
   test "renders safe runtime and cluster information", %{conn: conn} do
     previous_role = System.get_env("GUST_ROLE")
@@ -49,6 +60,51 @@ defmodule GustWeb.SystemLiveTest do
 
     assert has_element?(view, "#theme-preference")
     assert has_element?(view, "#theme-preference", "System preference")
+  end
+
+  describe "run pruning" do
+    test "is off without prune_schedule", %{conn: conn} do
+      replace_env(:runs, [])
+
+      {:ok, view, _html} = live(conn, ~g"/system")
+
+      assert view |> element("#pruning-status") |> render() =~ "Off"
+      assert view |> element("#pruning-schedule") |> render() =~ "Not set"
+      assert has_element?(view, "#pruning-hint")
+      assert has_element?(view, "#pruning-dags-empty")
+    end
+
+    test "shows the schedule and the dags with retention", %{conn: conn} do
+      replace_env(:runs, prune_schedule: "@daily")
+
+      stub(GustWeb.DAGLoaderMock, :get_definitions, fn ->
+        %{
+          1 =>
+            {:ok, %Definition{name: "minutely", options: [runs: [retention: [max_count: 50]]]}},
+          2 => {:ok, %Definition{name: "no_retention", options: []}},
+          3 => {:error, :enoent}
+        }
+      end)
+
+      {:ok, view, _html} = live(conn, ~g"/system")
+
+      assert view |> element("#pruning-status") |> render() =~ "On"
+      assert view |> element("#pruning-schedule") |> render() =~ "@daily"
+      refute has_element?(view, "#pruning-hint")
+      assert view |> element("#pruning-dag-1") |> render() =~ "max_count: 50"
+      assert has_element?(view, "#pruning-dag-1 a[href='/dags/minutely/dashboard']")
+      refute has_element?(view, "#pruning-dag-2")
+    end
+
+    test "shows why an invalid schedule is off", %{conn: conn} do
+      replace_env(:runs, prune_schedule: "@reboot")
+
+      {:ok, view, _html} = live(conn, ~g"/system")
+
+      assert view |> element("#pruning-status") |> render() =~ "Invalid schedule"
+      assert view |> element("#pruning-error") |> render() =~ "@reboot is not supported"
+      assert has_element?(view, "#pruning-hint")
+    end
   end
 
   test "format_uptime/1 presents minutes, hours, and days compactly" do

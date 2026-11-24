@@ -19,6 +19,13 @@ defmodule Gust.CLI do
   * `dag_definition <dag_name>`: returns the DAG definition payload as JSON,
     including the definition load status.
 
+  * `prune_runs <dag_name> --max-count <n> [--dry-run]`: deletes the DAG's
+    finished runs beyond the `n` most recent ones, now. `n` is chosen for this
+    call only: the DAG's `runs: [retention: ...]` and the `prune_schedule`
+    config don't apply. Unfinished runs are never deleted. `--dry-run` deletes
+    nothing and reports how many runs would be deleted, e.g.
+    `{"status":"ok","dag_name":"my_dag","max_count":100,"dry_run":true,"pruned":120}`.
+
   Example:
 
       gust-cli trigger_run my_dag
@@ -28,6 +35,7 @@ defmodule Gust.CLI do
   alias Gust.DAG.Loader
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
+  alias Gust.Run.Pruner
   require Logger
 
   @doc """
@@ -37,6 +45,7 @@ defmodule Gust.CLI do
 
   * `["trigger_run", dag_name]` — optionally with `--run_params '<json>'`
   * `["dag_definition", dag_name]`
+  * `["prune_runs", dag_name, "--max-count", n]` — optionally with `--dry-run`
   """
   def exec(["trigger_run", dag_name]) do
     exec(["trigger_run", dag_name, "--run_params", "{}"])
@@ -59,13 +68,27 @@ defmodule Gust.CLI do
   def exec(["dag_definition", dag_name]) do
     load_app()
 
-    dag = Flows.get_dag_by_name(dag_name)
+    dag = get_dag!(dag_name)
+    get_dag_def(dag.id)
+  end
 
-    if dag do
-      get_dag_def(dag.id)
-    else
-      raise "There are no DAGs with name: #{dag_name}"
+  def exec(["prune_runs" | args]) do
+    load_app()
+
+    {opts, args} = OptionParser.parse!(args, strict: [max_count: :integer, dry_run: :boolean])
+    dry_run = Keyword.get(opts, :dry_run, false)
+
+    case {args, opts[:max_count]} do
+      {[dag_name], max_count} when is_integer(max_count) and max_count > 0 ->
+        dag = get_dag!(dag_name)
+        pruned = Pruner.prune(dag.id, max_count, dry_run: dry_run)
+
+        %{status: :ok, dag_name: dag_name, max_count: max_count, dry_run: dry_run, pruned: pruned}
+
+      _invalid ->
+        %{status: :error, error: "usage: prune_runs <dag_name> --max-count <n> [--dry-run]"}
     end
+    |> Jason.encode!()
   end
 
   defp get_dag_def(dag_id) do
@@ -87,5 +110,9 @@ defmodule Gust.CLI do
 
   defp load_app do
     Application.ensure_all_started(:gust)
+  end
+
+  defp get_dag!(name) do
+    Flows.get_dag_by_name(name) || raise "There are no DAGs with name: #{name}"
   end
 end

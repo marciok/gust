@@ -11,6 +11,25 @@ they ship with.
 Add your change under the version being developed, with `Unreleased` in place
 of the date. The publish workflow requires the version to have a dated entry.
 
+## [0.1.43] - Unreleased
+
+### Added
+
+- Run retention: `use Gust.DSL, runs: [retention: [max_count: n]]` keeps the
+  last `n` finished runs of a DAG and deletes older ones with their tasks and
+  logs. Pruning runs on the leader when `config :gust, :runs, prune_schedule:`
+  is set to a crontab expression (e.g. `"@daily"`); nothing is deleted unless
+  both are set. The System page shows the prune schedule and the DAGs with a
+  retention ([#189](https://github.com/marciok/gust/issues/189)).
+- `mix gust.cli prune_runs <dag_name> --max-count <n> [--dry-run]` prunes a
+  DAG once, keeping the `n` most recent finished runs, regardless of its
+  retention.
+
+### Internal
+
+- `gust_runs` has an index on `(dag_id, status, id)`, replacing the one on
+  `dag_id`. The migration builds it concurrently.
+
 ## [0.1.42] - Unreleased
 
 `gust_py` 0.1.15 and `gust_shell` 0.1.2.

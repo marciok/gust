@@ -233,6 +233,14 @@ defmodule GustWeb.RunLive.Index do
     end
   end
 
+  @impl true
+  def handle_info({:dag, :runs_pruned, %{run_ids: run_ids}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:selected_run_ids, socket.assigns.selected_run_ids -- run_ids)
+     |> refresh_run_list(clear_selection?: false)}
+  end
+
   defp get_dag_with_runs!(page, size, name, status, params_search) do
     offset = (page - 1) * size
 

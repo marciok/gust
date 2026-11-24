@@ -183,10 +183,124 @@ defmodule DAG.Parser.Adapters.ElixirTest do
 
       {:ok, dag_def} = Adapter.parse_file(file)
 
-      assert %{
-               message:
-                 "unknown keys [:foo_bar] in [foo_bar: \"hi\", schedule: \"* * * * *\"], the allowed keys are: [:schedule, :on_finished_callback]"
-             } = dag_def.error
+      assert %CompileError{description: "invalid DAG options: " <> message} = dag_def.error
+
+      assert message ==
+               "unknown keys [:foo_bar] in [foo_bar: \"hi\", schedule: \"* * * * *\"], the allowed keys are: [:schedule, :on_finished_callback, :runs]"
     end
+
+    test "file has runs retention", %{tmp_dir: dags_folder} do
+      replace_env(:runs, prune_schedule: "@daily")
+
+      file =
+        write_dag!(dags_folder, """
+          defmodule MyRetentionDag do
+            use Gust.DSL, runs: [retention: [max_count: 5_000]]
+
+            task :bye do
+            end
+          end
+        """)
+
+      {:ok, dag_def} = Adapter.parse_file(file)
+
+      assert dag_def.error == %{}
+      assert dag_def.messages == []
+      assert dag_def.options == [runs: [retention: [max_count: 5_000]]]
+    end
+
+    test "file has runs retention without prune_schedule", %{tmp_dir: dags_folder} do
+      replace_env(:runs, [])
+
+      file =
+        write_dag!(dags_folder, """
+          defmodule MyUnprunedRetentionDag do
+            use Gust.DSL, runs: [retention: [max_count: 5_000]]
+
+            task :bye do
+            end
+          end
+        """)
+
+      {:ok, dag_def} = Adapter.parse_file(file)
+
+      assert dag_def.error == %{}
+      assert [%{severity: :warning, message: message, file: ^file}] = dag_def.messages
+      assert message =~ "pruning is off"
+    end
+
+    test "file has unknown runs keys", %{tmp_dir: dags_folder} do
+      file =
+        write_dag!(dags_folder, """
+          defmodule MyUnknownRunsDag do
+            use Gust.DSL, runs: [foo: true]
+          end
+        """)
+
+      {:ok, dag_def} = Adapter.parse_file(file)
+
+      assert %CompileError{description: "invalid DAG options: " <> message} = dag_def.error
+
+      assert message ==
+               "unknown keys [:foo] in runs [foo: true], the allowed keys are: [:retention]"
+    end
+
+    test "file has unknown runs retention keys", %{tmp_dir: dags_folder} do
+      file =
+        write_dag!(dags_folder, """
+          defmodule MyUnknownRetentionDag do
+            use Gust.DSL, runs: [retention: [max_age: 30]]
+          end
+        """)
+
+      {:ok, dag_def} = Adapter.parse_file(file)
+
+      assert %CompileError{description: "invalid DAG options: " <> message} = dag_def.error
+
+      assert message ==
+               "unknown keys [:max_age] in runs retention [max_age: 30], the allowed keys are: [:max_count]"
+    end
+
+    test "file has an invalid runs retention max_count", %{tmp_dir: dags_folder} do
+      file =
+        write_dag!(dags_folder, """
+          defmodule MyInvalidMaxCountDag do
+            use Gust.DSL, runs: [retention: [max_count: -1]]
+          end
+        """)
+
+      {:ok, dag_def} = Adapter.parse_file(file)
+
+      assert %CompileError{description: "invalid DAG options: " <> message} = dag_def.error
+      assert message == "runs retention max_count must be a positive integer, got: -1"
+    end
+
+    test "file has an invalid schedule", %{tmp_dir: dags_folder} do
+      file =
+        write_dag!(dags_folder, """
+          defmodule MyInvalidScheduleDag do
+            use Gust.DSL, schedule: "bla"
+          end
+        """)
+
+      {:ok, dag_def} = Adapter.parse_file(file)
+
+      assert %CompileError{file: ^file, description: "invalid DAG options: " <> message} =
+               dag_def.error
+
+      assert message =~ "invalid schedule \"bla\""
+
+      assert [%{severity: :error, message: "invalid DAG options: " <> ^message}] =
+               dag_def.messages
+
+      assert dag_def.options == []
+      refute :code.is_loaded(MyInvalidScheduleDag)
+    end
+  end
+
+  defp write_dag!(dags_folder, content) do
+    file = "#{dags_folder}/my_name.ex"
+    File.write!(file, content)
+    file
   end
 end

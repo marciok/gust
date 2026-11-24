@@ -34,6 +34,55 @@
       </dl>
     </section>
 
+    <section id="pruning-config" class="system-panel">
+      <div class={["system-panel__header", "system-panel__header--split"]}>
+        <h2 class="system-panel__title">Run pruning</h2>
+        <span id="pruning-status" class={["badge", @system.pruning.badge]}>
+          {@system.pruning.label}
+        </span>
+      </div>
+      <div class="system-panel__body">
+        <div>
+          <div class="system-label">Prune schedule</div>
+          <div id="pruning-schedule" class="system-value">
+            {if(@system.pruning.schedule, do: inspect(@system.pruning.schedule), else: "Not set")}
+          </div>
+        </div>
+
+        <p :if={@system.pruning.error} id="pruning-error" class="mt-2 text-sm text-error">
+          {@system.pruning.error}
+        </p>
+
+        <p
+          :if={@system.pruning.status != :scheduled}
+          id="pruning-hint"
+          class="mt-2 text-xs text-base-content/70"
+        >
+          No runs are deleted until <code>config :gust, :runs, prune_schedule: "@daily"</code>
+          (or another crontab expression) is set.
+        </p>
+
+        <div class="mt-4">
+          <div class="system-label">DAGs with retention</div>
+          <p :if={@system.pruning.dags == []} id="pruning-dags-empty" class="system-empty mt-1">
+            No DAG sets <code>runs: [retention: [max_count: n]]</code>.
+          </p>
+          <ul :if={@system.pruning.dags != []} id="pruning-dags" class="system-node-list mt-1">
+            <li
+              :for={dag <- @system.pruning.dags}
+              id={"pruning-dag-#{dag.dag_id}"}
+              class="system-node"
+            >
+              <.link navigate={~g"/dags/#{dag.name}/dashboard"}>{dag.name}</.link>
+              <span class="text-base-content/70">
+                max_count: {dag.max_count}
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <section id="web-ui" class="system-panel">
       <div class="system-panel__header">
         <h2 class="system-panel__title">Web UI</h2>

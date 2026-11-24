@@ -10,6 +10,8 @@ defmodule Gust.Flows do
   import Ecto.Query, warn: false
   alias Gust.Repo
 
+  @finished_run_statuses [:succeeded, :failed]
+
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking secret changes.
 
@@ -745,6 +747,55 @@ defmodule Gust.Flows do
     Run
     |> where([run], run.dag_id == ^dag_id and run.id in ^run_ids)
     |> Repo.all()
+  end
+
+  @doc """
+  Counts the finished runs of a DAG that a retention of `max_count` would delete.
+
+  Finished runs are `:succeeded` or `:failed`; the `max_count` most recent ones,
+  by `id`, are kept. Unfinished runs are never counted.
+  """
+  def count_prunable_runs(dag_id, max_count) do
+    dag_id |> prunable_runs_query(max_count) |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Deletes up to `batch_size` of the oldest prunable runs of a DAG (see
+  `count_prunable_runs/2`) and returns their ids. Tasks and logs are removed by
+  the `ON DELETE CASCADE` foreign keys.
+
+  The status filter is part of the `DELETE`, so a run restarted after the batch
+  was selected is not deleted.
+  """
+  def delete_prunable_runs(dag_id, max_count, batch_size) do
+    batch_ids =
+      dag_id
+      |> prunable_runs_query(max_count)
+      |> order_by([r], asc: r.id)
+      |> limit(^batch_size)
+      |> select([r], r.id)
+
+    {_count, ids} =
+      Run
+      |> where([r], r.id in subquery(batch_ids) and r.status in ^@finished_run_statuses)
+      |> select([r], r.id)
+      |> Repo.delete_all()
+
+    Enum.sort(ids)
+  end
+
+  defp prunable_runs_query(dag_id, max_count) do
+    oldest_kept_id =
+      Run
+      |> where([r], r.dag_id == ^dag_id and r.status in ^@finished_run_statuses)
+      |> order_by([r], desc: r.id)
+      |> offset(^(max_count - 1))
+      |> limit(1)
+      |> select([r], r.id)
+
+    Run
+    |> where([r], r.dag_id == ^dag_id and r.status in ^@finished_run_statuses)
+    |> where([r], r.id < subquery(oldest_kept_id))
   end
 
   defp maybe_filter_run_status(query, nil), do: query

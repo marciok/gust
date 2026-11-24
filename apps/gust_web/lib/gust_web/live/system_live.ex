@@ -1,7 +1,12 @@
 defmodule GustWeb.SystemLive do
   use GustWeb, :live_view
 
+  alias Gust.Run.Pruner
+
   @environment Mix.env()
+
+  @pruning_labels %{scheduled: "On", off: "Off", invalid: "Invalid schedule"}
+  @pruning_badges %{scheduled: "badge-success", off: "badge-ghost", invalid: "badge-error"}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -36,7 +41,26 @@ defmodule GustWeb.SystemLive do
       gust_web_version: application_version(:gust_web),
       run_dispatcher: Application.get_env(:gust, :run_dispatcher),
       role: System.get_env("GUST_ROLE", "single"),
-      uptime_seconds: div(uptime_ms, 1_000)
+      uptime_seconds: div(uptime_ms, 1_000),
+      pruning: pruning_info()
+    }
+  end
+
+  defp pruning_info do
+    {status, error} =
+      case Pruner.schedule() do
+        {:ok, _schedule} -> {:scheduled, nil}
+        :disabled -> {:off, nil}
+        {:error, reason} -> {:invalid, reason}
+      end
+
+    %{
+      status: status,
+      label: @pruning_labels[status],
+      badge: @pruning_badges[status],
+      error: error,
+      schedule: Pruner.configured_schedule(),
+      dags: Pruner.retained_dags()
     }
   end
 
