@@ -22,6 +22,10 @@ of the date. The publish workflow requires the version to have a dated entry.
   set, deleting `deletion_batch_size` runs per statement (default 200);
   nothing is deleted unless both are set. The System page shows the prune schedule and the DAGs with a
   retention ([#189](https://github.com/marciok/gust/issues/189)).
+- Sequential runs: `use Gust.DSL, runs: [concurrency: :sequential]` runs a
+  DAG's runs one at a time, oldest first. The claim query reads the setting
+  from the loaded DAG definitions, so nothing is stored in the database
+  ([#188](https://github.com/marciok/gust/issues/188)).
 - `mix gust.cli prune_runs <dag_name> --max-count <n> [--dry-run]` prunes a
   DAG once, keeping the `n` most recent finished runs, regardless of its
   retention.

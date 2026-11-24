@@ -149,4 +149,86 @@ defmodule Run.Claim.RepoTest do
       assert is_nil(Claim.next_run())
     end
   end
+
+  describe "next_run/1 with sequential dags" do
+    setup do
+      dag = dag_fixture(%{name: "sequential_dag"})
+      %{seq: dag, seq_ids: [dag.id]}
+    end
+
+    test "doesn't claim a queued run while the dag has an active run", %{seq: seq, seq_ids: ids} do
+      for status <- [:starting, :running, :waiting] do
+        _active = run_fixture(%{dag_id: seq.id, status: status, claim_expires_at: later()})
+        _queued = run_fixture(%{dag_id: seq.id, status: :enqueued})
+
+        assert nil == Claim.next_run(ids)
+
+        Repo.delete_all(from r in Flows.Run, where: r.dag_id == ^seq.id)
+      end
+    end
+
+    test "claims the next run after the active one succeeds or fails", %{
+      seq: seq,
+      seq_ids: ids
+    } do
+      for finished <- [:succeeded, :failed] do
+        active = run_fixture(%{dag_id: seq.id, status: :running, claim_expires_at: later()})
+        queued = run_fixture(%{dag_id: seq.id, status: :enqueued})
+
+        assert nil == Claim.next_run(ids)
+
+        Flows.update_run_status(active, finished)
+        queued_id = queued.id
+        assert %Flows.Run{id: ^queued_id, status: :starting} = Claim.next_run(ids)
+
+        Repo.delete_all(from r in Flows.Run, where: r.dag_id == ^seq.id)
+      end
+    end
+
+    test "claims queued runs one at a time, oldest first", %{seq: seq, seq_ids: ids} do
+      [first, second, third] =
+        Enum.map(1..3, fn _ -> run_fixture(%{dag_id: seq.id, status: :enqueued}) end)
+
+      for run <- [first, second, third] do
+        run_id = run.id
+        assert %Flows.Run{id: ^run_id} = claimed = Claim.next_run(ids)
+        assert nil == Claim.next_run(ids)
+        Flows.update_run_status(claimed, :succeeded)
+      end
+
+      assert nil == Claim.next_run(ids)
+    end
+
+    test "still claims runs of other dags", %{dag: dag, seq: seq, seq_ids: ids} do
+      _active = run_fixture(%{dag_id: seq.id, status: :running, claim_expires_at: later()})
+      _blocked = run_fixture(%{dag_id: seq.id, status: :enqueued})
+      other = run_fixture(%{dag_id: dag.id, status: :enqueued})
+      other_id = other.id
+
+      assert %Flows.Run{id: ^other_id} = Claim.next_run(ids)
+    end
+
+    test "reclaims an expired active run and keeps the queue blocked", %{
+      seq: seq,
+      seq_ids: ids
+    } do
+      expired = DateTime.add(DateTime.utc_now(), -10)
+      active = run_fixture(%{dag_id: seq.id, status: :running, claim_expires_at: expired})
+      _queued = run_fixture(%{dag_id: seq.id, status: :enqueued})
+      active_id = active.id
+
+      assert %Flows.Run{id: ^active_id, status: :starting} = Claim.next_run(ids)
+      assert nil == Claim.next_run(ids)
+    end
+
+    test "parallel dags still run queued runs side by side", %{seq: seq} do
+      _active = run_fixture(%{dag_id: seq.id, status: :running, claim_expires_at: later()})
+      queued = run_fixture(%{dag_id: seq.id, status: :enqueued})
+      queued_id = queued.id
+
+      assert %Flows.Run{id: ^queued_id} = Claim.next_run([])
+    end
+  end
+
+  defp later, do: DateTime.add(DateTime.utc_now(), 60)
 end

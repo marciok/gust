@@ -725,6 +725,36 @@ defmodule Gust.DAG.Runner.DAGWorkerTest do
     assert Flows.get_run!(run.id).status == :succeeded
   end
 
+  test "wakes the claimers when a sequential dag's run finishes", %{run: run} do
+    task_fixture(%{run_id: run.id, name: "done", status: :succeeded})
+    dag_def = %{definition([["done"]]) | options: [runs: [concurrency: :sequential]]}
+
+    Gust.RuntimeAdapterMock
+    |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+    Gust.PubSub.subscribe_run_dispatch()
+    runner = start_runner(run, dag_def)
+    ref = Process.monitor(runner)
+
+    assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+    assert_receive {:run_dispatch, :wake}
+  end
+
+  test "doesn't wake the claimers when a parallel dag's run finishes", %{run: run} do
+    task_fixture(%{run_id: run.id, name: "done", status: :succeeded})
+    dag_def = definition([["done"]])
+
+    Gust.RuntimeAdapterMock
+    |> expect(:teardown, fn ^dag_def, _runtime_id -> :ok end)
+
+    Gust.PubSub.subscribe_run_dispatch()
+    runner = start_runner(run, dag_def)
+    ref = Process.monitor(runner)
+
+    assert_receive {:DOWN, ^ref, :process, ^runner, :normal}
+    refute_receive {:run_dispatch, :wake}, 50
+  end
+
   test "fails a stage when mapped task parameters cannot be loaded", %{run: run} do
     dag_def =
       definition(

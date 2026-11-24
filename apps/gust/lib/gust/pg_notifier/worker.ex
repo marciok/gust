@@ -14,6 +14,9 @@ defmodule Gust.PGNotifier.Worker do
   def enqueue_all(runs), do: PGNotifier.enqueue_all(runs)
 
   @impl Gust.Run.Dispatcher
+  def wake, do: PGNotifier.notify()
+
+  @impl Gust.Run.Dispatcher
   def setup do
     GenServer.call(__MODULE__, {:setup, self()})
   end

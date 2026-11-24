@@ -136,6 +136,18 @@ defmodule GustWeb.DagSummaryLiveComponentTest do
       refute has_element?(dag_summary, ".dag-card__meta")
     end
 
+    test "shows the concurrency when set", %{conn: conn, dag: dag, dag_def: dag_def} do
+      {:ok, dag_summary, _html} =
+        live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
+          id: dag.id,
+          dag: dag,
+          dag_def: %{dag_def | options: [runs: [concurrency: :sequential]]}
+        })
+
+      assert dag_summary |> element("#dag-concurrency-#{dag.id}") |> render() =~ "sequential"
+      refute has_element?(dag_summary, "#dag-schedule-#{dag.id}")
+    end
+
     test "hides the schedule when only a retention is set", %{
       conn: conn,
       dag: dag,

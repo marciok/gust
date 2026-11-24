@@ -3,6 +3,7 @@ defmodule GustWeb.RunLive.Index do
   alias Gust.DAG.Terminator
   alias Gust.Flows
   alias Gust.PubSub
+  alias Gust.Run.Dispatcher
   alias GustWeb.Pagination
   use GustWeb, :live_view
 
@@ -157,6 +158,8 @@ defmodule GustWeb.RunLive.Index do
     {:ok, deleted_runs} =
       Flows.delete_runs_on_dag(socket.assigns.dag_id, Enum.map(stopped_runs, & &1.id))
 
+    Dispatcher.wake()
+
     {:noreply,
      socket
      |> refresh_run_list()
@@ -187,6 +190,7 @@ defmodule GustWeb.RunLive.Index do
     case stop_run(run) do
       :ok ->
         {:ok, _run} = Flows.delete_run(run)
+        Dispatcher.wake()
 
         {:noreply, refresh_run_list(socket, clear_selection?: false)}
 

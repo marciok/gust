@@ -2,12 +2,13 @@ defmodule Gust.DAG.Runner.DAGWorker do
   @moduledoc false
   use GenServer
 
-  alias Gust.DAG.{Adapter, Definition, TaskStatus}
+  alias Gust.DAG.{Adapter, Definition, Options, TaskStatus}
   alias Gust.DAG.Runner.{StageBuilder, TaskExecution, TaskPager}
   alias Gust.DAG.StageCoordinator, as: Coord
   alias Gust.Flows
   alias Gust.PubSub
   alias Gust.Run.Claim
+  alias Gust.Run.Dispatcher
 
   alias __MODULE__, as: State
 
@@ -310,6 +311,7 @@ defmodule Gust.DAG.Runner.DAGWorker do
 
   defp finish_run(status, %State{dag_def: dag_def, run: run, runtime_id: runtime_id} = state) do
     update_run_status(run, Map.fetch!(@status_map, status))
+    if Options.concurrency(dag_def) == :sequential, do: Dispatcher.wake()
     {callback_fn_name, _options} = Keyword.pop(dag_def.options, :on_finished_callback)
 
     if callback_fn_name do

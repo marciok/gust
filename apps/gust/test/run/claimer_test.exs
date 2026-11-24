@@ -19,6 +19,7 @@ defmodule Gust.Run.ClaimerTest do
     replace_env(:claim_runs_batch_size, 50)
 
     start_supervised!(Gust.Run.Pooler)
+    stub(Gust.DAGLoaderMock, :get_definitions, fn -> %{} end)
 
     :ok
   end
@@ -44,10 +45,10 @@ defmodule Gust.Run.ClaimerTest do
       |> expect(:get_definition, fn ^sec_dag_id -> {:ok, dag_def_error} end)
 
       Gust.RunClaimMock
-      |> expect(:next_run, fn -> restart_run end)
-      |> expect(:next_run, fn -> restart_run_2 end)
-      |> expect(:next_run, fn -> restart_run_with_error end)
-      |> expect(:next_run, fn -> nil end)
+      |> expect(:next_run, fn _sequential_dag_ids -> restart_run end)
+      |> expect(:next_run, fn _sequential_dag_ids -> restart_run_2 end)
+      |> expect(:next_run, fn _sequential_dag_ids -> restart_run_with_error end)
+      |> expect(:next_run, fn _sequential_dag_ids -> nil end)
 
       Gust.DAGRunnerSupervisorMock
       |> expect(:start_child, 2, fn %Flows.Run{dag_id: ^dag_id} = run, ^dag_def ->
@@ -75,8 +76,8 @@ defmodule Gust.Run.ClaimerTest do
 
       run = run_fixture(%{dag_id: dag.id, status: :created})
 
-      Gust.RunClaimMock |> expect(:next_run, fn -> run end)
-      Gust.RunClaimMock |> expect(:next_run, fn -> nil end)
+      Gust.RunClaimMock |> expect(:next_run, fn _sequential_dag_ids -> run end)
+      Gust.RunClaimMock |> expect(:next_run, fn _sequential_dag_ids -> nil end)
 
       dag_def = %Gust.DAG.Definition{name: dag.name}
       dag_id = dag.id
@@ -114,10 +115,10 @@ defmodule Gust.Run.ClaimerTest do
       dag_def = %Gust.DAG.Definition{name: dag.name}
 
       Gust.RunClaimMock
-      |> expect(:next_run, fn -> Enum.at(runs, 0) end)
-      |> expect(:next_run, fn -> Enum.at(runs, 1) end)
-      |> expect(:next_run, fn -> Enum.at(runs, 2) end)
-      |> expect(:next_run, fn -> nil end)
+      |> expect(:next_run, fn _sequential_dag_ids -> Enum.at(runs, 0) end)
+      |> expect(:next_run, fn _sequential_dag_ids -> Enum.at(runs, 1) end)
+      |> expect(:next_run, fn _sequential_dag_ids -> Enum.at(runs, 2) end)
+      |> expect(:next_run, fn _sequential_dag_ids -> nil end)
 
       Gust.DAGLoaderMock
       |> expect(:get_definition, 3, fn _dag_id -> {:ok, dag_def} end)
@@ -132,6 +133,35 @@ defmodule Gust.Run.ClaimerTest do
 
       assert_receive {:runs_claimed, %{node: _node}}, 200
       assert_receive {:runs_claimed, %{node: _node}}, 200
+    end
+  end
+
+  describe "sequential dags" do
+    test "passes the ids of sequential dags to the claim" do
+      sequential = %Gust.DAG.Definition{name: "seq", options: [runs: [concurrency: :sequential]]}
+      parallel = %Gust.DAG.Definition{name: "par", options: [runs: [concurrency: :parallel]]}
+      default = %Gust.DAG.Definition{name: "default"}
+
+      stub(Gust.DAGLoaderMock, :get_definitions, fn ->
+        %{
+          1 => {:ok, sequential},
+          2 => {:ok, parallel},
+          3 => {:ok, default},
+          4 => {:error, :enoent}
+        }
+      end)
+
+      test_pid = self()
+
+      Gust.RunClaimMock
+      |> expect(:next_run, fn sequential_dag_ids ->
+        send(test_pid, {:sequential_dag_ids, sequential_dag_ids})
+        nil
+      end)
+
+      start_link_supervised!(Claimer)
+
+      assert_receive {:sequential_dag_ids, [1]}, 200
     end
   end
 end

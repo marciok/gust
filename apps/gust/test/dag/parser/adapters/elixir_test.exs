@@ -242,7 +242,7 @@ defmodule DAG.Parser.Adapters.ElixirTest do
       assert %CompileError{description: "invalid DAG options: " <> message} = dag_def.error
 
       assert message ==
-               "unknown keys [:foo] in runs [foo: true], the allowed keys are: [:retention]"
+               "unknown keys [:foo] in runs [foo: true], the allowed keys are: [:retention, :concurrency]"
     end
 
     test "file has unknown runs retention keys", %{tmp_dir: dags_folder} do

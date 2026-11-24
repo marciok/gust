@@ -7,8 +7,13 @@ defmodule Gust.DAG.Options do
     * `schedule` - a crontab expression, e.g. `"* * * * *"` or `"@daily"`.
     * `on_finished_callback` - the name of the function called when a run
       finishes.
-    * `runs` - run-level settings. `retention: [max_count: n]` keeps the N
-      most recent finished runs, and `Gust.Run.Pruner` deletes older ones.
+    * `runs` - run-level settings:
+      * `retention: [max_count: n]` keeps the N most recent finished runs, and
+        `Gust.Run.Pruner` deletes older ones.
+      * `concurrency: :parallel | :sequential` - `:parallel` (the default)
+        lets runs of the DAG overlap. `:sequential` runs them one at a time,
+        oldest first: `Gust.Run.Claim.Repo` only claims a run when the DAG has
+        no active run and no older queued run.
 
   Elixir DAGs pass options to `use Gust.DSL` and are checked with
   `validate/1`. Python DAGs pass a dict with string keys, converted by
@@ -27,15 +32,21 @@ defmodule Gust.DAG.Options do
   alias Gust.Run.Pruner
 
   @keys [:schedule, :on_finished_callback, :runs]
-  @runs_keys [:retention]
+  @runs_keys [:retention, :concurrency]
   @retention_keys [:max_count]
+  @concurrency_modes [:parallel, :sequential]
 
   @json_keys [
     {"on_finished_callback", :on_finished_callback},
     {"schedule", :schedule},
     {"runs", :runs}
   ]
-  @json_runs_keys %{"retention" => :retention, "max_count" => :max_count}
+  @json_runs_keys %{
+    "retention" => :retention,
+    "max_count" => :max_count,
+    "concurrency" => :concurrency
+  }
+  @json_concurrency_modes %{"parallel" => :parallel, "sequential" => :sequential}
 
   @pruning_off_warning "runs retention is set but pruning is off: " <>
                          "set config :gust, :run_pruner, schedule: \"...\""
@@ -100,6 +111,15 @@ defmodule Gust.DAG.Options do
   @spec max_count(Definition.t()) :: pos_integer() | nil
   def max_count(%Definition{options: options}), do: retention_max_count(options)
 
+  @doc """
+  Returns the run concurrency of a DAG definition: `:parallel` unless the DAG
+  sets `runs: [concurrency: :sequential]`.
+  """
+  @spec concurrency(Definition.t()) :: :parallel | :sequential
+  def concurrency(%Definition{options: options}) do
+    get_in(options, [:runs, :concurrency]) || :parallel
+  end
+
   defp retention_max_count(options), do: get_in(options, [:runs, :retention, :max_count])
 
   defp diagnostic(file_path, message, severity) do
@@ -121,13 +141,25 @@ defmodule Gust.DAG.Options do
 
       {:ok, runs} ->
         with {:ok, runs} <- nested_from_json(runs) do
-          {:ok, Keyword.replace!(options, :runs, runs)}
+          {:ok, Keyword.replace!(options, :runs, concurrency_from_json(runs))}
         end
 
       :error ->
         {:ok, options}
     end
   end
+
+  defp concurrency_from_json(runs) when is_list(runs) do
+    case Keyword.fetch(runs, :concurrency) do
+      {:ok, mode} ->
+        Keyword.replace!(runs, :concurrency, Map.get(@json_concurrency_modes, mode, mode))
+
+      :error ->
+        runs
+    end
+  end
+
+  defp concurrency_from_json(runs), do: runs
 
   defp nested_from_json(value) when is_map(value) do
     Enum.reduce_while(value, {:ok, []}, fn {key, val}, {:ok, acc} ->
@@ -171,9 +203,18 @@ defmodule Gust.DAG.Options do
   defp validate_runs(nil), do: :ok
 
   defp validate_runs(runs) do
-    with :ok <- validate_keys(runs, @runs_keys, "runs") do
+    with :ok <- validate_keys(runs, @runs_keys, "runs"),
+         :ok <- validate_concurrency(Keyword.get(runs, :concurrency)) do
       validate_retention(Keyword.get(runs, :retention))
     end
+  end
+
+  defp validate_concurrency(nil), do: :ok
+  defp validate_concurrency(mode) when mode in @concurrency_modes, do: :ok
+
+  defp validate_concurrency(mode) do
+    {:error,
+     "runs concurrency must be one of #{inspect(@concurrency_modes)}, got: #{inspect(mode)}"}
   end
 
   defp validate_retention(nil), do: :ok

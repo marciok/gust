@@ -132,6 +132,14 @@ defmodule GustPy.Parser.AdapterTest do
       assert dag_def.messages == []
     end
 
+    test "parses runs concurrency from executor output" do
+      expect_options(%{"runs" => %{"concurrency" => "sequential"}})
+
+      assert {:ok, %Definition{error: error} = dag_def} = Adapter.parse_file(@file_path)
+      assert error == %{}
+      assert dag_def.options[:runs] == [concurrency: :sequential]
+    end
+
     test "warns about runs retention without a pruner schedule" do
       Gust.ApplicationEnvHelpers.replace_env(:run_pruner, [])
       expect_options(%{"runs" => %{"retention" => %{"max_count" => 5000}}})

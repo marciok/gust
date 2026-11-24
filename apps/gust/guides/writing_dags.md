@@ -78,6 +78,9 @@ end
 - **`runs: [retention: [max_count: n]]`** — keeps the last `n` finished runs
   of the DAG and deletes older ones. Needs the `:run_pruner` schedule; see
   [Run Retention](configuration.md#run-retention).
+- **`runs: [concurrency: :sequential]`** — runs the DAG's runs one at a time,
+  oldest first, so they never overlap. A queued run starts once the active one
+  succeeds or fails; a run paused on `wait_for` still counts as active.
 
 See `Gust.DSL` for the full macro reference.
 
