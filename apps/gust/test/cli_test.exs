@@ -108,4 +108,53 @@ defmodule Gust.CLITest do
              "error" => "{[line: 9], \"parsing error\", \"unexpected token\"}"
            } = CLI.exec(["dag_definition", dag_name]) |> Jason.decode!()
   end
+
+  describe "exec/1 prune_runs" do
+    setup %{dag_id: dag_id} do
+      for status <- [:succeeded, :failed, :succeeded, :running] do
+        run_fixture(%{dag_id: dag_id, status: status})
+      end
+
+      :ok
+    end
+
+    test "keeps the given number of finished runs", %{dag_name: dag_name, dag_id: dag_id} do
+      assert %{
+               "status" => "ok",
+               "dag_name" => ^dag_name,
+               "max_count" => 1,
+               "dry_run" => false,
+               "pruned" => 2
+             } = CLI.exec(["prune_runs", dag_name, "--max-count", "1"]) |> Jason.decode!()
+
+      assert 2 == Flows.count_runs_on_dag(dag_id)
+      assert 1 == Flows.count_runs_on_dag(dag_id, :running)
+    end
+
+    test "--dry-run reports counts without deleting", %{dag_name: dag_name, dag_id: dag_id} do
+      assert %{"status" => "ok", "dry_run" => true, "pruned" => 2} =
+               CLI.exec(["prune_runs", dag_name, "--max-count", "1", "--dry-run"])
+               |> Jason.decode!()
+
+      assert 4 == Flows.count_runs_on_dag(dag_id)
+    end
+
+    test "returns usage without a dag name or a positive --max-count", %{
+      dag_name: dag_name,
+      dag_id: dag_id
+    } do
+      for args <- [[dag_name], ["--max-count", "1"], [dag_name, "--max-count", "0"]] do
+        assert %{"status" => "error", "error" => "usage: prune_runs" <> _rest} =
+                 CLI.exec(["prune_runs" | args]) |> Jason.decode!()
+      end
+
+      assert 4 == Flows.count_runs_on_dag(dag_id)
+    end
+
+    test "raises for an unknown dag" do
+      assert_raise RuntimeError, "There are no DAGs with name: nope", fn ->
+        CLI.exec(["prune_runs", "nope", "--max-count", "1"])
+      end
+    end
+  end
 end

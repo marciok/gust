@@ -3,6 +3,7 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
 
   alias Gust.DAG.Definition
   alias Gust.DAG.Graph
+  alias Gust.DAG.Options
   @behaviour Gust.DAG.Parser.Adapter
 
   @impl true
@@ -18,10 +19,16 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
       Code.with_diagnostics(fn ->
         try do
           [{mod, _bin}] = Code.compile_file(file)
-          opts = options!(mod)
-          tasks = list_tasks!(mod)
 
-          {:ok, mod, opts, tasks}
+          case Options.validate(mod.__dag_options__()) do
+            {:ok, opts} ->
+              {:ok, mod, opts, list_tasks!(mod)}
+
+            {:error, message} ->
+              :code.purge(mod)
+              :code.delete(mod)
+              {:invalid_options, message}
+          end
         rescue
           err -> {:error, err}
         end
@@ -29,7 +36,11 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
 
     case code_result do
       {{:ok, dag_module, opts, tasks}, warnings} ->
-        {:ok, {dag_module, opts, tasks}, warnings}
+        {:ok, {dag_module, opts, tasks}, warnings ++ Options.warnings(opts, file)}
+
+      {{:invalid_options, message}, _diagnostics} ->
+        {error, messages} = Options.definition_error(file, message)
+        {:error, error, messages}
 
       {{:error, error_type}, errors} ->
         {:error, error_type, errors}
@@ -124,11 +135,6 @@ defmodule Gust.DAG.Parser.Adapters.Elixir do
   defp build_task_list(mod) do
     build_stages(mod)
     |> List.flatten()
-  end
-
-  defp options!(mod) do
-    opts = mod.__dag_options__()
-    Keyword.validate!(opts, [:schedule, :on_finished_callback])
   end
 
   defp list_tasks!(mod) do

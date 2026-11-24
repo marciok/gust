@@ -45,6 +45,15 @@ defmodule Gust.PubSubTest do
     end
   end
 
+  describe "subscribe_runs_for_dag/1 & broadcast_runs_pruned/2" do
+    test "delivers the pruned run ids to the dag's subscribers" do
+      assert :ok == Gust.PubSub.subscribe_runs_for_dag(7)
+      assert :ok == Gust.PubSub.broadcast_runs_pruned(7, [1, 2])
+
+      assert_receive {:dag, :runs_pruned, %{dag_id: 7, run_ids: [1, 2]}}
+    end
+  end
+
   describe "run and dag topics" do
     test "a run status does not reach subscribers of a dag with the same id" do
       id = 25

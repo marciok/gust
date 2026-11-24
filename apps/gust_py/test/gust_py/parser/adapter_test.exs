@@ -123,6 +123,62 @@ defmodule GustPy.Parser.AdapterTest do
       assert dag_def.options == [{:on_finished_callback, "done_running"}, {:schedule, nil}]
     end
 
+    test "parses runs retention from executor output" do
+      Gust.ApplicationEnvHelpers.replace_env(:run_pruner, schedule: "@daily")
+      expect_options(%{"schedule" => nil, "runs" => %{"retention" => %{"max_count" => 5000}}})
+
+      assert {:ok, %Definition{} = dag_def} = Adapter.parse_file(@file_path)
+      assert dag_def.options[:runs] == [retention: [max_count: 5000]]
+      assert dag_def.messages == []
+    end
+
+    test "warns about runs retention without a pruner schedule" do
+      Gust.ApplicationEnvHelpers.replace_env(:run_pruner, [])
+      expect_options(%{"runs" => %{"retention" => %{"max_count" => 5000}}})
+
+      assert {:ok, %Definition{error: error, messages: [warning]}} =
+               Adapter.parse_file(@file_path)
+
+      assert error == %{}
+      assert %{severity: :warning, file: @file_path, message: message} = warning
+      assert message =~ "pruning is off"
+    end
+
+    test "ignores a null runs option" do
+      expect_options(%{"schedule" => nil, "runs" => nil})
+
+      assert {:ok, %Definition{} = dag_def} = Adapter.parse_file(@file_path)
+      refute Keyword.has_key?(dag_def.options, :runs)
+    end
+
+    test "invalid runs options are a definition error" do
+      expect_options(%{"runs" => %{"retention" => %{"max_cont" => 5000}}})
+
+      assert {:ok, %Definition{options: [], error: %CompileError{description: description}}} =
+               Adapter.parse_file(@file_path)
+
+      assert description == "invalid DAG options: unknown key \"max_cont\" in runs"
+    end
+
+    test "a non-positive max_count is a definition error" do
+      expect_options(%{"runs" => %{"retention" => %{"max_count" => -9}}})
+
+      assert {:ok, %Definition{error: %CompileError{description: description}} = dag_def} =
+               Adapter.parse_file(@file_path)
+
+      assert description =~ "max_count must be a positive integer, got: -9"
+      assert [%{severity: :error, message: ^description}] = dag_def.messages
+    end
+
+    test "an invalid schedule is a definition error" do
+      expect_options(%{"schedule" => "bla"})
+
+      assert {:ok, %Definition{error: %CompileError{description: description}}} =
+               Adapter.parse_file(@file_path)
+
+      assert description =~ "invalid schedule \"bla\""
+    end
+
     test "returns parsing error when executor reports a parse error" do
       GustPy.ExecutorMock
       |> expect(:run, fn ["parse", "--file", @file_path] ->
@@ -161,5 +217,13 @@ defmodule GustPy.Parser.AdapterTest do
       assert {:error, {[], message, ""}} = Adapter.parse_file(@file_path)
       assert message =~ "`uv` executable not found"
     end
+  end
+
+  defp expect_options(options) do
+    dag = put_in(@valid_dag, [Access.at(0), "options"], options)
+
+    expect(GustPy.ExecutorMock, :run, fn ["parse", "--file", @file_path] ->
+      {Jason.encode!(dag), 0}
+    end)
   end
 end
