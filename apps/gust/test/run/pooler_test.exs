@@ -29,6 +29,13 @@ defmodule Gust.Run.PoolerTest do
     assert_receive {:run_dispatch, :wake}
   end
 
+  test "wake broadcasts a dispatch wake without enqueueing" do
+    PubSub.subscribe_run_dispatch()
+
+    assert :ok == Dispatcher.wake()
+    assert_receive {:run_dispatch, :wake}
+  end
+
   test "enqueues a batch with one dispatch wake" do
     dag = dag_fixture(%{name: "pooler_enqueue_batch"})
     runs = [run_fixture(%{dag_id: dag.id}), run_fixture(%{dag_id: dag.id})]

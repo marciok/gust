@@ -55,9 +55,21 @@ defmodule DAG.OptionsTest do
                Options.validate(runs: :sequential)
     end
 
+    test "accepts runs concurrency modes" do
+      for mode <- [:parallel, :sequential] do
+        assert {:ok, _options} = Options.validate(runs: [concurrency: mode])
+      end
+    end
+
+    test "rejects an unknown runs concurrency mode" do
+      assert {:error,
+              "runs concurrency must be one of [:parallel, :sequential], got: :overlapping"} ==
+               Options.validate(runs: [concurrency: :overlapping])
+    end
+
     test "rejects unknown runs keys" do
       assert {:error,
-              "unknown keys [:foo] in runs [foo: true], the allowed keys are: [:retention]"} ==
+              "unknown keys [:foo] in runs [foo: true], the allowed keys are: [:retention, :concurrency]"} ==
                Options.validate(runs: [foo: true])
     end
 
@@ -98,13 +110,28 @@ defmodule DAG.OptionsTest do
       assert {:ok, [schedule: "* * * * *"]} == Options.from_json(%{"schedule" => "* * * * *"})
     end
 
+    test "converts runs concurrency modes" do
+      assert {:ok, [runs: [concurrency: :sequential]]} ==
+               Options.from_json(%{"runs" => %{"concurrency" => "sequential"}})
+    end
+
+    test "rejects an unknown runs concurrency mode" do
+      assert {:error, "runs concurrency must be one of [:parallel, :sequential], got: \"nope\""} ==
+               Options.from_json(%{"runs" => %{"concurrency" => "nope"}})
+    end
+
+    test "rejects runs that is not a dict" do
+      assert {:error, "runs must be a keyword list, got: \"sequential\""} ==
+               Options.from_json(%{"runs" => "sequential"})
+    end
+
     test "drops a null runs option" do
       assert {:ok, [schedule: nil]} == Options.from_json(%{"schedule" => nil, "runs" => nil})
     end
 
     test "rejects unknown runs keys" do
-      assert {:error, "unknown key \"concurrency\" in runs"} ==
-               Options.from_json(%{"runs" => %{"concurrency" => "sequential"}})
+      assert {:error, "unknown key \"max_active\" in runs"} ==
+               Options.from_json(%{"runs" => %{"max_active" => 1}})
     end
 
     test "validates the converted options" do
@@ -149,6 +176,18 @@ defmodule DAG.OptionsTest do
       replace_env(:run_pruner, [])
 
       assert [] == Options.warnings([schedule: "* * * * *"], "/dags/a.ex")
+    end
+  end
+
+  describe "concurrency/1" do
+    test "defaults to parallel" do
+      assert :parallel == Options.concurrency(%Definition{options: []})
+      assert :parallel == Options.concurrency(%Definition{options: [runs: []]})
+    end
+
+    test "returns the configured mode" do
+      dag_def = %Definition{options: [runs: [concurrency: :sequential]]}
+      assert :sequential == Options.concurrency(dag_def)
     end
   end
 

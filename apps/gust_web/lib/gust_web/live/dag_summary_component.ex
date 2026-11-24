@@ -13,6 +13,7 @@ defmodule GustWeb.DagSummaryComponent do
      |> assign(:show_run_history?, Map.has_key?(assigns, :recent_runs))
      |> assign(:schedule, assigns.dag_def.options[:schedule])
      |> assign(:retention_max_count, Options.max_count(assigns.dag_def))
+     |> assign(:concurrency, get_in(assigns.dag_def.options, [:runs, :concurrency]))
      |> assign_new(:recent_runs, fn -> [] end)}
   end
 
@@ -116,7 +117,7 @@ defmodule GustWeb.DagSummaryComponent do
         </div>
       </section>
 
-      <section :if={@schedule || @retention_max_count} class="dag-card__meta">
+      <section :if={@schedule || @retention_max_count || @concurrency} class="dag-card__meta">
         <div :if={@schedule} id={"dag-schedule-#{@id}"} class="dag-card__meta-item">
           <div class="dag-card__meta-label">Schedule</div>
           <div class="dag-card__meta-value">{@schedule}</div>
@@ -126,6 +127,10 @@ defmodule GustWeb.DagSummaryComponent do
           <div class="dag-card__meta-value">
             max_count: {@retention_max_count}
           </div>
+        </div>
+        <div :if={@concurrency} id={"dag-concurrency-#{@id}"} class="dag-card__meta-item">
+          <div class="dag-card__meta-label">Concurrency</div>
+          <div class="dag-card__meta-value">{@concurrency}</div>
         </div>
       </section>
     </div>
