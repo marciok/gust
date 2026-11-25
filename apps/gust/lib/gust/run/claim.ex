@@ -16,10 +16,10 @@ defmodule Gust.Run.Claim do
           | %{run: run(), token: token(), claimed_by: String.t(), claim_expires_at: DateTime.t()}
 
   @callback renew_run(run_id(), token()) :: run() | nil
-  @callback next_run() :: next_run_result()
+  @callback next_run(sequential_dag_ids :: [integer()]) :: next_run_result()
 
   def renew_run(run_id, token), do: impl().renew_run(run_id, token)
-  def next_run, do: impl().next_run()
+  def next_run(sequential_dag_ids \\ []), do: impl().next_run(sequential_dag_ids)
 
   defp impl do
     Application.get_env(:gust, :run_claim, Gust.Run.Claim.Repo)

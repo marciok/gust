@@ -23,6 +23,7 @@ config :gust_web, GustWeb.Endpoint,
   server: false
 
 config :gust_web, mcp_enabled: true
+config :gust_web, dashboard_refresh_interval: 0
 
 # Print only warnings and errors during test
 config :logger, level: :warning

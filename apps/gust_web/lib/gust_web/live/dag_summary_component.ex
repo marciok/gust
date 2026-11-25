@@ -1,6 +1,7 @@
 defmodule GustWeb.DagSummaryComponent do
   @moduledoc false
   use GustWeb, :live_component
+  alias Gust.DAG.Options
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
 
@@ -10,6 +11,9 @@ defmodule GustWeb.DagSummaryComponent do
      socket
      |> assign(assigns)
      |> assign(:show_run_history?, Map.has_key?(assigns, :recent_runs))
+     |> assign(:schedule, assigns.dag_def.options[:schedule])
+     |> assign(:retention_max_count, Options.max_count(assigns.dag_def))
+     |> assign(:concurrency, get_in(assigns.dag_def.options, [:runs, :concurrency]))
      |> assign_new(:recent_runs, fn -> [] end)}
   end
 
@@ -26,6 +30,8 @@ defmodule GustWeb.DagSummaryComponent do
 
   defp format_error(%CompileError{file: _file, description: description, line: _line}),
     do: description
+
+  defp format_error(error) when is_exception(error), do: Exception.message(error)
 
   @impl true
   def render(assigns) do
@@ -111,10 +117,20 @@ defmodule GustWeb.DagSummaryComponent do
         </div>
       </section>
 
-      <section class="dag-card__meta">
-        <div class="dag-card__meta-item">
+      <section :if={@schedule || @retention_max_count || @concurrency} class="dag-card__meta">
+        <div :if={@schedule} id={"dag-schedule-#{@id}"} class="dag-card__meta-item">
           <div class="dag-card__meta-label">Schedule</div>
-          <div class="dag-card__meta-value">{@dag_def.options[:schedule]}</div>
+          <div class="dag-card__meta-value">{@schedule}</div>
+        </div>
+        <div :if={@retention_max_count} id={"dag-retention-#{@id}"} class="dag-card__meta-item">
+          <div class="dag-card__meta-label">Retention</div>
+          <div class="dag-card__meta-value">
+            max_count: {@retention_max_count}
+          </div>
+        </div>
+        <div :if={@concurrency} id={"dag-concurrency-#{@id}"} class="dag-card__meta-item">
+          <div class="dag-card__meta-label">Concurrency</div>
+          <div class="dag-card__meta-value">{@concurrency}</div>
         </div>
       </section>
     </div>

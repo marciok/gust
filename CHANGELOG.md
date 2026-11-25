@@ -11,6 +11,30 @@ they ship with.
 Add your change under the version being developed, with `Unreleased` in place
 of the date. The publish workflow requires the version to have a dated entry.
 
+## [0.1.43] - Unreleased
+
+### Added
+
+- Run retention: `use Gust.DSL, runs: [retention: [max_count: n]]` keeps the
+  last `n` finished runs of a DAG and deletes older ones with their tasks and
+  logs. Pruning runs on the leader when
+  `config :gust, :run_pruner, schedule: "@daily"` (any crontab expression) is
+  set, deleting `deletion_batch_size` runs per statement (default 200);
+  nothing is deleted unless both are set. The System page shows the prune schedule and the DAGs with a
+  retention ([#189](https://github.com/marciok/gust/issues/189)).
+- Sequential runs: `use Gust.DSL, runs: [concurrency: :sequential]` runs a
+  DAG's runs one at a time, oldest first. The claim query reads the setting
+  from the loaded DAG definitions, so nothing is stored in the database
+  ([#188](https://github.com/marciok/gust/issues/188)).
+- `mix gust.cli prune_runs <dag_name> --max-count <n> [--dry-run]` prunes a
+  DAG once, keeping the `n` most recent finished runs, regardless of its
+  retention.
+
+### Internal
+
+- `gust_runs` has an index on `(dag_id, status, id)`, replacing the one on
+  `dag_id`. The migration builds it concurrently.
+
 ## [0.1.42] - Unreleased
 
 `gust_py` 0.1.15 and `gust_shell` 0.1.2.
@@ -25,8 +49,19 @@ of the date. The publish workflow requires the version to have a dated entry.
 - Limit mapped task concurrency with `config :gust, :mapped_tasks, max_parallel: n`.
   Instances run in pages, and restarts follow the same limit. A warning is
   logged when no limit is set
-  ([#177](https://github.com/marciok/gust/issues/177),
+  ([#177](https://github.com/marciok/gust/issues/177)
   [#178](https://github.com/marciok/gust/pull/178)).
+- The dashboard lists mapped task instances 50 per page, independently of
+  `max_parallel`. Change it with `config :gust_web, :mapped_task_page_size, n`.
+  The table opens on the first page and only changes page when you pick one;
+  the pager marks the page where instances are running.
+- Select all mapped task instances on the displayed page from the dashboard.
+- Start Python DAGs with a cleared environment with
+  `config :gust_py, :clear_env, true`, so DAG code cannot read values such as
+  `DATABASE_URL` from the Gust app. `uv` keeps `PATH`, `HOME`, locale, temp
+  dir, TLS and proxy settings and `UV_*` variables; pass more with
+  `config :gust_py, :env_passthrough, [...]`. Python DAGs still inherit the
+  environment by default ([#150](https://github.com/marciok/gust/issues/150)).
 - Warning on the dashboard when a paused DAG is triggered
   ([#173](https://github.com/marciok/gust/issues/173),
   [#175](https://github.com/marciok/gust/pull/175)).
@@ -36,6 +71,9 @@ of the date. The publish workflow requires the version to have a dated entry.
 
 ### Fixed
 
+- Restarting several selected mapped task instances restarts all of them in
+  one batch. Before, only the first one restarted on a finished run and the
+  rest failed while the new run worker was starting.
 - The dashboard run history no longer shows runs from other DAGs whose PubSub
   topic collided ([#172](https://github.com/marciok/gust/issues/172),
   [#174](https://github.com/marciok/gust/pull/174)).

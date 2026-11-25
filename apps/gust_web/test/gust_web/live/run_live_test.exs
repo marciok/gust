@@ -382,8 +382,22 @@ defmodule GustWeb.RunLiveTest do
     test "deletes run in listing", %{conn: conn, dag: dag, run: run} do
       {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
 
+      Gust.PubSub.subscribe_run_dispatch()
       assert index_live |> element("#delete-run-#{run.id}") |> render_click()
       refute has_element?(index_live, "#runs-#{run.id}")
+      assert_receive {:run_dispatch, :wake}
+    end
+
+    test "drops runs deleted by the pruner", %{conn: conn, dag: dag, run: run} do
+      kept_run = run_fixture(%{dag_id: dag.id})
+      {:ok, index_live, _html} = live(conn, ~g"/dags/#{dag.name}/runs?page_size=30&page=1")
+      assert has_element?(index_live, "#runs-#{run.id}")
+
+      {:ok, _deleted} = Flows.delete_runs_on_dag(dag.id, [run.id])
+      Gust.PubSub.broadcast_runs_pruned(dag.id, [run.id])
+
+      refute has_element?(index_live, "#runs-#{run.id}")
+      assert has_element?(index_live, "#runs-#{kept_run.id}")
     end
 
     test "stops an active run process before deleting it", %{conn: conn, dag: dag, run: run} do

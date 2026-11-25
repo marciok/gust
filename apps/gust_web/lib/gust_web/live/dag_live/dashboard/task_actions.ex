@@ -30,11 +30,17 @@ defmodule GustWeb.DagLive.Dashboard.TaskActions do
     restart_flash(result, name, map_index)
   end
 
-  def restart_many(dag_def_tasks, tasks),
-    do: aggregate_result(tasks, &restart(dag_def_tasks, &1), "restarted")
+  def restart_many(_dag_def_tasks, []), do: nil
+
+  def restart_many(dag_def_tasks, tasks) do
+    case Trigger.reset_mapped_tasks(dag_def_tasks, tasks) do
+      {:ok, results} -> aggregate_result(results, &restart_result_flash/1, "restarted")
+      {:error, reason} -> {:error, "#{length(tasks)} tasks could not be restarted: #{reason}"}
+    end
+  end
 
   def restart_group(dag_def_tasks, [%Task{name: name} | _tasks] = tasks) do
-    result = Trigger.reset_task(dag_def_tasks, tasks)
+    result = Trigger.reset_task_group(dag_def_tasks, tasks)
     restart_flash(result, name)
   end
 
@@ -48,6 +54,9 @@ defmodule GustWeb.DagLive.Dashboard.TaskActions do
         {:error, "Task: #{name} could not be restarted: #{reason}"}
     end
   end
+
+  defp restart_result_flash({:ok, _task}), do: {:info, nil}
+  defp restart_result_flash({:error, reason}), do: {:error, reason}
 
   defp terminate(%Task{name: name} = task) do
     case Terminator.cancel(task) do

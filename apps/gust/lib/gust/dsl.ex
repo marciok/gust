@@ -62,6 +62,21 @@ defmodule Gust.DSL do
 
     * `schedule` - A valid cron expression string.
     * `on_finished_callback` - The name of the function to be called.
+    * `runs` - Run-level settings:
+      * `retention: [max_count: n]` keeps the `n` most recent finished
+        (`:succeeded` or `:failed`) runs and deletes older ones with their
+        tasks and logs. Unfinished runs are never deleted. Pruning only happens
+        when `config :gust, :run_pruner, schedule: "..."` is set. See
+        `Gust.Run.Pruner`.
+      * `concurrency: :sequential` runs the DAG's runs one at a time, oldest
+        first: a queued run starts only after the active one (`:starting`,
+        `:running` or `:waiting`) succeeds or fails. Every trigger (cron,
+        manual, restart) waits in the same queue. The default, `:parallel`,
+        lets runs overlap.
+
+          use Gust.DSL,
+            schedule: "* * * * *",
+            runs: [concurrency: :sequential, retention: [max_count: 5_000]]
 
   ## Non-recoverable task errors
 

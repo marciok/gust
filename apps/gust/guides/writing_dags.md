@@ -75,6 +75,12 @@ end
   tasks and the Web UI can read it back through `Gust.Flows`.
 - **`on_finished_callback`** — a function on the DAG module invoked once the
   run finishes, with its final status.
+- **`runs: [retention: [max_count: n]]`** — keeps the last `n` finished runs
+  of the DAG and deletes older ones. Needs the `:run_pruner` schedule; see
+  [Run Retention](configuration.md#run-retention).
+- **`runs: [concurrency: :sequential]`** — runs the DAG's runs one at a time,
+  oldest first, so they never overlap. A queued run starts once the active one
+  succeeds or fails; a run paused on `wait_for` still counts as active.
 
 See `Gust.DSL` for the full macro reference.
 
@@ -117,3 +123,16 @@ end
 Action argument and execution failures follow the ordinary task failure and retry behavior.
 When `save: true`, the action must return a map or list accepted by Gust's normal result
 persistence rules.
+
+## Trusted code
+
+DAG code is trusted: whoever can add a DAG can run arbitrary
+code with the same access as your Gust app. Elixir DAGs run inside the
+application, next to the database connection and the key that encrypts
+secrets. Control who can write to the DAG folder instead of relying on Gust to
+sandbox DAGs.
+
+Python and shell DAGs run as separate OS processes that inherit the app's
+environment. For Python DAGs you can start them with a cleared environment to
+keep values such as `DATABASE_URL` out of task code and logs; see the
+`gust_py` installation guide.

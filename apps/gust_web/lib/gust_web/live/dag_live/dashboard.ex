@@ -1,5 +1,5 @@
 defmodule GustWeb.DagLive.Dashboard do
-  alias __MODULE__.{MappedTasks, SelectedItem, TaskActions}
+  alias __MODULE__.{MappedTasks, SelectedItem, TaskActions, UpdateBatcher}
   alias Gust.DAG.{Loader, TaskStatus}
   alias Gust.DAG.Run.ErrorReporter.ExternalReference
   alias Gust.DAG.Run.Trigger
@@ -79,6 +79,7 @@ defmodule GustWeb.DagLive.Dashboard do
      |> stream(:logs, logs)
      |> assign(:empty_logs, logs == [])
      |> assign(:expanded_item_ids, SelectedItem.expanded_ids(selected_item))
+     |> UpdateBatcher.init()
      |> stream(:runs, runs |> Enum.reverse())}
   end
 
@@ -173,7 +174,20 @@ defmodule GustWeb.DagLive.Dashboard do
     {:noreply,
      socket
      |> assign(:selected_task_ids, selected_ids)
-     |> assign(:mapped_task_page, displayed_mapped_task_page(socket))
+     |> assign_task_selection_form()
+     |> stream_mapped_tasks(socket.assigns.selected_item, socket.assigns.mapped_task_status)}
+  end
+
+  @impl true
+  def handle_event("select_all_mapped_tasks", _params, socket) do
+    selected_ids =
+      if socket.assigns.all_tasks_selected?,
+        do: [],
+        else: Enum.map(socket.assigns.visible_mapped_tasks, & &1.id)
+
+    {:noreply,
+     socket
+     |> assign(:selected_task_ids, selected_ids)
      |> assign_task_selection_form()
      |> stream_mapped_tasks(socket.assigns.selected_item, socket.assigns.mapped_task_status)}
   end
@@ -181,7 +195,6 @@ defmodule GustWeb.DagLive.Dashboard do
   @impl true
   def handle_event("select_mapped_task_page", %{"page" => page}, socket) do
     page = Pagination.parse_page(page)
-    page = if page != socket.assigns.mapped_task_paging.running, do: page
     path = mapped_tasks_path(socket, page, socket.assigns.mapped_task_status)
 
     {:noreply, push_patch(socket, to: path)}
@@ -277,7 +290,7 @@ defmodule GustWeb.DagLive.Dashboard do
 
   @impl true
   def handle_info({:task, :updated, %{task_id: task_id}}, socket) do
-    {:noreply, assign_task_reload(socket, task_id)}
+    {:noreply, assign_tasks_reload(socket, MapSet.new([task_id]))}
   end
 
   @impl true
@@ -346,23 +359,32 @@ defmodule GustWeb.DagLive.Dashboard do
         {:dag, :run_status, %{run_id: run_id, status: _status, task_id: task_id}},
         socket
       ) do
-    run = Flows.get_run_with_tasks!(run_id, :omit_payloads)
+    {:noreply, UpdateBatcher.enqueue(socket, run_id, task_id, &apply_run_update/3)}
+  end
 
-    socket =
-      if task_id do
-        assign_task_reload(socket, task_id)
-      else
-        assign_run_reload(socket, run)
-      end
+  def handle_info(:flush_run_updates, socket) do
+    {:noreply, UpdateBatcher.flush(socket, &apply_run_update/3)}
+  end
 
-    socket =
-      if SelectedItem.run_id(socket.assigns.selected_item) == run.id do
-        assign(socket, :mermaid_task_statuses, task_statuses(run.tasks))
-      else
-        socket
-      end
+  @impl true
+  def handle_info({:dag, :runs_pruned, %{run_ids: run_ids}}, socket) do
+    if viewing_pruned_run?(socket.assigns, run_ids) do
+      {:noreply,
+       socket
+       |> put_flash(:warning, "The selected run was deleted by the DAG's run retention")
+       |> push_navigate(to: ~g"/dags/#{socket.assigns.dag.name}/dashboard")}
+    else
+      {:noreply,
+       run_ids
+       |> Enum.reduce(socket, &stream_delete(&2, :runs, %Run{id: &1}))
+       |> UpdateBatcher.drop(run_ids)
+       |> put_flash(:info, "#{length(run_ids)} run(s) was deleted by the DAG's run retention")}
+    end
+  end
 
-    {:noreply, socket |> stream_insert(:runs, run)}
+  defp viewing_pruned_run?(assigns, run_ids) do
+    SelectedItem.run_id(assigns.selected_item) in run_ids or
+      assigns.pinned_run_id in Enum.map(run_ids, &to_string/1)
   end
 
   defp assign_run_reload(socket, run) do
@@ -375,19 +397,44 @@ defmodule GustWeb.DagLive.Dashboard do
     end
   end
 
-  defp assign_task_reload(socket, task_id) do
+  defp apply_run_update(socket, run_id, task_ids) do
+    run = Flows.get_run_with_tasks!(run_id, :omit_payloads)
+
+    socket =
+      if MapSet.member?(task_ids, nil), do: assign_run_reload(socket, run), else: socket
+
+    socket = assign_tasks_reload(socket, MapSet.delete(task_ids, nil), run)
+
+    socket =
+      if SelectedItem.run_id(socket.assigns.selected_item) == run.id do
+        assign(socket, :mermaid_task_statuses, task_statuses(run.tasks))
+      else
+        socket
+      end
+
+    stream_insert(socket, :runs, run)
+  end
+
+  defp assign_tasks_reload(socket, task_ids, run \\ nil) do
+    expanded_ids = MapSet.new(socket.assigns.expanded_item_ids)
+
     cond do
-      task_id in socket.assigns.expanded_item_ids ->
+      not MapSet.disjoint?(task_ids, expanded_ids) ->
         [%Task{name: name, run_id: run_id} | _tasks] = socket.assigns.selected_item
-        tasks = Flows.get_tasks_by_name(name, run_id, :omit_payloads)
+
+        tasks =
+          case run do
+            %Run{id: ^run_id, tasks: tasks} ->
+              tasks |> Enum.filter(&(&1.name == name)) |> Enum.sort_by(& &1.map_index)
+          end
 
         socket
         |> assign(:selected_item, tasks)
         |> assign(:item_status, SelectedItem.status(tasks))
-        |> stream_mapped_tasks(tasks, socket.assigns.mapped_task_status)
+        |> stream_mapped_tasks(tasks, socket.assigns.mapped_task_status, incremental: true)
 
-      socket.assigns.item_id == task_id ->
-        task = Flows.get_task!(task_id)
+      MapSet.member?(task_ids, socket.assigns.item_id) ->
+        task = Flows.get_task!(socket.assigns.item_id)
 
         socket
         |> assign(:selected_item, task)
@@ -474,27 +521,49 @@ defmodule GustWeb.DagLive.Dashboard do
     |> assign_task_selection_form()
   end
 
-  defp stream_mapped_tasks(socket, tasks, status) do
+  defp stream_mapped_tasks(socket, tasks, status, opts \\ []) do
     paging = MappedTasks.paging(tasks, status, socket.assigns.mapped_task_page)
+    visible = MappedTasks.visible(tasks, status, paging)
+
+    previous = Map.get(socket.assigns, :visible_mapped_tasks, [])
 
     socket
+    |> assign(:mapped_task_count, length(tasks))
     |> assign(:mapped_task_paging, paging)
-    |> stream(:mapped_tasks, MappedTasks.visible(tasks, status, paging),
-      dom_id: &mapped_task_dom_id/1,
-      reset: true
+    |> assign(:visible_mapped_tasks, visible)
+    |> assign(
+      :all_tasks_selected?,
+      MappedTasks.all_selected?(visible, socket.assigns.selected_task_ids)
     )
+    |> update_mapped_task_stream(previous, visible, opts)
   end
 
-  defp displayed_mapped_task_page(socket) do
-    paging = socket.assigns.mapped_task_paging
+  defp update_mapped_task_stream(socket, previous, visible, opts) do
+    same_rows? = Enum.map(previous, & &1.id) == Enum.map(visible, & &1.id)
 
-    if paging, do: paging.page
+    if opts[:incremental] && same_rows? do
+      socket |> insert_mapped_tasks(previous, visible)
+    else
+      socket |> stream(:mapped_tasks, visible, dom_id: &mapped_task_dom_id/1, reset: true)
+    end
   end
 
-  defp mapped_task_paging_summary(%{running: nil, size: size}), do: "#{size} at a time"
+  defp insert_mapped_tasks(socket, previous, visible) do
+    previous
+    |> Enum.zip(visible)
+    |> Enum.reduce(socket, fn {old, task}, acc ->
+      if mapped_task_row(old) == mapped_task_row(task),
+        do: acc,
+        else: stream_insert(acc, :mapped_tasks, task)
+    end)
+  end
+
+  defp mapped_task_row(task), do: {task.id, task.map_index, task.status, task.updated_at}
+
+  defp mapped_task_paging_summary(%{running: nil, size: size}), do: "#{size} per page"
 
   defp mapped_task_paging_summary(%{running: running, total: total, size: size}),
-    do: "Running page #{running} of #{total} · #{size} at a time"
+    do: "Running page #{running} of #{total} · #{size} per page"
 
   defp mapped_task_dom_id(task), do: "mapped-task-run-#{task.id}"
 

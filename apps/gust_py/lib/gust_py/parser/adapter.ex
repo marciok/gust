@@ -4,6 +4,7 @@ defmodule GustPy.Parser.Adapter do
   @behaviour Gust.DAG.Parser.Adapter
   alias Gust.DAG.Definition
   alias Gust.DAG.Graph
+  alias Gust.DAG.Options
   alias GustPy.Executor
 
   @impl true
@@ -56,19 +57,34 @@ defmodule GustPy.Parser.Adapter do
 
     stages = tasks |> Graph.to_stages() |> then(fn {:ok, stages} -> stages end)
 
-    options = parse_options(opts)
+    case Options.from_json(opts) do
+      {:ok, options} ->
+        {:ok,
+         %Definition{
+           name: name,
+           mod: mod,
+           adapter: :python,
+           task_list: List.flatten(stages),
+           stages: stages,
+           file_path: file_path,
+           options: options,
+           messages: Options.warnings(options, file_path),
+           tasks: tasks
+         }}
 
-    {:ok,
-     %Definition{
-       name: name,
-       mod: mod,
-       adapter: :python,
-       task_list: List.flatten(stages),
-       stages: stages,
-       file_path: file_path,
-       options: options,
-       tasks: tasks
-     }}
+      {:error, message} ->
+        {error, messages} = Options.definition_error(file_path, message)
+
+        {:ok,
+         %Definition{
+           name: name,
+           mod: mod,
+           adapter: :python,
+           file_path: file_path,
+           error: error,
+           messages: messages
+         }}
+    end
   end
 
   defp parse_downstream(tasks) do
@@ -76,17 +92,4 @@ defmodule GustPy.Parser.Adapter do
       {task_name, [downstream: deps]}
     end
   end
-
-  defp parse_options(opts) do
-    Enum.flat_map(["on_finished_callback", "schedule"], fn key ->
-      if Map.has_key?(opts, key) do
-        [{option_key(key), Map.fetch!(opts, key)}]
-      else
-        []
-      end
-    end)
-  end
-
-  defp option_key("on_finished_callback"), do: :on_finished_callback
-  defp option_key("schedule"), do: :schedule
 end

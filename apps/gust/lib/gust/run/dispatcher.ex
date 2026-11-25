@@ -9,11 +9,17 @@ defmodule Gust.Run.Dispatcher do
 
   @callback enqueue_all([term()]) :: [term()]
   @callback setup() :: :ok
+  @doc """
+  Asks claimers to claim again without enqueueing anything, e.g. when a
+  sequential DAG's run finishes and its next queued run can start.
+  """
+  @callback wake() :: :ok
 
   def enqueue(run), do: enqueue_all([run]) |> List.first()
   def enqueue_all([]), do: []
   def enqueue_all(runs), do: impl().enqueue_all(runs)
   def setup, do: impl().setup()
+  def wake, do: impl().wake()
 
   def impl do
     Application.get_env(:gust, :run_dispatcher, Gust.Run.Pooler)

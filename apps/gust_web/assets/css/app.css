@@ -524,42 +524,61 @@
 
   .status-running,
   .task-grid-cell--running {
-    background-image: repeating-linear-gradient(
-      135deg,
-      var(--color-sky-600) 0,
-      var(--color-sky-600) 0.75rem,
-      var(--color-sky-300) 0.75rem,
-      var(--color-sky-300) 1.5rem
-    );
-    background-size: 2.125rem 2.125rem;
-    animation: task-running-stripes 0.8s linear infinite;
+    --stripe-dark: var(--color-sky-600);
+    --stripe-light: var(--color-sky-300);
   }
 
   .status-retrying,
   .task-grid-cell--retrying {
+    --stripe-dark: var(--color-amber-600);
+    --stripe-light: var(--color-amber-300);
+  }
+
+  .status-running,
+  .status-retrying,
+  .task-grid-cell--running,
+  .task-grid-cell--retrying {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .status-running::before,
+  .status-retrying::before,
+  .task-grid-cell--running::before,
+  .task-grid-cell--retrying::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -2.125rem;
+    width: calc(100% + 2.125rem);
+    z-index: -1;
+    pointer-events: none;
     background-image: repeating-linear-gradient(
       135deg,
-      var(--color-amber-600) 0,
-      var(--color-amber-600) 0.75rem,
-      var(--color-amber-300) 0.75rem,
-      var(--color-amber-300) 1.5rem
+      var(--stripe-dark) 0,
+      var(--stripe-dark) 0.75rem,
+      var(--stripe-light) 0.75rem,
+      var(--stripe-light) 1.5rem
     );
     background-size: 2.125rem 2.125rem;
+    will-change: transform;
     animation: task-running-stripes 0.8s linear infinite;
   }
 }
 
 @keyframes task-running-stripes {
   to {
-    background-position: 2.125rem 0;
+    transform: translateX(2.125rem);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .status-running,
-   .status-retrying,
-   .task-grid-cell--running,
-   .task-grid-cell--retrying {
+  .status-running::before,
+  .status-retrying::before,
+  .task-grid-cell--running::before,
+  .task-grid-cell--retrying::before {
     animation: none;
   }
 }

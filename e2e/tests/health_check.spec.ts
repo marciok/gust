@@ -81,18 +81,22 @@ test("a finished run reports no running tasks and closes with Escape", async ({ 
   expect(problems).toEqual([]);
 });
 
-test("each mapped task row checks only its own instance", async ({ page, baseURL }) => {
+test("a mapped task is health checked after selecting it with Show", async ({ page, baseURL }) => {
   const runId = await triggerRun(page, "map_over_dag", /succeeded/i);
   const problems = trackProblems(page, baseURL!);
 
   await page.goto(`/gust/dags/map_over_dag/dashboard?run_id=${runId}&task_name=double`);
   await expectConnected(page);
 
-  const rowTriggers = page.locator('[id^="health-mapped-task-"]');
-  await expect(rowTriggers).toHaveCount(3);
+  await expect(page.locator('#mapped-task-run-list [id^="show-mapped-task-"]')).toHaveCount(3);
+  await expect(page.locator("#mapped-task-runs [phx-click='open']")).toHaveCount(0);
   await expect(page.locator("#health-check")).toHaveCount(0);
 
-  const modal = await openHealthCheck(page, rowTriggers.first());
+  await page.locator('[id^="show-mapped-task-"]').first().click();
+  await expect(page).toHaveURL(/task_index=0/);
+  await expectConnected(page);
+
+  const modal = await openHealthCheck(page);
   const task = modal.locator('#health-tasks > [id^="health-task-"]');
 
   await expect(task).toHaveCount(1);

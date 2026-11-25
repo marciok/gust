@@ -22,6 +22,12 @@ defmodule Gust.Run.Pooler do
   end
 
   @impl Gust.Run.Dispatcher
+  def wake do
+    PubSub.broadcast_run_dispatch_wake()
+    :ok
+  end
+
+  @impl Gust.Run.Dispatcher
   def setup do
     GenServer.call(__MODULE__, {:setup, self()})
   end

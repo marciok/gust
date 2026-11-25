@@ -47,6 +47,20 @@ defmodule GustWeb.DagSummaryLiveComponentTest do
     end
   end
 
+  test "shows errors that are not compile errors", %{conn: conn, dag: dag, dag_def: dag_def} do
+    dag_def = %{dag_def | error: %RuntimeError{message: "boom at load"}}
+
+    {:ok, dag_summary, _html} =
+      live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
+        id: dag.id,
+        dag: dag,
+        dag_def: dag_def
+      })
+
+    assert dag_summary |> element("#dag-error-#{dag.id}") |> render() =~ "boom at load"
+    assert has_element?(dag_summary, "#trigger-dag-run-#{dag.id}:disabled")
+  end
+
   test "re-enabled dag", %{conn: conn, dag: dag, dag_def: dag_def} do
     dag_id = dag.id
     {:ok, dag} = Flows.toggle_enabled(dag)
@@ -91,5 +105,89 @@ defmodule GustWeb.DagSummaryLiveComponentTest do
     dag_summary |> element(~s{[href="/dags/#{dag.name}/dashboard"]}) |> render_click()
 
     assert_redirect dag_summary, "/dags/#{dag.name}/dashboard"
+  end
+
+  describe "options" do
+    test "shows only the options the dag sets", %{conn: conn, dag: dag, dag_def: dag_def} do
+      {:ok, dag_summary, _html} =
+        live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
+          id: dag.id,
+          dag: dag,
+          dag_def: dag_def
+        })
+
+      assert dag_summary |> element("#dag-schedule-#{dag.id}") |> render() =~ "* * * *"
+      refute has_element?(dag_summary, "#dag-retention-#{dag.id}")
+    end
+
+    test "hides the options section when no option is set", %{
+      conn: conn,
+      dag: dag,
+      dag_def: dag_def
+    } do
+      {:ok, dag_summary, _html} =
+        live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
+          id: dag.id,
+          dag: dag,
+          dag_def: %{dag_def | options: []}
+        })
+
+      refute has_element?(dag_summary, "#dag-schedule-#{dag.id}")
+      refute has_element?(dag_summary, ".dag-card__meta")
+    end
+
+    test "shows the concurrency when set", %{conn: conn, dag: dag, dag_def: dag_def} do
+      {:ok, dag_summary, _html} =
+        live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
+          id: dag.id,
+          dag: dag,
+          dag_def: %{dag_def | options: [runs: [concurrency: :sequential]]}
+        })
+
+      assert dag_summary |> element("#dag-concurrency-#{dag.id}") |> render() =~ "sequential"
+      refute has_element?(dag_summary, "#dag-schedule-#{dag.id}")
+    end
+
+    test "hides the schedule when only a retention is set", %{
+      conn: conn,
+      dag: dag,
+      dag_def: dag_def
+    } do
+      {:ok, dag_summary, _html} =
+        live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
+          id: dag.id,
+          dag: dag,
+          dag_def: %{dag_def | options: [runs: [retention: [max_count: 10]]]}
+        })
+
+      refute has_element?(dag_summary, "#dag-schedule-#{dag.id}")
+      assert has_element?(dag_summary, "#dag-retention-#{dag.id}")
+    end
+  end
+
+  describe "run retention" do
+    test "is hidden when the dag has no retention", %{conn: conn, dag: dag, dag_def: dag_def} do
+      {:ok, dag_summary, _html} =
+        live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
+          id: dag.id,
+          dag: dag,
+          dag_def: dag_def
+        })
+
+      refute has_element?(dag_summary, "#dag-retention-#{dag.id}")
+    end
+
+    test "shows the retention", %{conn: conn, dag: dag, dag_def: dag_def} do
+      dag_def = %{dag_def | options: [runs: [retention: [max_count: 5000]]]}
+
+      {:ok, dag_summary, _html} =
+        live_component_isolated(conn, GustWeb.DagSummaryComponent, %{
+          id: dag.id,
+          dag: dag,
+          dag_def: dag_def
+        })
+
+      assert dag_summary |> element("#dag-retention-#{dag.id}") |> render() =~ "max_count: 5000"
+    end
   end
 end

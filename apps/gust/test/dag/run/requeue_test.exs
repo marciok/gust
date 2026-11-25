@@ -51,7 +51,7 @@ defmodule DAG.Run.RequeueTest do
     end
   end
 
-  describe "reset_task/1" do
+  describe "reset_task/2 and reset_task_group/2" do
     test "update run to enqueued", %{run_id: run_id, run: run} do
       PubSub.subscribe_run(run_id)
       task = task_fixture(%{run_id: run.id, name: "wait", status: :failed})
@@ -103,7 +103,7 @@ defmodule DAG.Run.RequeueTest do
         "mapped" => %{downstream: MapSet.new([]), upstream: MapSet.new([])}
       }
 
-      {:ok, restarted_tasks} = Trigger.reset_task(graph, [task, expanded_task])
+      {:ok, restarted_tasks} = Trigger.reset_task_group(graph, [task, expanded_task])
 
       assert MapSet.new(Enum.map(restarted_tasks, & &1.id)) ==
                MapSet.new([task.id, expanded_task.id])
@@ -129,7 +129,7 @@ defmodule DAG.Run.RequeueTest do
         "mapped" => %{downstream: MapSet.new([]), upstream: MapSet.new([])}
       }
 
-      assert {:ok, [%Flows.Task{id: restarted_task_id, status: :created, map_index: 1}]} =
+      assert {:ok, %Flows.Task{id: restarted_task_id, status: :created, map_index: 1}} =
                Trigger.reset_task(graph, mapped_task)
 
       assert restarted_task_id == mapped_task.id
@@ -164,10 +164,10 @@ defmodule DAG.Run.RequeueTest do
         }
       }
 
-      {:ok, restarted_tasks} = Trigger.reset_task(graph, selected_mapped_task)
+      selected_id = selected_mapped_task.id
 
-      assert MapSet.new(Enum.map(restarted_tasks, & &1.id)) ==
-               MapSet.new([selected_mapped_task.id, downstream_task.id])
+      assert {:ok, %Flows.Task{id: ^selected_id}} =
+               Trigger.reset_task(graph, selected_mapped_task)
 
       assert Flows.get_task!(first_mapped_task.id).status == :failed
       assert Flows.get_task!(selected_mapped_task.id).status == :created
@@ -194,9 +194,9 @@ defmodule DAG.Run.RequeueTest do
         send(parent, :run_owner_ready)
 
         receive do
-          {:"$gen_call", from, {:restart_mapped_task, task_id}} ->
+          {:"$gen_call", from, {:restart_mapped_tasks, [task_id]}} ->
             send(parent, {:restart_requested, task_id})
-            GenServer.reply(from, {:ok, %{task | status: :running}})
+            GenServer.reply(from, {:ok, [{:ok, %{task | status: :running}}]})
         end
       end)
 
@@ -227,7 +227,7 @@ defmodule DAG.Run.RequeueTest do
 
       graph = %{"mapped" => %{downstream: MapSet.new(), upstream: MapSet.new()}}
 
-      assert {:ok, [%Flows.Task{id: task_id, status: :created}]} =
+      assert {:ok, %Flows.Task{id: task_id, status: :created}} =
                Trigger.reset_task(graph, task)
 
       assert task_id == task.id
@@ -287,7 +287,83 @@ defmodule DAG.Run.RequeueTest do
       graph = %{"mapped" => %{downstream: MapSet.new(), upstream: MapSet.new()}}
 
       assert {:error, :cannot_restart_task_group_on_active_run} =
-               Trigger.reset_task(graph, [task])
+               Trigger.reset_task_group(graph, [task])
+    end
+  end
+
+  describe "reset_mapped_tasks/2" do
+    setup %{run: run} do
+      [first, second, third] =
+        for index <- 0..2 do
+          task_fixture(%{run_id: run.id, name: "mapped", status: :failed, map_index: index})
+        end
+
+      graph = %{
+        "mapped" => %{downstream: MapSet.new(["normal"]), upstream: MapSet.new()},
+        "normal" => %{downstream: MapSet.new(), upstream: MapSet.new(["mapped"])}
+      }
+
+      %{first: first, second: second, third: third, graph: graph}
+    end
+
+    test "resets every selected instance and enqueues the run once", ctx do
+      downstream = task_fixture(%{run_id: ctx.run_id, name: "normal", status: :succeeded})
+      PubSub.subscribe_run(ctx.run_id)
+      run_id = ctx.run_id
+
+      assert {:ok, [{:ok, first}, {:ok, second}]} =
+               Trigger.reset_mapped_tasks(ctx.graph, [ctx.first, ctx.second])
+
+      assert {first.id, first.status} == {ctx.first.id, :created}
+      assert {second.id, second.status} == {ctx.second.id, :created}
+      assert Flows.get_task!(ctx.third.id).status == :failed
+      assert Flows.get_task!(downstream.id).status == :created
+      assert Flows.get_run!(run_id).status == :enqueued
+
+      assert_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued}}
+      refute_receive {:dag, :run_status, %{run_id: ^run_id, status: :enqueued}}
+    end
+
+    test "sends the whole selection to an active run owner in one call", ctx do
+      parent = self()
+      ids = [ctx.first.id, ctx.second.id]
+
+      spawn(fn ->
+        {:ok, _owner} = Registry.register(Gust.Registry, "dag_run_#{ctx.run_id}", nil)
+        send(parent, :run_owner_ready)
+
+        receive do
+          {:"$gen_call", from, {:restart_mapped_tasks, task_ids}} ->
+            send(parent, {:restart_requested, task_ids})
+            GenServer.reply(from, {:ok, Enum.map(task_ids, &{:ok, &1})})
+        end
+      end)
+
+      assert_receive :run_owner_ready
+
+      assert {:ok, [{:ok, _first}, {:ok, _second}]} =
+               Trigger.reset_mapped_tasks(ctx.graph, [ctx.first, ctx.second])
+
+      assert_receive {:restart_requested, ^ids}
+      assert Flows.get_task!(ctx.first.id).status == :failed
+      assert Flows.get_run!(ctx.run_id).status == :created
+    end
+
+    test "changes nothing while an owner lease is still active", ctx do
+      {:ok, _run} =
+        ctx.run
+        |> Ecto.Changeset.change(
+          status: :starting,
+          claimed_by: to_string(Node.self()),
+          claim_expires_at: DateTime.add(DateTime.utc_now(), 30)
+        )
+        |> Gust.Repo.update()
+
+      assert {:error, :run_owner_unavailable} =
+               Trigger.reset_mapped_tasks(ctx.graph, [ctx.first, ctx.second])
+
+      assert Flows.get_task!(ctx.first.id).status == :failed
+      assert Flows.get_task!(ctx.second.id).status == :failed
     end
   end
 

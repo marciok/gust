@@ -25,10 +25,23 @@ defmodule GustPy.Executor.UVTest do
 
     old_gust_dags = Application.get_env(:gust, :dags_folder)
     old_uv_dir = Application.get_env(:gust_py, :uv_working_dir)
+    old_passthrough = Application.get_env(:gust_py, :env_passthrough)
+    old_clear_env = Application.get_env(:gust_py, :clear_env)
+
+    Application.put_env(:gust, :dags_folder, "/tmp/dags")
+
+    System.put_env(%{
+      "GUST_UV_TEST_SECRET" => "leaked",
+      "UV_CACHE_DIR" => "/tmp/uv-cache",
+      "GUST_UV_TEST_ALLOWED" => "allowed"
+    })
 
     on_exit(fn ->
       restore_app_env(:gust, :dags_folder, old_gust_dags)
       restore_app_env(:gust_py, :uv_working_dir, old_uv_dir)
+      restore_app_env(:gust_py, :env_passthrough, old_passthrough)
+      restore_app_env(:gust_py, :clear_env, old_clear_env)
+      Enum.each(~w(GUST_UV_TEST_SECRET UV_CACHE_DIR GUST_UV_TEST_ALLOWED), &System.delete_env/1)
 
       case old_path do
         nil -> System.delete_env("PATH")
@@ -95,6 +108,52 @@ defmodule GustPy.Executor.UVTest do
              "ARGS=run gust task run --file /tmp/dags/demo.py --dag DemoDag --task task_alpha --ctx-json #{expected_ctx}"
   end
 
+  test "uv inherits the runtime environment by default" do
+    {output, 0} = UV.run(["hello"])
+    assert output =~ "SECRET=leaked"
+
+    output = ["hello"] |> UV.run_exec() |> collect_stdout()
+    assert output =~ "BINDIR=#{System.get_env("BINDIR")}"
+    assert output =~ "UV_WORKING_DIR=/tmp/dags"
+  end
+
+  test "run/1 hides the runtime environment from uv when :clear_env is set" do
+    Application.put_env(:gust_py, :clear_env, true)
+
+    {output, 0} = UV.run(["hello"])
+
+    assert output =~ "SECRET=\n"
+    assert output =~ "BINDIR=\n"
+    assert output =~ "UV_CACHE_DIR=/tmp/uv-cache"
+    assert output =~ "HOME=#{System.get_env("HOME")}"
+    assert output =~ "PATH=#{System.get_env("PATH")}"
+  end
+
+  test "run_exec/1 hides the runtime environment from uv when :clear_env is set" do
+    Application.put_env(:gust_py, :clear_env, true)
+
+    output = ["hello"] |> UV.run_exec() |> collect_stdout()
+
+    assert output =~ "BINDIR=\n"
+    assert output =~ "ALLOWED=\n"
+    assert output =~ "UV_CACHE_DIR=/tmp/uv-cache"
+    assert output =~ "HOME=#{System.get_env("HOME")}"
+    assert output =~ "PATH=#{System.get_env("PATH")}"
+  end
+
+  test "passes the variables listed in :env_passthrough when :clear_env is set" do
+    Application.put_env(:gust_py, :clear_env, true)
+    Application.put_env(:gust_py, :env_passthrough, ["GUST_UV_TEST_ALLOWED"])
+
+    {output, 0} = UV.run(["hello"])
+    assert output =~ "ALLOWED=allowed"
+    assert output =~ "SECRET=\n"
+
+    output = ["hello"] |> UV.run_exec() |> collect_stdout()
+    assert output =~ "ALLOWED=allowed"
+    assert output =~ "SECRET=\n"
+  end
+
   defp collect_stdout(os_pid, acc \\ "") do
     receive do
       {:stdout, ^os_pid, data} -> collect_stdout(os_pid, acc <> data)
@@ -109,6 +168,12 @@ defmodule GustPy.Executor.UVTest do
     #!/bin/sh
     echo "UV_WORKING_DIR=$UV_WORKING_DIR"
     echo "ARGS=$*"
+    echo "SECRET=$GUST_UV_TEST_SECRET"
+    echo "BINDIR=$BINDIR"
+    echo "ALLOWED=$GUST_UV_TEST_ALLOWED"
+    echo "UV_CACHE_DIR=$UV_CACHE_DIR"
+    echo "HOME=$HOME"
+    echo "PATH=$PATH"
     """
   end
 

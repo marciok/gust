@@ -311,7 +311,29 @@
       <div class="border-t border-base-content/20 -mx-4 mb-3" />
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
-          <h4 class="text-sm font-semibold text-base-content/75">Task runs</h4>
+          <h4 class="text-sm font-semibold text-base-content/75">
+            Task runs <span id="mapped-task-total-count">({@mapped_task_count})</span>
+          </h4>
+          <label
+            for="select-all-mapped-tasks"
+            class="inline-flex h-8 items-center gap-2 rounded border border-base-content/20 bg-base-100 px-3 text-sm font-medium text-base-content/75"
+          >
+            <input
+              type="checkbox"
+              name="select_all_mapped_tasks"
+              phx-click={JS.push("select_all_mapped_tasks")}
+              checked={@all_tasks_selected?}
+              disabled={@visible_mapped_tasks == []}
+              id="select-all-mapped-tasks"
+              class="checkbox checkbox-sm"
+            />
+            <span>
+              Select tasks
+              <span :if={@selected_task_ids != []} id="selected-mapped-tasks-count">
+                ({length(@selected_task_ids)})
+              </span>
+            </span>
+          </label>
           <span
             :if={@mapped_task_paging && @mapped_task_status == ""}
             id="mapped-task-paging-summary"
@@ -395,25 +417,15 @@
                   {strftime(task.updated_at)}
                 </td>
                 <td class="px-3 py-2 whitespace-nowrap">
-                  <div class="flex flex-col items-start gap-1">
-                    <button
-                      class="btn btn-xs btn-soft"
-                      type="button"
-                      phx-click="show_mapped_task"
-                      phx-value-task-id={task.id}
-                      id={"show-mapped-task-#{task.id}"}
-                    >
-                      Show
-                    </button>
-                    <HealthCheckComponent.trigger
-                      id={"health-mapped-task-#{task.id}"}
-                      task_id={task.id}
-                      label="Health"
-                      class=""
-                      icon_class="h-3.5 w-3.5"
-                      aria-label={"Health check for mapped task #{task.map_index}"}
-                    />
-                  </div>
+                  <button
+                    class="btn btn-xs btn-soft"
+                    type="button"
+                    phx-click="show_mapped_task"
+                    phx-value-task-id={task.id}
+                    id={"show-mapped-task-#{task.id}"}
+                  >
+                    Show
+                  </button>
                 </td>
               </tr>
             </tbody>

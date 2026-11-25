@@ -28,6 +28,16 @@ defmodule Gust.PGNotifierTest do
     assert ^runs = Worker.enqueue_all(runs)
   end
 
+  test "worker wake delegates to the configured notifier" do
+    expect(Gust.PGNotifierMock, :notify, fn -> :ok end)
+
+    assert :ok == Worker.wake()
+  end
+
+  test "Postgrex implementation notifies without enqueueing" do
+    assert :ok == Postgrex.notify()
+  end
+
   test "empty batches do not invoke the configured notifier" do
     assert [] = Gust.PGNotifier.enqueue_all([])
   end
