@@ -545,16 +545,20 @@ defmodule GustWeb.DagLive.Dashboard do
     same_rows? = Enum.map(previous, & &1.id) == Enum.map(visible, & &1.id)
 
     if opts[:incremental] && same_rows? do
-      previous
-      |> Enum.zip(visible)
-      |> Enum.reduce(socket, fn {old, task}, acc ->
-        if mapped_task_row(old) == mapped_task_row(task),
-          do: acc,
-          else: stream_insert(acc, :mapped_tasks, task)
-      end)
+      socket |> insert_mapped_tasks(previous, visible)
     else
-      stream(socket, :mapped_tasks, visible, dom_id: &mapped_task_dom_id/1, reset: true)
+      socket |> stream(:mapped_tasks, visible, dom_id: &mapped_task_dom_id/1, reset: true)
     end
+  end
+
+  defp insert_mapped_tasks(socket, previous, visible) do
+    previous
+    |> Enum.zip(visible)
+    |> Enum.reduce(socket, fn {old, task}, acc ->
+      if mapped_task_row(old) == mapped_task_row(task),
+        do: acc,
+        else: stream_insert(acc, :mapped_tasks, task)
+    end)
   end
 
   defp mapped_task_row(task), do: {task.id, task.map_index, task.status, task.updated_at}
