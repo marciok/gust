@@ -6,6 +6,9 @@ defmodule GustWeb.DagLive.Dashboard.SelectedItem do
   alias Gust.Flows.Task
   alias Gust.PubSub
 
+  @pending_statuses [:created, :enqueued]
+  @done_statuses [:succeeded, :skipped]
+
   @aggregate_status_precedence [
     :failed,
     :upstream_failed,
@@ -49,13 +52,29 @@ defmodule GustWeb.DagLive.Dashboard.SelectedItem do
 
   def expanded(_item), do: []
 
+  @doc """
+  Returns the status shown for an item. A group of mapped task instances
+  shows the most important status among them, following
+  `@aggregate_status_precedence`. A group with both finished and not yet
+  started instances counts as running, so it doesn't switch to `created`
+  between pages of instances.
+  """
   def status(nil), do: nil
   def status(%Task{status: status}), do: status
   def status(%Run{status: status}), do: status
 
   def status([%Task{} | _tail] = tasks) do
     statuses = tasks |> Enum.map(& &1.status) |> MapSet.new()
+
+    statuses =
+      if in_progress?(statuses), do: MapSet.put(statuses, :running), else: statuses
+
     Enum.find(@aggregate_status_precedence, &MapSet.member?(statuses, &1))
+  end
+
+  defp in_progress?(statuses) do
+    Enum.any?(@pending_statuses, &MapSet.member?(statuses, &1)) and
+      Enum.any?(@done_statuses, &MapSet.member?(statuses, &1))
   end
 
   def logs(item, level \\ nil)

@@ -737,6 +737,40 @@ defmodule GustWeb.DagLiveDashboardTest do
              )
     end
 
+    test "batches run updates that arrive close together", %{conn: conn, dag: dag, run: run} do
+      put_refresh_interval(100)
+      {:ok, run} = Flows.update_run_status(run, :running)
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
+
+      Flows.update_run_status(run, :succeeded)
+
+      for _event <- 1..20 do
+        Gust.PubSub.broadcast_run_status(run.id, :running, 0)
+      end
+
+      Gust.PubSub.broadcast_run_status(run.id, :succeeded)
+
+      assert has_element?(dashboard_live, "#run-status-cell-#{run.id}.task-grid-cell--running")
+
+      Process.sleep(200)
+
+      assert has_element?(dashboard_live, "#run-status-cell-#{run.id}.status-succeeded")
+    end
+
+    test "drops a queued update for a run the pruner deleted", %{conn: conn, dag: dag, run: run} do
+      put_refresh_interval(100)
+      {:ok, dashboard_live, _html} = live(conn, ~g"/dags/#{dag.name}/dashboard")
+
+      Gust.PubSub.broadcast_run_status(run.id, :running)
+      {:ok, _deleted} = Flows.delete_runs_on_dag(dag.id, [run.id])
+      Gust.PubSub.broadcast_runs_pruned(dag.id, [run.id])
+
+      Process.sleep(200)
+
+      assert Process.alive?(dashboard_live.pid)
+      refute has_element?(dashboard_live, "#runs-#{run.id}")
+    end
+
     test "selected run details are reloaded when its status changes", %{
       conn: conn,
       dag: dag,
@@ -2422,5 +2456,11 @@ defmodule GustWeb.DagLiveDashboardTest do
     |> render()
     |> LazyHTML.from_fragment()
     |> LazyHTML.text()
+  end
+
+  defp put_refresh_interval(interval) do
+    previous = Application.get_env(:gust_web, :dashboard_refresh_interval)
+    Application.put_env(:gust_web, :dashboard_refresh_interval, interval)
+    on_exit(fn -> Application.put_env(:gust_web, :dashboard_refresh_interval, previous) end)
   end
 end

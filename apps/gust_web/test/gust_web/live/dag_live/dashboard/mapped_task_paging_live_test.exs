@@ -7,6 +7,7 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
 
   alias Gust.DAG.Definition
   alias Gust.Flows
+  alias GustWeb.DagLive.Dashboard
 
   setup :verify_on_exit!
 
@@ -127,6 +128,92 @@ defmodule GustWeb.DagLive.Dashboard.MappedTaskPagingLiveTest do
 
       assert visible?(view, context.third)
       refute visible?(view, context.first)
+    end
+
+    test "keeps the clicked page through a burst of queued updates", %{conn: conn} = context do
+      previous = Application.fetch_env(:gust_web, :dashboard_refresh_interval)
+      Application.put_env(:gust_web, :dashboard_refresh_interval, 60_000)
+
+      on_exit(fn ->
+        case previous do
+          {:ok, value} -> Application.put_env(:gust_web, :dashboard_refresh_interval, value)
+          :error -> Application.delete_env(:gust_web, :dashboard_refresh_interval)
+        end
+      end)
+
+      view = open_dashboard(conn, context)
+      {:ok, _task} = Flows.update_task_status(context.second, :succeeded)
+
+      for _event <- 1..20, do: notify(view, context, context.second)
+
+      view |> element("#mapped-task-page-2") |> render_click()
+      assert assert_patch(view) =~ "mapped_task_page=2"
+
+      {:ok, _task} = Flows.update_task_status(context.third, :running)
+      for _event <- 1..20, do: notify(view, context, context.third)
+      send(view.pid, :flush_run_updates)
+
+      assert has_element?(view, "#mapped-task-page-2.btn-active[aria-current='page']")
+      assert has_element?(view, "#mapped-task-run-#{context.third.id} .badge", "running")
+      refute visible?(view, context.first)
+      refute visible?(view, context.second)
+    end
+
+    test "does not resend visible rows when another page changes", %{conn: conn} = context do
+      view = open_dashboard(conn, context)
+      socket = :sys.get_state(view.pid).socket
+      {:ok, _task} = Flows.update_task_status(context.third, :failed)
+
+      {:noreply, socket} =
+        Dashboard.handle_info(
+          {:dag, :run_status,
+           %{run_id: context.run.id, status: :running, task_id: context.third.id}},
+          socket
+        )
+
+      assert socket.assigns.item_status == :failed
+      assert socket.assigns.streams.mapped_tasks.inserts == []
+      refute socket.assigns.streams.mapped_tasks.reset?
+    end
+
+    test "sends only the changed visible row and preserves selections", %{conn: conn} = context do
+      view = open_dashboard(conn, context)
+      view |> element("#select-all-mapped-tasks") |> render_click()
+      socket = :sys.get_state(view.pid).socket
+      {:ok, _task} = Flows.update_task_status(context.second, :succeeded)
+
+      {:noreply, socket} =
+        Dashboard.handle_info(
+          {:dag, :run_status,
+           %{run_id: context.run.id, status: :running, task_id: context.second.id}},
+          socket
+        )
+
+      assert [insert] = socket.assigns.streams.mapped_tasks.inserts
+      assert elem(insert, 0) == "mapped-task-run-#{context.second.id}"
+      refute socket.assigns.streams.mapped_tasks.reset?
+      assert socket.assigns.selected_task_ids == [context.first.id, context.second.id]
+
+      notify(view, context, context.second)
+
+      assert has_element?(
+               view,
+               "#mapped-task-run-#{context.second.id} .badge-success",
+               "succeeded"
+             )
+
+      assert has_element?(view, "#mapped-task-select-#{context.second.id}[checked]")
+    end
+
+    test "replaces visible rows when a status update changes filter membership",
+         %{conn: conn} = context do
+      view = open_dashboard(conn, context, "&mapped_task_status=running")
+      assert visible?(view, context.second)
+
+      advance_to_second_page(view, context)
+
+      refute visible?(view, context.second)
+      assert visible?(view, context.third)
     end
 
     test "stays on the page while instances are selected", %{conn: conn} = context do
