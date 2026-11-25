@@ -426,9 +426,6 @@ defmodule GustWeb.DagLive.Dashboard do
           case run do
             %Run{id: ^run_id, tasks: tasks} ->
               tasks |> Enum.filter(&(&1.name == name)) |> Enum.sort_by(& &1.map_index)
-
-            _other ->
-              Flows.get_tasks_by_name(name, run_id, :omit_payloads)
           end
 
         socket
