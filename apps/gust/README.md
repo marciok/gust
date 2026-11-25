@@ -24,6 +24,7 @@ The `mix gust.cli` task defaults `GUST_ROLE` to `console` automatically, and rel
 
 ## Guides
 
+- [Workflow basics](guides/workflow_basics.md) — define, run, and inspect your first DAG.
 - [Writing DAGs](guides/writing_dags.md) — the `Gust.DSL` in practice.
 - [Configuration](guides/configuration.md) — run dispatcher config and DAG
   adapters.
